@@ -31,6 +31,7 @@ enum pluginNames {
   EditorSafeRender = 'EditorSafeRender',
   TopBar = 'TopBar',
   GitHubConnection = 'GitHubConnection',
+  AggregationStorage = 'AggregationStorage',
   SplashScreenPlugin = 'SplashScreenPlugin',
   Layout = 'Layout',
   SwaggerUIAdapter = 'SwaggerUIAdapter',

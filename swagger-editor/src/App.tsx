@@ -10,6 +10,7 @@ import LayoutPlugin from 'plugins/layout/index.js';
 import SplashScreenPlugin from 'plugins/splash-screen/index.js';
 import TopBarPlugin from 'plugins/top-bar/index.js';
 import GitHubConnectionPlugin from 'plugins/github-connection/index.js';
+import AggregationStoragePlugin from 'plugins/aggregation-storage/index.js';
 import ModalsPlugin from 'plugins/modals/index.js';
 import DialogsPlugin from 'plugins/dialogs/index.js';
 import DropdownMenuPlugin from 'plugins/dropdown-menu/index.js';
@@ -153,6 +154,7 @@ SwaggerEditor.plugins = {
   EditorSafeRender: EditorSafeRenderPlugin,
   TopBar: TopBarPlugin,
   GitHubConnection: GitHubConnectionPlugin,
+  AggregationStorage: AggregationStoragePlugin,
   SplashScreenPlugin,
   Layout: LayoutPlugin,
   SwaggerUIAdapter: SwaggerUIAdapterPlugin,

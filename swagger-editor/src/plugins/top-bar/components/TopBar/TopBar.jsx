@@ -10,6 +10,7 @@ const TopBar = ({ getComponent }) => {
   const OpenAPI3GenerateClientMenu = getComponent('TopBarOpenAPI3GenerateClientMenu', true);
   const OpenAPI2GenerateServerMenu = getComponent('TopBarOpenAPI2GenerateServerMenu', true);
   const OpenAPI2GenerateClientMenu = getComponent('TopBarOpenAPI2GenerateClientMenu', true);
+  const AggregateMenu = getComponent('TopBarAggregateMenu', true);
   const GitHubMenu = getComponent('TopBarGitHubMenu', true);
   const AboutMenu = getComponent('TopBarAboutMenu', true);
 
@@ -23,6 +24,7 @@ const TopBar = ({ getComponent }) => {
         <OpenAPI3GenerateClientMenu />
         <OpenAPI2GenerateServerMenu />
         <OpenAPI2GenerateClientMenu />
+        <AggregateMenu />
         <GitHubMenu />
         <AboutMenu />
       </div>

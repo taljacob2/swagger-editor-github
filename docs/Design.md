@@ -69,7 +69,7 @@ Develop against this personal github.com repo, then point the API base URL and s
 - [x] Vendor Swagger Editor 5.8.4 (`swagger-editor/`)
 - [ ] GitHub Pages deploy workflow
 - [x] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth (`GitHub` menu in the top bar, `src/plugins/github-connection/`)
-- [ ] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API)
+- [x] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API) — `Aggregate` menu in the top bar, `src/plugins/aggregation-storage/`. Storage location (owner/repo/branch) is user-editable; sets can be created/edited/deleted, but the actual multi-service bundling/merge logic is still the next checklist item.
 - [ ] Aggregation plugin port (from `swagger-editor-gitlab`'s `src/plugins/aggregation/`) to v5's plugin system
 - [ ] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s `Topbar.jsx`)
 - [ ] `codegen.yml` workflow (`workflow_dispatch` → `swagger-generator-v3` → artifact with 1-day retention)
