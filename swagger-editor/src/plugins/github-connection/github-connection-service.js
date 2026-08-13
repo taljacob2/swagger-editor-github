@@ -5,6 +5,18 @@ export const DEFAULT_API_BASE_URL = 'https://api.github.com';
 
 const stripTrailingSlashes = (value) => value.replace(/\/+$/, '');
 
+// The API host can't be reliably auto-detected from the deployed Pages
+// hostname — a GHEC org's custom domain doesn't map deterministically to its
+// API host. Instead, whoever deploys for a specific GHEC org can bake the
+// right default in at build time via VITE_GITHUB_API_BASE_URL (e.g. a repo
+// variable read by .github/workflows/deploy-pages.yml), so visitors to that
+// deployment get the correct default with nothing to type in. Falls back to
+// plain github.com when unset, which needs no configuration at all.
+function resolveDefaultApiBaseUrl() {
+  const configured = import.meta.env.VITE_GITHUB_API_BASE_URL;
+  return configured ? stripTrailingSlashes(configured) : DEFAULT_API_BASE_URL;
+}
+
 // Encrypts the PAT at rest in localStorage with a browser-generated AES-GCM
 // key (also in localStorage). Ported from swagger-editor-gitlab's
 // TokenCrypto (docs/RememberToken.md there). Worth being honest about what
@@ -100,21 +112,21 @@ export async function getConnectionSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { apiBaseUrl: DEFAULT_API_BASE_URL, token: '' };
+      return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '' };
     }
     const parsed = JSON.parse(raw);
     return {
-      apiBaseUrl: parsed.apiBaseUrl || DEFAULT_API_BASE_URL,
+      apiBaseUrl: parsed.apiBaseUrl || resolveDefaultApiBaseUrl(),
       token: await decryptToken(parsed.token || ''),
     };
   } catch {
-    return { apiBaseUrl: DEFAULT_API_BASE_URL, token: '' };
+    return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '' };
   }
 }
 
 export async function saveConnectionSettings({ apiBaseUrl, token }) {
   const settings = {
-    apiBaseUrl: stripTrailingSlashes(apiBaseUrl || DEFAULT_API_BASE_URL),
+    apiBaseUrl: stripTrailingSlashes(apiBaseUrl || resolveDefaultApiBaseUrl()),
     token: token || '',
   };
   localStorage.setItem(

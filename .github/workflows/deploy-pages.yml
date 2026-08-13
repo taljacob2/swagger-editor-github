@@ -33,8 +33,16 @@ jobs:
       # Only the standalone app build is needed for the Pages site (not the
       # embeddable esm/umd bundles that `npm run build` also produces).
       # --base matches this repo's Pages project-site path so asset URLs resolve.
+      #
+      # VITE_GITHUB_API_BASE_URL is optional: set a repo variable named
+      # GITHUB_API_BASE_URL (Settings -> Secrets and variables -> Actions ->
+      # Variables) to bake in the right default for a GHEC custom domain, so
+      # visitors don't have to type it in via Connection Settings. Left unset,
+      # it falls back to https://api.github.com at runtime.
       - name: Build app
         working-directory: swagger-editor
+        env:
+          VITE_GITHUB_API_BASE_URL: ${{ vars.GITHUB_API_BASE_URL }}
         run: npm run build:app -- --base=/${{ github.event.repository.name }}/
 
       - uses: actions/configure-pages@v5

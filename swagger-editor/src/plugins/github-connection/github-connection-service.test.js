@@ -11,6 +11,10 @@ describe('github-connection-service', () => {
     global.fetch = vi.fn();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   describe('getConnectionSettings', () => {
     test('defaults to api.github.com with no token when nothing is stored', async () => {
       expect(await getConnectionSettings()).toEqual({
@@ -37,6 +41,22 @@ describe('github-connection-service', () => {
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: 'legacy-plain-token',
       });
+    });
+
+    test('defaults to the build-time VITE_GITHUB_API_BASE_URL when nothing is stored', async () => {
+      vi.stubEnv('VITE_GITHUB_API_BASE_URL', 'https://api.mycompany.ghe.com/');
+
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: 'https://api.mycompany.ghe.com',
+        token: '',
+      });
+    });
+
+    test('an explicit saved apiBaseUrl still wins over the build-time default', async () => {
+      vi.stubEnv('VITE_GITHUB_API_BASE_URL', 'https://api.mycompany.ghe.com');
+      await saveConnectionSettings({ apiBaseUrl: 'https://api.github.com', token: '' });
+
+      expect((await getConnectionSettings()).apiBaseUrl).toBe('https://api.github.com');
     });
   });
 
