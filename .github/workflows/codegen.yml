@@ -1,0 +1,85 @@
+name: On-demand code generation
+
+# Triggered directly from the browser via the GitHub API
+# (POST /repos/{owner}/{repo}/actions/workflows/codegen.yml/dispatches),
+# using the same PAT the user enters for GitHub API access elsewhere in the app.
+# See docs/Design.md's "Code generation" section for the full flow.
+on:
+  workflow_dispatch:
+    inputs:
+      correlation_id:
+        description: Unique ID the frontend uses to find this run's artifact afterwards
+        required: true
+      generator:
+        description: "'client' or 'server'"
+        required: true
+      language:
+        description: Target language/framework (e.g. 'javascript', 'spring')
+        required: true
+      spec_ref:
+        description: Branch the requested spec was committed to (defaults to the aggregation-data storage branch)
+        required: false
+        default: aggregation-data
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    services:
+      swagger-generator:
+        image: swaggerapi/swagger-generator-v3
+        ports:
+          - 8080:8080
+    steps:
+      - name: Checkout requested spec
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.spec_ref }}
+          sparse-checkout: |
+            codegen-requests/${{ inputs.correlation_id }}.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Wait for swagger-generator to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/gen/clients > /dev/null; then
+              echo "swagger-generator is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::swagger-generator did not become ready in time"
+          exit 1
+
+      # NOTE: the exact request/response contract here (path, body shape, whether the
+      # response is the zip directly vs. a JSON `{ link }` to poll) is copied from
+      # swagger-editor-gitlab's working OAS3 code path (Topbar.jsx's
+      # `swaggerClient.apis.clients.generate` call: POST body `{ spec, type, lang }`)
+      # but has NOT been verified against a live swagger-generator-v3 instance from
+      # this workflow yet. Confirm/adjust before relying on this in production.
+      - name: Generate code
+        run: |
+          SPEC_FILE="codegen-requests/${{ inputs.correlation_id }}.yaml"
+          SPEC_JSON=$(python3 -c "import sys, yaml, json; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))" "$SPEC_FILE")
+
+          RESPONSE=$(curl -sf -X POST "http://localhost:8080/api/gen/clients/generate" \
+            -H "Content-Type: application/json" \
+            -o response.bin -w '%{content_type}' \
+            -d "$(jq -n --argjson spec "$SPEC_JSON" \
+                  --arg type "$(echo '${{ inputs.generator }}' | tr '[:lower:]' '[:upper:]')" \
+                  --arg lang "${{ inputs.language }}" \
+                  '{spec: $spec, type: $type, lang: $lang}')")
+
+          if echo "$RESPONSE" | grep -q "application/json"; then
+            # Async contract: JSON body with a download `link` to follow.
+            LINK=$(jq -r '.link' response.bin)
+            curl -sf -o generated.zip "$LINK"
+          else
+            # Direct contract: response body is already the zip.
+            mv response.bin generated.zip
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.correlation_id }}
+          path: generated.zip
+          retention-days: 1

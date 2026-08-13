@@ -1,0 +1,63 @@
+.swagger-editor {
+  &__editor-pane-bar {
+    background-color: #F5F5F5;
+    display: flex;
+    flex-direction: column;
+    
+    &--top {
+      border-bottom: 1px solid #E0E0E0;
+    }
+    &--right {
+      border-left: 1px solid #E0E0E0;
+    }
+    &--bottom  {
+      border-top: 1px solid #E0E0E0;
+    }
+    &--left {
+      border-right: 1px solid #E0E0E0;
+    }
+  }
+
+  &__editor-pane-bar-control {
+    border: 0;
+    background-color: transparent;
+    border-radius: 2px;
+    align-self: center;
+    text-align: center;
+    &:hover {
+      background-color: #E0E0E0;
+    }
+  }
+
+  &__toolbar-horizontal {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+  &__toolbar-horizontal--justify-end {
+    justify-content: flex-end;
+  }
+  &__toolbar-horizontal--justify-start {
+    justify-content: flex-start;
+  }
+
+  &__toolbar-vertical {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  &__toolbar-vertical--justify-end {
+    justify-content: flex-end;
+  }
+  &__toolbar-vertical--justify-start {
+    justify-content: flex-start;
+  }
+
+  &__generic-padding-thin-top-bottom {
+    padding: 2px 0 2px 0;
+  }
+
+  &__generic-padding-thin-left-right {
+    padding: 0 2px 0 2px;
+  }
+}

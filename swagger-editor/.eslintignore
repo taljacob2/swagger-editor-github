@@ -1,0 +1,6 @@
+/.husky
+/build
+/dist
+/create-react-app
+/node_modules
+/public

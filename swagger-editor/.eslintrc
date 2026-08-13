@@ -1,0 +1,130 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "extends": [
+    "airbnb",
+    "plugin:jsx-a11y/recommended",
+    "prettier",
+    "plugin:prettier/recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true
+  },
+  "globals": {
+    "File": true,
+    "Blob": true,
+    "globalThis": true,
+    "__webpack_hash__": true,
+    "REACT_APP_APIDOM_WORKER_FILENAME": true,
+    "REACT_APP_EDITOR_WORKER_FILENAME": true
+  },
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": [
+    "jsx-a11y",
+    "prettier",
+    "@typescript-eslint",
+    "react-hooks",
+    "@vitest"
+  ],
+  "rules": {
+    "import/no-extraneous-dependencies": ["error", {"devDependencies": true}],
+    "import/order": ["error", {
+      "groups": [
+        ["builtin", "external", "internal"],
+        ["parent", "sibling", "index"]
+      ],
+      "newlines-between": "always"
+    }],
+    "no-nested-ternary": "off",
+    "prettier/prettier": "error",
+    "no-shadow": "off",
+    "react/react-in-jsx-scope": 0,
+    "react/require-default-props": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "react/function-component-definition": [1, {
+      "namedComponents": ["arrow-function"]
+    }],
+    "import/extensions": ["error", "always", {
+      "ignorePackages": true
+    }],
+    "import/no-unresolved": [2, {
+      "ignore": [
+        // https://github.com/import-js/eslint-plugin-import/issues/1810
+        "^monaco-marker-data-provider$",
+        "^plugins\/.+\/index.js",
+        "^presets\/.+\/index.js",
+        "^@codingame\/monaco-vscode-api",
+        "^@swagger-api\/apidom-json-pointer",
+        "\\?worker$"
+      ]
+    }],
+    "react/jsx-filename-extension": [2,
+      {
+        "extensions": [
+          ".tsx",
+          ".jsx"
+        ]
+      }
+    ],
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx"],
+      "rules": {
+        "import/extensions": "off",
+        "import/no-unresolved": "off"
+      }
+    },
+    {
+      "files": ["*.js"],
+      "rules": {
+        "@typescript-eslint/return-await": "off"
+      }
+    },
+    {
+      "files": ["*.d.ts"],
+      "rules": {
+        "vars-on-top": "off",
+        "no-var": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}", "test/setupTests.js"],
+      "extends": ["plugin:@vitest/legacy-recommended"],
+      "env": {
+        "@vitest/env": true
+      },
+      "rules": {
+        "@vitest/consistent-test-it": "off"
+      }
+    },
+    {
+      "files": ["test/playwright/**/*.ts"],
+      "rules": {
+        "testing-library/prefer-screen-queries": "off",
+        "no-underscore-dangle": "off",
+        "no-await-in-loop": "off",
+        "no-plusplus": "off",
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["vite.config*.js", "vite/**/*.js", "scripts/*.js"],
+      "rules": {
+        "import/no-unresolved": "off",
+        "import/no-extraneous-dependencies": "off",
+        "import/prefer-default-export": "off",
+        "no-underscore-dangle": "off",
+        "no-console": "off"
+      }
+    }
+  ]
+}
