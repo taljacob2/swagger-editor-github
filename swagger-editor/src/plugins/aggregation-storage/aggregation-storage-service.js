@@ -70,10 +70,15 @@ export function saveStorageSettings({ owner, repo, branch }) {
 }
 
 async function ghRequest(path, { connection, method = 'GET', body, allow404 = false } = {}) {
+  // Omit Authorization entirely when there's no token, rather than sending an
+  // empty bearer value — GitHub treats a malformed token as bad credentials
+  // (401) even for reading a public repo, which would otherwise need no auth
+  // at all. This is what lets saved sets show up for visitors who haven't
+  // set up a PAT yet, as long as the storage repo is public.
   const response = await fetch(`${stripTrailingSlashes(connection.apiBaseUrl)}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${connection.token}`,
+      ...(connection.token ? { Authorization: `Bearer ${connection.token}` } : {}),
       Accept: 'application/vnd.github+json',
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },

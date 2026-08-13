@@ -20,7 +20,12 @@ function mockFetch(routes) {
   const calls = [];
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method || 'GET';
-    calls.push({ url, method, body: options.body ? JSON.parse(options.body) : undefined });
+    calls.push({
+      url,
+      method,
+      headers: options.headers || {},
+      body: options.body ? JSON.parse(options.body) : undefined,
+    });
 
     const route = routes.find((r) => r.method === method && r.test(url));
     if (!route) {
@@ -75,6 +80,39 @@ describe('aggregation-storage-service', () => {
         repo: 'specs',
         branch: DEFAULT_BRANCH,
       });
+    });
+  });
+
+  describe('anonymous reads (no PAT set)', () => {
+    const NO_TOKEN_CONNECTION = { apiBaseUrl: 'https://api.github.com', token: '' };
+
+    test('listAggregationSets succeeds against a public repo without sending an Authorization header', async () => {
+      const setA = { name: 'A', swaggerUrls: [] };
+      const calls = mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.includes('/contents/aggregation-sets?'),
+          json: [{ type: 'file', name: 'set-a.json' }],
+        },
+        {
+          method: 'GET',
+          test: (u) => u.includes('set-a.json'),
+          json: { content: utf8ToBase64(JSON.stringify(setA)), sha: 'sha-a' },
+        },
+      ]);
+
+      const result = await listAggregationSets(STORAGE, NO_TOKEN_CONNECTION);
+
+      expect(result).toHaveLength(1);
+      calls.forEach((call) => expect(call.headers.Authorization).toBeUndefined());
+    });
+
+    test('a request with a token still sends the Authorization header', async () => {
+      const calls = mockFetch([{ method: 'GET', test: () => true, status: 404 }]);
+
+      await listAggregationSets(STORAGE, CONNECTION);
+
+      expect(calls[0].headers.Authorization).toBe('Bearer test-token');
     });
   });
 
