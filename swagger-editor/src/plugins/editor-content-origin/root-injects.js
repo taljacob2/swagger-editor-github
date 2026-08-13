@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/prefer-default-export
 export const ContentOrigin = {
+  Aggregation: 'aggregation',
   Clear: 'clear',
   Conversion: 'conversion',
   Editor: 'editor',
