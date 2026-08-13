@@ -43,7 +43,7 @@ const AggregateMenuHandler = forwardRef(({ getComponent }, ref) => {
     }
     setIsLoadingSets(true);
     try {
-      const result = await listAggregationSets(storage, getConnectionSettings());
+      const result = await listAggregationSets(storage, await getConnectionSettings());
       setSets(result);
     } catch (error) {
       setStatus({ ok: false, message: error.message });
@@ -120,7 +120,7 @@ const AggregateMenuHandler = forwardRef(({ getComponent }, ref) => {
     setIsSaving(true);
     setStatus(null);
     try {
-      await saveAggregationSet(form, currentStorage(), getConnectionSettings());
+      await saveAggregationSet(form, currentStorage(), await getConnectionSettings());
       setStatus({ ok: true, message: `Saved "${form.name}".` });
       setShowForm(false);
       await refreshSets(currentStorage());
@@ -138,7 +138,7 @@ const AggregateMenuHandler = forwardRef(({ getComponent }, ref) => {
       return;
     }
     try {
-      await deleteAggregationSet(id, currentStorage(), getConnectionSettings());
+      await deleteAggregationSet(id, currentStorage(), await getConnectionSettings());
       setStatus({ ok: true, message: 'Deleted.' });
       await refreshSets(currentStorage());
     } catch (error) {

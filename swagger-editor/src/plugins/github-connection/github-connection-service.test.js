@@ -12,23 +12,63 @@ describe('github-connection-service', () => {
   });
 
   describe('getConnectionSettings', () => {
-    test('defaults to api.github.com with no token when nothing is stored', () => {
-      expect(getConnectionSettings()).toEqual({ apiBaseUrl: DEFAULT_API_BASE_URL, token: '' });
+    test('defaults to api.github.com with no token when nothing is stored', async () => {
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: '',
+      });
     });
 
-    test('falls back to defaults when localStorage holds invalid JSON', () => {
+    test('falls back to defaults when localStorage holds invalid JSON', async () => {
       localStorage.setItem('github-editor:connection', 'not json');
-      expect(getConnectionSettings()).toEqual({ apiBaseUrl: DEFAULT_API_BASE_URL, token: '' });
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: '',
+      });
+    });
+
+    test('still reads a pre-existing plain-text token (written before encryption was added)', async () => {
+      localStorage.setItem(
+        'github-editor:connection',
+        JSON.stringify({ apiBaseUrl: DEFAULT_API_BASE_URL, token: 'legacy-plain-token' })
+      );
+
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'legacy-plain-token',
+      });
     });
   });
 
   describe('saveConnectionSettings', () => {
-    test('round-trips through localStorage and strips a trailing slash', () => {
-      saveConnectionSettings({ apiBaseUrl: 'https://api.mycompany.ghe.com/', token: 'good-token' });
+    test('round-trips through localStorage and strips a trailing slash', async () => {
+      await saveConnectionSettings({
+        apiBaseUrl: 'https://api.mycompany.ghe.com/',
+        token: 'good-token',
+      });
 
-      expect(getConnectionSettings()).toEqual({
+      expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: 'https://api.mycompany.ghe.com',
         token: 'good-token',
+      });
+    });
+
+    test('encrypts the token at rest, rather than storing it as plain text', async () => {
+      await saveConnectionSettings({ apiBaseUrl: DEFAULT_API_BASE_URL, token: 'super-secret-pat' });
+
+      const stored = JSON.parse(localStorage.getItem('github-editor:connection'));
+      expect(stored.token).not.toBe('super-secret-pat');
+      expect(stored.token).not.toContain('super-secret-pat');
+
+      // still decrypts back to the original value via getConnectionSettings
+      expect((await getConnectionSettings()).token).toBe('super-secret-pat');
+    });
+
+    test('falls back to plain text for an empty token instead of crashing', async () => {
+      await saveConnectionSettings({ apiBaseUrl: DEFAULT_API_BASE_URL, token: '' });
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: '',
       });
     });
   });

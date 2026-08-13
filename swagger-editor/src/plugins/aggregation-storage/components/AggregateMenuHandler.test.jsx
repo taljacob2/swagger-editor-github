@@ -59,7 +59,7 @@ const openModal = async (ref) => {
 
 describe('AggregateMenuHandler', () => {
   beforeEach(() => {
-    githubConnectionService.getConnectionSettings.mockReturnValue(CONNECTION_SETTINGS);
+    githubConnectionService.getConnectionSettings.mockResolvedValue(CONNECTION_SETTINGS);
     aggregationStorageService.getStorageSettings.mockReturnValue(STORAGE_SETTINGS);
     aggregationStorageService.saveStorageSettings.mockImplementation((s) => s);
     aggregationStorageService.listAggregationSets.mockResolvedValue([]);

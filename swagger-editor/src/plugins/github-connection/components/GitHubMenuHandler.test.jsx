@@ -23,41 +23,43 @@ const stubComponents = {
 
 const getComponent = (name) => stubComponents[name];
 
+const openModal = async (ref) => {
+  await act(async () => {
+    await ref.current.openModal();
+  });
+};
+
 describe('GitHubMenuHandler', () => {
   beforeEach(() => {
-    githubConnectionService.getConnectionSettings.mockReturnValue({
+    githubConnectionService.getConnectionSettings.mockResolvedValue({
       apiBaseUrl: 'https://api.github.com',
       token: 'stored-token',
     });
-    githubConnectionService.saveConnectionSettings.mockImplementation((settings) => settings);
+    githubConnectionService.saveConnectionSettings.mockImplementation(async (settings) => settings);
     githubConnectionService.testConnection.mockResolvedValue({
       ok: true,
       message: 'Connected as taljacob2',
     });
   });
 
-  test('is closed until openModal() is called via ref, then hydrates fields from stored settings', () => {
+  test('is closed until openModal() is called via ref, then hydrates fields from stored settings', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     expect(screen.queryByLabelText('API base URL')).not.toBeInTheDocument();
 
-    act(() => {
-      ref.current.openModal();
-    });
+    await openModal(ref);
 
     expect(githubConnectionService.getConnectionSettings).toHaveBeenCalled();
     expect(screen.getByLabelText('API base URL')).toHaveValue('https://api.github.com');
     expect(screen.getByLabelText('Personal access token')).toHaveValue('stored-token');
   });
 
-  test('Save persists edited fields via saveConnectionSettings', () => {
+  test('Save persists edited fields via saveConnectionSettings', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
-    act(() => {
-      ref.current.openModal();
-    });
+    await openModal(ref);
 
     fireEvent.change(screen.getByLabelText('API base URL'), {
       target: { value: 'https://api.mycompany.ghe.com' },
@@ -65,7 +67,9 @@ describe('GitHubMenuHandler', () => {
     fireEvent.change(screen.getByLabelText('Personal access token'), {
       target: { value: 'new-token' },
     });
-    fireEvent.click(screen.getByText('Save'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
 
     expect(githubConnectionService.saveConnectionSettings).toHaveBeenCalledWith({
       apiBaseUrl: 'https://api.mycompany.ghe.com',
@@ -78,9 +82,7 @@ describe('GitHubMenuHandler', () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
-    act(() => {
-      ref.current.openModal();
-    });
+    await openModal(ref);
 
     fireEvent.click(screen.getByText('Test Connection'));
 
@@ -93,13 +95,11 @@ describe('GitHubMenuHandler', () => {
     });
   });
 
-  test('Close hides the modal again', () => {
+  test('Close hides the modal again', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
-    act(() => {
-      ref.current.openModal();
-    });
+    await openModal(ref);
     expect(screen.getByLabelText('API base URL')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Close'));

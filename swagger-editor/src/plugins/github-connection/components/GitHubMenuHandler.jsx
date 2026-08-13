@@ -21,8 +21,8 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const ModalFooter = getComponent('ModalFooter');
 
   useImperativeHandle(ref, () => ({
-    openModal() {
-      const settings = getConnectionSettings();
+    async openModal() {
+      const settings = await getConnectionSettings();
       setApiBaseUrl(settings.apiBaseUrl);
       setToken(settings.token);
       setStatus(null);
@@ -35,8 +35,8 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const handleApiBaseUrlChange = (event) => setApiBaseUrl(event.target.value);
   const handleTokenChange = (event) => setToken(event.target.value);
 
-  const handleSaveClick = () => {
-    saveConnectionSettings({ apiBaseUrl, token });
+  const handleSaveClick = async () => {
+    await saveConnectionSettings({ apiBaseUrl, token });
     setStatus({ ok: true, message: 'Saved.' });
   };
 

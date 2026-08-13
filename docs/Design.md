@@ -68,7 +68,7 @@ Develop against this personal github.com repo, then point the API base URL and s
 
 - [x] Vendor Swagger Editor 5.8.4 (`swagger-editor/`)
 - [ ] GitHub Pages deploy workflow
-- [x] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth (`GitHub` menu in the top bar, `src/plugins/github-connection/`)
+- [x] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth (`GitHub` menu in the top bar, `src/plugins/github-connection/`). The PAT is encrypted at rest in `localStorage` with a browser-generated AES-GCM key, ported from the GitLab-based repo's `TokenCrypto`/`docs/RememberToken.md` — same caveat applies: it guards against casual inspection of storage, not a fully compromised device, since the key lives alongside the ciphertext.
 - [x] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API) — `Aggregate` menu in the top bar, `src/plugins/aggregation-storage/`. Storage location (owner/repo/branch) is user-editable; sets can be created/edited/deleted, but the actual multi-service bundling/merge logic is still the next checklist item.
 - [ ] Aggregation plugin port (from `swagger-editor-gitlab`'s `src/plugins/aggregation/`) to v5's plugin system
 - [ ] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s `Topbar.jsx`)
