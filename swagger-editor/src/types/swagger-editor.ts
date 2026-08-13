@@ -30,6 +30,7 @@ enum pluginNames {
   EditorPreviewApiDesignSystems = 'EditorPreviewApiDesignSystems',
   EditorSafeRender = 'EditorSafeRender',
   TopBar = 'TopBar',
+  GitHubConnection = 'GitHubConnection',
   SplashScreenPlugin = 'SplashScreenPlugin',
   Layout = 'Layout',
   SwaggerUIAdapter = 'SwaggerUIAdapter',

@@ -18,6 +18,7 @@ import EditorPreviewSwaggerUIPlugin from 'plugins/editor-preview-swagger-ui/inde
 import EditorPreviewAsyncAPIPlugin from 'plugins/editor-preview-asyncapi/index.js';
 import EditorPreviewApiDesignSystemsPlugin from 'plugins/editor-preview-api-design-systems/index.js';
 import TopBarPlugin from 'plugins/top-bar/index.js';
+import GitHubConnectionPlugin from 'plugins/github-connection/index.js';
 import SplashScreenPlugin from 'plugins/splash-screen/index.js';
 import LayoutPlugin from 'plugins/layout/index.js';
 import EditorSafeRenderPlugin from 'plugins/editor-safe-render/index.js';
@@ -45,6 +46,7 @@ const MonacoPreset = () => [
   EditorPreviewAsyncAPIPlugin,
   EditorPreviewApiDesignSystemsPlugin,
   TopBarPlugin,
+  GitHubConnectionPlugin,
   SplashScreenPlugin,
   LayoutPlugin,
   EditorSafeRenderPlugin,

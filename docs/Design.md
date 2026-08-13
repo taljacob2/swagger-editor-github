@@ -68,7 +68,7 @@ Develop against this personal github.com repo, then point the API base URL and s
 
 - [x] Vendor Swagger Editor 5.8.4 (`swagger-editor/`)
 - [ ] GitHub Pages deploy workflow
-- [ ] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth
+- [x] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth (`GitHub` menu in the top bar, `src/plugins/github-connection/`)
 - [ ] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API)
 - [ ] Aggregation plugin port (from `swagger-editor-gitlab`'s `src/plugins/aggregation/`) to v5's plugin system
 - [ ] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s `Topbar.jsx`)

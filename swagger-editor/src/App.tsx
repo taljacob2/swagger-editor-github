@@ -9,6 +9,7 @@ import 'swagger-ui-react/swagger-ui.css';
 import LayoutPlugin from 'plugins/layout/index.js';
 import SplashScreenPlugin from 'plugins/splash-screen/index.js';
 import TopBarPlugin from 'plugins/top-bar/index.js';
+import GitHubConnectionPlugin from 'plugins/github-connection/index.js';
 import ModalsPlugin from 'plugins/modals/index.js';
 import DialogsPlugin from 'plugins/dialogs/index.js';
 import DropdownMenuPlugin from 'plugins/dropdown-menu/index.js';
@@ -151,6 +152,7 @@ SwaggerEditor.plugins = {
   EditorPreviewApiDesignSystems: EditorPreviewApiDesignSystemsPlugin,
   EditorSafeRender: EditorSafeRenderPlugin,
   TopBar: TopBarPlugin,
+  GitHubConnection: GitHubConnectionPlugin,
   SplashScreenPlugin,
   Layout: LayoutPlugin,
   SwaggerUIAdapter: SwaggerUIAdapterPlugin,

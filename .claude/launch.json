@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "swagger-editor-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "preview", "--outDir", "swagger-editor/build", "--port", "4173", "--strictPort"],
+      "port": 4173
+    }
+  ]
+}
