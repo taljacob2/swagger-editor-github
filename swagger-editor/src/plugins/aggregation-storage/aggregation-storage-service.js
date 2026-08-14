@@ -90,9 +90,13 @@ async function ghRequest(path, { connection, method = 'GET', body, allow404 = fa
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new Error(
+    const error = new Error(
       `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
     );
+    // Attached so callers can tell "no permission" apart from other failures
+    // without string-matching the message.
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) {
     return null;
@@ -134,6 +138,21 @@ export async function ensureDataBranch(storage, connection) {
     method: 'POST',
     body: { ref: `refs/heads/${branch}`, sha: commit.sha },
   });
+}
+
+// Whether the current connection's token has push (write) access to the
+// storage repo — used to decide whether to show set-editing controls at all,
+// rather than letting someone hit a 403 on save. GitHub only includes the
+// `permissions` object for authenticated requests, so an anonymous request
+// (no token) correctly resolves to false with no special-casing needed.
+export async function canWriteToStorage(storage, connection) {
+  const { owner, repo } = storage;
+  try {
+    const repoInfo = await ghRequest(`/repos/${owner}/${repo}`, { connection, allow404: true });
+    return Boolean(repoInfo?.permissions?.push);
+  } catch {
+    return false;
+  }
 }
 
 export async function getAggregationSet(id, storage, connection) {

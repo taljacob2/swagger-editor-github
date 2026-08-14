@@ -82,7 +82,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
         <div className="input-group">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label htmlFor="input-github-token" aria-labelledby="input-github-token">
-            Repo token (write access to this repo)
+            Repo token
           </label>
           <input
             id="input-github-token"
@@ -94,8 +94,9 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           />
           <p className="help-block">
             Stored in this browser&apos;s local storage only, and sent only to the API base URL
-            above. Used to save aggregation sets, and to fetch specs unless a fetch token below is
-            set.
+            above. Only needs write access if you&apos;ll save or edit aggregation sets — a
+            read-only token is enough just to browse and aggregate, and you can leave both token
+            fields blank entirely if everything you&apos;re working with is public.
           </p>
         </div>
         <div className="input-group">

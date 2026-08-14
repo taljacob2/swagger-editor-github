@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { aggregateSet } from '../aggregation-merge-service.js';
 import {
+  canWriteToStorage,
   deleteAggregationSet,
   getStorageSettings,
   listAggregationSets,
@@ -12,6 +13,9 @@ import {
 } from '../aggregation-storage-service.js';
 
 const emptyForm = { id: null, name: '', swaggerUrls: [] };
+
+const PERMISSION_DENIED_MESSAGE =
+  "You don't have write access to this repo — see docs/Permissions.md for how to get a token that can save sets.";
 
 const AggregateMenuHandler = forwardRef(
   ({ getComponent, editorActions, EditorContentOrigin }, ref) => {
@@ -29,6 +33,7 @@ const AggregateMenuHandler = forwardRef(
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
     const [aggregatingId, setAggregatingId] = useState(null);
+    const [canWrite, setCanWrite] = useState(false);
 
     const Modal = getComponent('Modal');
     const ModalHeader = getComponent('ModalHeader');
@@ -42,11 +47,23 @@ const AggregateMenuHandler = forwardRef(
     const refreshSets = async (storage) => {
       if (!storage.owner || !storage.repo) {
         setSets([]);
+        setCanWrite(false);
         return;
       }
       setIsLoadingSets(true);
+      const connection = await getConnectionSettings();
+
+      // Resolved independently so a permission-check hiccup never blocks the
+      // sets list itself from loading — fail closed (no write controls) on
+      // any error, since that's the safer default.
       try {
-        const result = await listAggregationSets(storage, await getConnectionSettings());
+        setCanWrite(await canWriteToStorage(storage, connection));
+      } catch {
+        setCanWrite(false);
+      }
+
+      try {
+        const result = await listAggregationSets(storage, connection);
         setSets(result);
       } catch (error) {
         setStatus({ ok: false, message: error.message });
@@ -128,7 +145,9 @@ const AggregateMenuHandler = forwardRef(
         setShowForm(false);
         await refreshSets(currentStorage());
       } catch (error) {
-        setStatus({ ok: false, message: error.message });
+        const message =
+          error.status === 403 || error.status === 401 ? PERMISSION_DENIED_MESSAGE : error.message;
+        setStatus({ ok: false, message });
       } finally {
         setIsSaving(false);
       }
@@ -175,7 +194,9 @@ const AggregateMenuHandler = forwardRef(
         setStatus({ ok: true, message: 'Deleted.' });
         await refreshSets(currentStorage());
       } catch (error) {
-        setStatus({ ok: false, message: error.message });
+        const message =
+          error.status === 403 || error.status === 401 ? PERMISSION_DENIED_MESSAGE : error.message;
+        setStatus({ ok: false, message });
       }
     };
 
@@ -251,9 +272,18 @@ const AggregateMenuHandler = forwardRef(
 
             {!showForm && (
               <>
-                <button type="button" className="btn btn-primary" onClick={handleNewSetClick}>
-                  New Set
-                </button>
+                {canWrite && (
+                  <button type="button" className="btn btn-primary" onClick={handleNewSetClick}>
+                    New Set
+                  </button>
+                )}
+                {!canWrite && owner && repo && (
+                  <p className="help-block">
+                    Read-only — you don&apos;t have write access to{' '}
+                    <code>{`${owner}/${repo}`}</code>. See docs/Permissions.md to get a token that
+                    can save sets.
+                  </p>
+                )}
                 {isLoadingSets && <p>Loading sets…</p>}
                 {!isLoadingSets && sets.length === 0 && <p>No aggregation sets saved yet.</p>}
                 <ul>
@@ -268,20 +298,24 @@ const AggregateMenuHandler = forwardRef(
                       >
                         {aggregatingId === set.id ? 'Aggregating…' : 'Aggregate'}
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleEditSetClick(set)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setPendingDeleteId(set.id)}
-                      >
-                        Delete
-                      </button>
+                      {canWrite && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => handleEditSetClick(set)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setPendingDeleteId(set.id)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -1,9 +1,10 @@
 # Permissions
 
 This app talks to GitHub directly from your browser — there's no server sitting in the middle,
-which means **every user brings their own GitHub token**. This page explains what a token is,
-how to create the two this app can use, and what that means if you're on a team where not
-everyone has access to the same repos.
+which means **every user brings their own GitHub token(s)**, and most people need less than they'd
+expect (possibly none at all). This page walks through what a token is, which of four permission
+tiers you're actually in, how to create the token(s) that tier needs, and what that means if you're
+on a team where not everyone has access to the same repos.
 
 ## What a token is, and why the app needs one
 
@@ -12,28 +13,33 @@ handing it your real GitHub password. It's a long string you generate on GitHub 
 this app once (**GitHub** menu → **Connection Settings**). From then on, the app uses it to prove
 "this request is authorized on behalf of this user" for anything it needs to do on GitHub.
 
-Two things this app does need a token for:
-- **Saving an aggregation set** — writing a file into this repo's `aggregation-data` branch.
-- **Fetching a spec to aggregate** — reading a file from wherever an aggregation set points.
+Two things this app might need a token for — and, importantly, it might need *no* token at all:
+- **Saving an aggregation set** — writing a file into this repo's `aggregation-data` branch. Always
+  needs a token with write access.
+- **Fetching a spec to aggregate, or just browsing what's saved** — reading a file from wherever an
+  aggregation set points. Only needs a token at all if that content is private.
 
-## The two tokens
+## Permission tiers
 
-Those are different capabilities — one is *write*, one is *read* — and this app lets you use two
-separate tokens so you're never forced to grant more access than a given action needs:
+Most people fall into one of these, roughly in order of "most common, least setup required":
 
-| Field | Required? | What it's for | Access level |
-|---|---|---|---|
-| **Repo token** | Yes | Saving/editing/deleting aggregation sets | Read and write, on `swagger-editor-github` only |
-| **Fetch token** | Only if a set references a *private* repo | Fetching spec content to aggregate | Read-only, on whichever repo(s) you're pulling specs from |
+| Tier | What you're doing | What you need |
+|---|---|---|
+| **0 — zero config** | Just browsing/aggregating, and everything involved (this repo, every spec you aggregate) is public | Nothing. Open the site and go — no token, no Connection Settings visit needed. |
+| **1 — read-only** | Browsing/aggregating, but this repo or a spec you're aggregating is private | One **read-only** token, pasted into the **Repo token** field (leave **Fetch token** blank — it falls back to the repo token, which is already read-only). |
+| **2 — maintainer, public specs** | You'll create/edit/delete sets, and everything you aggregate is public | One **read-and-write** token, scoped to `swagger-editor-github` only, in the **Repo token** field. |
+| **3 — maintainer, private specs** | You'll create/edit/delete sets *and* aggregate private specs | Two tokens: the write-scoped **Repo token** (still `swagger-editor-github` only) plus a read-only **Fetch token** for the private repo(s). |
 
-If you leave the fetch token blank, the app just reuses the repo token for fetching too — that's
-fine as long as everything you aggregate is public (public repo content needs no token to read at
-all) or you don't mind the repo token having read access to those repos as well. The fetch token
-only earns its place once you want to keep those separate.
+The app reflects this in the UI: **Manage Sets** only shows New Set/Edit/Delete when your Repo
+token actually has write access to `swagger-editor-github` (checked automatically) — otherwise
+you'll just see the list and an "Aggregate" button, with a note explaining why the editing controls
+aren't there. Nothing to configure for that; it just works based on whatever token you've entered
+(or haven't).
 
-## Step-by-step: creating each token
+## Step-by-step: creating a token
 
-Both start the same way:
+Both a read-only token (Tiers 1 and 3's Fetch token) and a write token (Tiers 2 and 3's Repo token)
+start the same way:
 
 1. On github.com, click your profile picture (top right) → **Settings**.
 2. Scroll to the bottom of the left sidebar → **Developer settings**.
@@ -41,22 +47,24 @@ Both start the same way:
 
 Then they diverge:
 
-### Repo token (required)
+### Read-only token (Tier 1, or Tier 3's Fetch token)
+
+4. Give it a name, e.g. `swagger-editor-github read-only token`.
+5. Under **Repository access**, choose **Only select repositories** → select whichever repo(s) you
+   need to read (this repo itself for Tier 1, or the private spec repo(s) for Tier 3).
+6. Under **Permissions** → **Repository permissions**, find **Contents** → set it to **Read-only**.
+7. **Generate token**, copy it, and paste it into **Connection Settings** — the **Repo token** field
+   for Tier 1, or **Fetch token** for Tier 3.
+
+### Write token (Tiers 2 and 3's Repo token)
 
 4. Give it a name, e.g. `swagger-editor-github repo token`.
-5. Under **Repository access**, choose **Only select repositories** → select `swagger-editor-github`.
+5. Under **Repository access**, choose **Only select repositories** → select `swagger-editor-github`
+   only.
 6. Under **Permissions** → **Repository permissions**, find **Contents** → set it to **Read and write**.
 7. **Generate token**, copy it, and paste it into **Connection Settings → Repo token**.
 
-### Fetch token (optional — only if you'll aggregate a private repo's spec)
-
-4. Give it a name, e.g. `swagger-editor-github fetch token`.
-5. Under **Repository access**, choose **Only select repositories** → select whichever private
-   repo(s) you'll pull specs from.
-6. Under **Permissions** → **Repository permissions**, find **Contents** → set it to **Read-only**.
-7. **Generate token**, copy it, and paste it into **Connection Settings → Fetch token**.
-
-**Why two separate tokens, rather than one covering both?** A fine-grained token applies one
+**Why can't one token cover write-here-read-there (Tier 3)?** A fine-grained token applies one
 permission level uniformly to every repo you select in it — there's no way to say "write here,
 read-only there" within a single token. Splitting write-access-to-this-app's-repo from
 read-access-to-everything-else is the only way to keep both scoped to what they actually need.

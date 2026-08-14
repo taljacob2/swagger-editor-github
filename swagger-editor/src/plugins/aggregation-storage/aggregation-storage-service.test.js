@@ -1,5 +1,6 @@
 import {
   DEFAULT_BRANCH,
+  canWriteToStorage,
   deleteAggregationSet,
   ensureDataBranch,
   getAggregationSet,
@@ -31,12 +32,18 @@ function mockFetch(routes) {
     if (!route) {
       throw new Error(`Unmocked request: ${method} ${url}`);
     }
-    if (route.status === 404) {
-      return { ok: false, status: 404, statusText: 'Not Found', text: async () => 'Not Found' };
+    const status = route.status || 200;
+    if (status >= 400) {
+      return {
+        ok: false,
+        status,
+        statusText: route.statusText || 'Error',
+        text: async () => route.detail || '',
+      };
     }
     return {
       ok: true,
-      status: route.status || 200,
+      status,
       json: async () => route.json,
     };
   });
@@ -182,6 +189,65 @@ describe('aggregation-storage-service', () => {
       const result = await getAggregationSet('set-1', STORAGE, CONNECTION);
 
       expect(result).toEqual({ ...record, id: 'set-1', sha: 'file-sha' });
+    });
+
+    test('a non-404 failure throws an error carrying the response status', async () => {
+      mockFetch([{ method: 'GET', test: () => true, status: 403, statusText: 'Forbidden' }]);
+
+      await expect(getAggregationSet('set-1', STORAGE, CONNECTION)).rejects.toMatchObject({
+        status: 403,
+      });
+    });
+  });
+
+  describe('canWriteToStorage', () => {
+    test('true when the repo response reports push access', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith('/repos/taljacob2/swagger-editor-github'),
+          json: { permissions: { push: true, pull: true } },
+        },
+      ]);
+
+      expect(await canWriteToStorage(STORAGE, CONNECTION)).toBe(true);
+    });
+
+    test('false when permissions.push is false', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith('/repos/taljacob2/swagger-editor-github'),
+          json: { permissions: { push: false, pull: true } },
+        },
+      ]);
+
+      expect(await canWriteToStorage(STORAGE, CONNECTION)).toBe(false);
+    });
+
+    test('false when the permissions field is absent (anonymous request)', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith('/repos/taljacob2/swagger-editor-github'),
+          json: {},
+        },
+      ]);
+
+      const NO_TOKEN_CONNECTION = { apiBaseUrl: 'https://api.github.com', token: '' };
+      expect(await canWriteToStorage(STORAGE, NO_TOKEN_CONNECTION)).toBe(false);
+    });
+
+    test('false on a 404 (repo not found or no read access)', async () => {
+      mockFetch([{ method: 'GET', test: () => true, status: 404 }]);
+      expect(await canWriteToStorage(STORAGE, CONNECTION)).toBe(false);
+    });
+
+    test('false if the request itself fails, rather than throwing', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      expect(await canWriteToStorage(STORAGE, CONNECTION)).toBe(false);
     });
   });
 

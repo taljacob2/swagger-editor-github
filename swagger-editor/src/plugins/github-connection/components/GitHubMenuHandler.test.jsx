@@ -57,9 +57,7 @@ describe('GitHubMenuHandler', () => {
 
     expect(githubConnectionService.getConnectionSettings).toHaveBeenCalled();
     expect(screen.getByLabelText('API base URL')).toHaveValue('https://api.github.com');
-    expect(screen.getByLabelText('Repo token (write access to this repo)')).toHaveValue(
-      'stored-token'
-    );
+    expect(screen.getByLabelText('Repo token')).toHaveValue('stored-token');
     expect(screen.getByLabelText('Fetch token (optional — read-only, private repos)')).toHaveValue(
       'stored-fetch-token'
     );
@@ -74,7 +72,7 @@ describe('GitHubMenuHandler', () => {
     fireEvent.change(screen.getByLabelText('API base URL'), {
       target: { value: 'https://api.mycompany.ghe.com' },
     });
-    fireEvent.change(screen.getByLabelText('Repo token (write access to this repo)'), {
+    fireEvent.change(screen.getByLabelText('Repo token'), {
       target: { value: 'new-token' },
     });
     fireEvent.change(screen.getByLabelText('Fetch token (optional — read-only, private repos)'), {

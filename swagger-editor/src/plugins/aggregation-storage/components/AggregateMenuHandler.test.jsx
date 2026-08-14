@@ -84,6 +84,7 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.listAggregationSets.mockResolvedValue([]);
     aggregationStorageService.saveAggregationSet.mockResolvedValue({});
     aggregationStorageService.deleteAggregationSet.mockResolvedValue();
+    aggregationStorageService.canWriteToStorage.mockResolvedValue(true);
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -207,6 +208,86 @@ describe('AggregateMenuHandler', () => {
       STORAGE_SETTINGS,
       CONNECTION_SETTINGS
     );
+  });
+
+  describe('read-only tokens (no write access to the storage repo)', () => {
+    beforeEach(() => {
+      aggregationStorageService.canWriteToStorage.mockResolvedValue(false);
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        { id: 'set-1', name: 'Orders', swaggerUrls: [] },
+      ]);
+    });
+
+    test("hides New Set and each set's Edit/Delete, and shows a read-only note", async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Orders', { exact: false }));
+
+      expect(screen.queryByText('New Set')).not.toBeInTheDocument();
+      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+      expect(screen.getByText(/Read-only/)).toBeInTheDocument();
+    });
+
+    test('Save Location and Aggregate stay available', async () => {
+      aggregationMergeService.aggregateSet.mockResolvedValue({
+        yaml: 'openapi: 3.0.0\n',
+        conflicts: { paths: [], tags: [], components: [] },
+        errors: [],
+        specCount: 1,
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Aggregate'));
+
+      expect(screen.getByText('Save Location')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Aggregate'));
+      });
+
+      expect(aggregationMergeService.aggregateSet).toHaveBeenCalled();
+    });
+  });
+
+  describe('permission-denied errors', () => {
+    const forbidden = () =>
+      Object.assign(new Error('GitHub API PUT ... failed: 403'), { status: 403 });
+
+    test('Save shows a friendlier message on a 403', async () => {
+      aggregationStorageService.saveAggregationSet.mockRejectedValue(forbidden());
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+
+      fireEvent.click(screen.getByText('New Set'));
+      fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Save Set'));
+      });
+
+      expect(screen.getByText(/don't have write access/)).toBeInTheDocument();
+    });
+
+    test('Delete shows a friendlier message on a 403', async () => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        { id: 'set-1', name: 'Orders', swaggerUrls: [] },
+      ]);
+      aggregationStorageService.deleteAggregationSet.mockRejectedValue(forbidden());
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Delete'));
+
+      fireEvent.click(screen.getByText('Delete'));
+      await act(async () => {
+        fireEvent.click(screen.getByText('Confirm Delete'));
+      });
+
+      expect(screen.getByText(/don't have write access/)).toBeInTheDocument();
+    });
   });
 
   describe('Aggregate', () => {
