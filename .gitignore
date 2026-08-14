@@ -3,3 +3,8 @@ node_modules/
 .env.local
 .DS_Store
 *.log
+
+# Not a secret -- just the version string shown on the splash screen.
+# Vite's own %VAR%-in-HTML replacement needs it as a real env var at build
+# time, so it has to be committed (see index.html's %VITE_VERSION%).
+!swagger-editor/.env
