@@ -36,6 +36,11 @@ you'll just see the list and an "Aggregate" button, with a note explaining why t
 aren't there. Nothing to configure for that; it just works based on whatever token you've entered
 (or haven't).
 
+Don't want to work out which tier you're in by hand? **Connection Settings** has a "What do you
+want to do?" picker that maps straight onto these four options and hands you a pre-filled
+"Create a token →" link for whichever one you need — the walkthrough below is for anyone who wants
+the full manual steps instead.
+
 ## Step-by-step: creating a token
 
 Both a read-only token (Tiers 1 and 3's Fetch token) and a write token (Tiers 2 and 3's Repo token)

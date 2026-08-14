@@ -1,5 +1,7 @@
 import {
   DEFAULT_API_BASE_URL,
+  buildTokenCreationUrl,
+  deriveWebBaseUrl,
   getConnectionSettings,
   saveConnectionSettings,
   testConnection,
@@ -180,6 +182,59 @@ describe('github-connection-service', () => {
 
       expect(result.ok).toBe(false);
       expect(result.message).toContain('Failed to fetch');
+    });
+  });
+
+  describe('deriveWebBaseUrl', () => {
+    test('strips the api. prefix for github.com', () => {
+      expect(deriveWebBaseUrl('https://api.github.com')).toBe('https://github.com');
+    });
+
+    test('strips the api. prefix for a GHEC custom domain', () => {
+      expect(deriveWebBaseUrl('https://api.mycompany.ghe.com')).toBe('https://mycompany.ghe.com');
+    });
+
+    test('returns null for an unparseable URL', () => {
+      expect(deriveWebBaseUrl('not a url')).toBeNull();
+    });
+  });
+
+  describe('buildTokenCreationUrl', () => {
+    test('includes name, description, contents, and target_name when provided', () => {
+      const url = buildTokenCreationUrl({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        contents: 'write',
+        targetName: 'taljacob2',
+        name: 'my token',
+        description: 'my description',
+      });
+
+      expect(url).toBe(
+        'https://github.com/settings/personal-access-tokens/new?' +
+          'name=my+token&description=my+description&contents=write&target_name=taljacob2'
+      );
+    });
+
+    test('omits target_name when not passed', () => {
+      const url = buildTokenCreationUrl({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        contents: 'read',
+        name: 'my token',
+        description: 'my description',
+      });
+
+      expect(url).not.toContain('target_name');
+    });
+
+    test('returns null when the base URL cannot be parsed', () => {
+      expect(
+        buildTokenCreationUrl({
+          apiBaseUrl: 'not a url',
+          contents: 'read',
+          name: 'n',
+          description: 'd',
+        })
+      ).toBeNull();
     });
   });
 });

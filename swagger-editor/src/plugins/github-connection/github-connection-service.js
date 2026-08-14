@@ -142,6 +142,36 @@ export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) 
   return settings;
 }
 
+// GitHub's web host is the API host with a leading "api." stripped, matching
+// this file's own apiBaseUrl convention (api.github.com -> github.com,
+// api.<domain> -> <domain>). Returns null on anything unparseable so callers
+// can hide a quick-link rather than guess at a broken one.
+export function deriveWebBaseUrl(apiBaseUrl) {
+  try {
+    const url = new URL(apiBaseUrl);
+    return `${url.protocol}//${url.host.replace(/^api\./, '')}`;
+  } catch {
+    return null;
+  }
+}
+
+// Builds a link to GitHub's fine-grained PAT creation page, pre-filled via
+// its documented query parameters (name/description/target_name/<permission>)
+// -- https://github.blog/changelog/2025-08-26-template-urls-for-fine-grained-pats-and-updated-permissions-ui/
+// There's no parameter to pre-select specific repositories, so "Only select
+// repositories" is still a manual step; this just removes the rest of it.
+export function buildTokenCreationUrl({ apiBaseUrl, contents, targetName, name, description }) {
+  const webBaseUrl = deriveWebBaseUrl(apiBaseUrl);
+  if (!webBaseUrl) {
+    return null;
+  }
+  const params = new URLSearchParams({ name, description, contents });
+  if (targetName) {
+    params.set('target_name', targetName);
+  }
+  return `${webBaseUrl}/settings/personal-access-tokens/new?${params.toString()}`;
+}
+
 // GitHub's REST API sends permissive CORS headers and accepts a bearer token
 // directly from browser JS, so this is a plain authenticated fetch — no proxy.
 // See docs/Design.md "Why no backend is needed".
