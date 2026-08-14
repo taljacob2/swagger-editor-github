@@ -20,9 +20,28 @@ const INTENTS = {
 };
 
 const NEEDS_WRITE = new Set([INTENTS.MANAGE_PUBLIC, INTENTS.MANAGE_PRIVATE]);
+const SHOWS_REPO_TOKEN = new Set([
+  INTENTS.BROWSE_PRIVATE,
+  INTENTS.MANAGE_PUBLIC,
+  INTENTS.MANAGE_PRIVATE,
+]);
 
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
+
+// Guesses which picker option to open with from whatever's already saved, so
+// a returning user's existing token(s) aren't hidden behind the wrong
+// selection -- a first-time user with nothing saved starts at "browse public"
+// (both token fields hidden), matching the zero-config case.
+function inferInitialIntent({ token, fetchToken }) {
+  if (fetchToken) {
+    return INTENTS.MANAGE_PRIVATE;
+  }
+  if (token) {
+    return INTENTS.MANAGE_PUBLIC;
+  }
+  return INTENTS.BROWSE_PUBLIC;
+}
 
 const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -47,6 +66,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
       setApiBaseUrl(settings.apiBaseUrl);
       setToken(settings.token);
       setFetchToken(settings.fetchToken);
+      setIntent(inferInitialIntent(settings));
       setStorage(getStorageSettings());
       setStatus(null);
       setIsOpen(true);
@@ -138,47 +158,8 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
 
           {intent === INTENTS.BROWSE_PUBLIC && (
             <p className="help-block">
-              Nothing to do — leave both token fields below blank and close this. Everything works
-              anonymously as long as what you&apos;re browsing/aggregating is public.
-            </p>
-          )}
-
-          {intent === INTENTS.BROWSE_PRIVATE && (
-            <p className="help-block">
-              Paste a <strong>read-only</strong> token into <strong>Repo token</strong> below.{' '}
-              {readOnlyTokenUrl && (
-                <Link href={readOnlyTokenUrl} target="_blank">
-                  Create a read-only token →
-                </Link>
-              )}
-            </p>
-          )}
-
-          {intent === INTENTS.MANAGE_PUBLIC && (
-            <p className="help-block">
-              Paste a <strong>write</strong> token into <strong>Repo token</strong> below.{' '}
-              {writeTokenUrl && (
-                <Link href={writeTokenUrl} target="_blank">
-                  Create a write token →
-                </Link>
-              )}
-            </p>
-          )}
-
-          {intent === INTENTS.MANAGE_PRIVATE && (
-            <p className="help-block">
-              Paste a <strong>write</strong> token into <strong>Repo token</strong> below, and a{' '}
-              <strong>read-only</strong> token into <strong>Fetch token</strong>.{' '}
-              {writeTokenUrl && (
-                <Link href={writeTokenUrl} target="_blank">
-                  Create a write token →
-                </Link>
-              )}{' '}
-              {readOnlyTokenUrl && (
-                <Link href={readOnlyTokenUrl} target="_blank">
-                  Create a read-only token →
-                </Link>
-              )}
+              Nothing to do — close this and get started. Everything works anonymously as long as
+              what you&apos;re browsing/aggregating is public.
             </p>
           )}
 
@@ -210,43 +191,71 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             Enterprise Cloud custom domain.
           </p>
         </div>
-        <div className="input-group">
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label htmlFor="input-github-token" aria-labelledby="input-github-token">
-            Repo token
-          </label>
-          <input
-            id="input-github-token"
-            type="password"
-            className="form-control"
-            placeholder="ghp_..."
-            value={token}
-            onChange={handleTokenChange}
-          />
-          <p className="help-block">
-            Stored in this browser&apos;s local storage only, and sent only to the API base URL
-            above. Leave blank if you picked &quot;Just browse or aggregate public specs&quot;
-            above.
-          </p>
-        </div>
-        <div className="input-group">
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label htmlFor="input-github-fetch-token" aria-labelledby="input-github-fetch-token">
-            Fetch token (optional — read-only, private repos)
-          </label>
-          <input
-            id="input-github-fetch-token"
-            type="password"
-            className="form-control"
-            placeholder="Leave blank to reuse the repo token above"
-            value={fetchToken}
-            onChange={handleFetchTokenChange}
-          />
-          <p className="help-block">
-            Only needed for the &quot;create/edit/delete sets AND aggregate private specs&quot; case
-            above — otherwise leave it blank.
-          </p>
-        </div>
+        {SHOWS_REPO_TOKEN.has(intent) && (
+          <div className="input-group">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+            <label htmlFor="input-github-token" aria-labelledby="input-github-token">
+              Repo token
+            </label>
+            <input
+              id="input-github-token"
+              type="password"
+              className="form-control"
+              placeholder="ghp_..."
+              value={token}
+              onChange={handleTokenChange}
+            />
+            <p className="help-block">
+              Stored in this browser&apos;s local storage only, and sent only to the API base URL
+              above.
+            </p>
+            {intent === INTENTS.BROWSE_PRIVATE && (
+              <p className="help-block">
+                Paste a <strong>read-only</strong> token here.{' '}
+                {readOnlyTokenUrl && (
+                  <Link href={readOnlyTokenUrl} target="_blank">
+                    Create a read-only token →
+                  </Link>
+                )}
+              </p>
+            )}
+            {(intent === INTENTS.MANAGE_PUBLIC || intent === INTENTS.MANAGE_PRIVATE) && (
+              <p className="help-block">
+                Paste a <strong>write</strong> token here.{' '}
+                {writeTokenUrl && (
+                  <Link href={writeTokenUrl} target="_blank">
+                    Create a write token →
+                  </Link>
+                )}
+              </p>
+            )}
+          </div>
+        )}
+        {intent === INTENTS.MANAGE_PRIVATE && (
+          <div className="input-group">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+            <label htmlFor="input-github-fetch-token" aria-labelledby="input-github-fetch-token">
+              Fetch token (optional — read-only, private repos)
+            </label>
+            <input
+              id="input-github-fetch-token"
+              type="password"
+              className="form-control"
+              placeholder="Leave blank to reuse the repo token above"
+              value={fetchToken}
+              onChange={handleFetchTokenChange}
+            />
+            <p className="help-block">
+              Paste a <strong>read-only</strong> token here — used instead of widening the
+              write-scoped Repo token above.{' '}
+              {readOnlyTokenUrl && (
+                <Link href={readOnlyTokenUrl} target="_blank">
+                  Create a read-only token →
+                </Link>
+              )}
+            </p>
+          </div>
+        )}
         {status && <p className={status.ok ? 'text-success' : 'text-danger'}>{status.message}</p>}
       </ModalBody>
       <ModalFooter>

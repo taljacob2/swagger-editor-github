@@ -133,18 +133,40 @@ describe('GitHubMenuHandler', () => {
     expect(screen.queryByLabelText('API base URL')).not.toBeInTheDocument();
   });
 
-  test('defaults to "browse public" and shows no create-token link', async () => {
+  test('with nothing saved, defaults to "browse public" and hides both token fields', async () => {
+    githubConnectionService.getConnectionSettings.mockResolvedValue({
+      apiBaseUrl: 'https://api.github.com',
+      token: '',
+      fetchToken: '',
+    });
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
 
-    expect(screen.getByText(/leave both token fields below blank/)).toBeInTheDocument();
-    expect(screen.queryByText('Create a read-only token →')).not.toBeInTheDocument();
-    expect(screen.queryByText('Create a write token →')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What do you want to do?')).toHaveValue('browse-public');
+    expect(screen.getByText(/Nothing to do — close this and get started/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Repo token')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
+    ).not.toBeInTheDocument();
   });
 
-  test('"browse private" shows a read-only create-token link with no target_name', async () => {
+  test('with only a repo token saved, defaults to "manage sets, public"', async () => {
+    githubConnectionService.getConnectionSettings.mockResolvedValue({
+      apiBaseUrl: 'https://api.github.com',
+      token: 'stored-token',
+      fetchToken: '',
+    });
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+    await openModal(ref);
+
+    expect(screen.getByLabelText('What do you want to do?')).toHaveValue('manage-public');
+  });
+
+  test('"browse private" shows only the Repo token field, with a read-only create-token link', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
@@ -153,6 +175,11 @@ describe('GitHubMenuHandler', () => {
       target: { value: 'browse-private' },
     });
 
+    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
+    ).not.toBeInTheDocument();
+
     const link = screen.getByText('Create a read-only token →');
     expect(link.closest('a')).toHaveAttribute(
       'href',
@@ -160,7 +187,7 @@ describe('GitHubMenuHandler', () => {
     );
   });
 
-  test('"manage sets, public" shows a write create-token link with the configured storage owner as target_name', async () => {
+  test('"manage sets, public" shows only the Repo token field, with a write create-token link scoped to the storage owner', async () => {
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: 'taljacob2',
       repo: 'swagger-editor-github',
@@ -174,6 +201,11 @@ describe('GitHubMenuHandler', () => {
       target: { value: 'manage-public' },
     });
 
+    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
+    ).not.toBeInTheDocument();
+
     const link = screen.getByText('Create a write token →');
     expect(link.closest('a')).toHaveAttribute(
       'href',
@@ -181,7 +213,7 @@ describe('GitHubMenuHandler', () => {
     );
   });
 
-  test('"manage sets, private specs" shows both create-token links', async () => {
+  test('"manage sets, private specs" shows both token fields, each with its own create-token link', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
@@ -190,6 +222,10 @@ describe('GitHubMenuHandler', () => {
       target: { value: 'manage-private' },
     });
 
+    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Fetch token (optional — read-only, private repos)')
+    ).toBeInTheDocument();
     expect(screen.getByText('Create a write token →')).toBeInTheDocument();
     expect(screen.getByText('Create a read-only token →')).toBeInTheDocument();
   });
@@ -254,6 +290,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
+    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
+      target: { value: 'browse-public' },
+    });
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {
