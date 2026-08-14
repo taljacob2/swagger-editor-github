@@ -4,11 +4,13 @@ import {
   copyTabContentToClipboard,
   duplicateTab,
   getActiveTab,
-  getWorkspace,
+  getTabContent,
+  getWorkspaceMeta,
+  removeTabContent,
   renameTab,
-  saveWorkspace,
+  saveWorkspaceMeta,
   setActiveTab,
-  updateTabContent,
+  setTabContent,
 } from './workspace-tabs-service.js';
 
 describe('workspace-tabs-service', () => {
@@ -16,147 +18,208 @@ describe('workspace-tabs-service', () => {
     localStorage.clear();
   });
 
-  describe('getWorkspace', () => {
+  describe('getWorkspaceMeta', () => {
     test('migrates a pre-existing legacy single-content key into "Tab 1"', () => {
       localStorage.setItem('swagger-editor-content', 'openapi: 3.0.0\n');
 
-      const workspace = getWorkspace();
+      const meta = getWorkspaceMeta();
 
-      expect(workspace.tabs).toHaveLength(1);
-      expect(workspace.tabs[0]).toMatchObject({ name: 'Tab 1', content: 'openapi: 3.0.0\n' });
-      expect(workspace.activeTabId).toBe(workspace.tabs[0].id);
+      expect(meta.tabs).toHaveLength(1);
+      expect(meta.tabs[0].name).toBe('Tab 1');
+      expect(meta.activeTabId).toBe(meta.tabs[0].id);
+      expect(getTabContent(meta.tabs[0].id)).toBe('openapi: 3.0.0\n');
       expect(localStorage.getItem('swagger-editor-content')).toBeNull();
-      expect(JSON.parse(localStorage.getItem('workspace-tabs')).tabs).toHaveLength(1);
     });
 
     test('builds a fresh empty "Tab 1" when nothing is stored at all', () => {
-      const workspace = getWorkspace();
+      const meta = getWorkspaceMeta();
 
-      expect(workspace.tabs).toEqual([{ id: expect.any(String), name: 'Tab 1', content: '' }]);
-      expect(workspace.activeTabId).toBe(workspace.tabs[0].id);
+      expect(meta.tabs).toEqual([{ id: expect.any(String), name: 'Tab 1' }]);
+      expect(meta.activeTabId).toBe(meta.tabs[0].id);
+      expect(getTabContent(meta.tabs[0].id)).toBe('');
     });
 
     test('falls back to a fresh default when stored JSON is corrupt', () => {
       localStorage.setItem('workspace-tabs', 'not json');
 
-      const workspace = getWorkspace();
+      const meta = getWorkspaceMeta();
 
-      expect(workspace.tabs).toHaveLength(1);
-      expect(workspace.tabs[0].name).toBe('Tab 1');
+      expect(meta.tabs).toHaveLength(1);
+      expect(meta.tabs[0].name).toBe('Tab 1');
     });
 
-    test('returns a previously saved workspace unchanged', () => {
-      const saved = { tabs: [{ id: 'a', name: 'Tab 1', content: 'x' }], activeTabId: 'a' };
-      saveWorkspace(saved);
+    test('returns a previously saved (already-split) workspace unchanged', () => {
+      const saved = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
+      saveWorkspaceMeta(saved);
 
-      expect(getWorkspace()).toEqual(saved);
+      expect(getWorkspaceMeta()).toEqual(saved);
+    });
+
+    test("migrates the previous inline-content shape, splitting each tab's content into its own key", () => {
+      localStorage.setItem(
+        'workspace-tabs',
+        JSON.stringify({
+          tabs: [
+            { id: 'a', name: 'Tab 1', content: 'a-content' },
+            { id: 'b', name: 'Tab 2', content: 'b-content' },
+          ],
+          activeTabId: 'b',
+        })
+      );
+
+      const meta = getWorkspaceMeta();
+
+      expect(meta).toEqual({
+        tabs: [
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
+        ],
+        activeTabId: 'b',
+      });
+      expect(getTabContent('a')).toBe('a-content');
+      expect(getTabContent('b')).toBe('b-content');
+      // the migrated metadata itself must not carry content, or every future
+      // save would go right back to reserializing all tabs' content again
+      expect(JSON.parse(localStorage.getItem('workspace-tabs')).tabs[0].content).toBeUndefined();
+    });
+  });
+
+  describe('getTabContent / setTabContent / removeTabContent', () => {
+    test("round-trips a tab's content independently of the metadata blob", () => {
+      setTabContent('a', 'hello');
+      setTabContent('b', 'world');
+
+      expect(getTabContent('a')).toBe('hello');
+      expect(getTabContent('b')).toBe('world');
+    });
+
+    test('returns an empty string for a tab with no stored content', () => {
+      expect(getTabContent('missing')).toBe('');
+    });
+
+    test("removeTabContent clears only that tab's key", () => {
+      setTabContent('a', 'hello');
+      setTabContent('b', 'world');
+
+      removeTabContent('a');
+
+      expect(getTabContent('a')).toBe('');
+      expect(getTabContent('b')).toBe('world');
+    });
+
+    test("setting one tab's content never touches another tab's stored content", () => {
+      setTabContent('a', 'hello');
+      setTabContent('b', 'world');
+
+      setTabContent('a', 'hello, edited');
+
+      expect(getTabContent('b')).toBe('world');
     });
   });
 
   describe('getActiveTab', () => {
     test('returns the tab matching activeTabId', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'b',
       };
 
-      expect(getActiveTab(workspace)).toEqual({ id: 'b', name: 'Tab 2', content: '' });
+      expect(getActiveTab(meta)).toEqual({ id: 'b', name: 'Tab 2' });
     });
 
     test('falls back to the first tab when activeTabId matches nothing', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'missing' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'missing' };
 
-      expect(getActiveTab(workspace)).toEqual({ id: 'a', name: 'Tab 1', content: '' });
+      expect(getActiveTab(meta)).toEqual({ id: 'a', name: 'Tab 1' });
     });
   });
 
   describe('addTab', () => {
     test('appends a new sequentially-named tab and makes it active', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
-      const next = addTab(workspace);
+      const next = addTab(meta);
 
       expect(next.tabs).toHaveLength(2);
-      expect(next.tabs[1]).toMatchObject({ name: 'Tab 2', content: '' });
+      expect(next.tabs[1]).toMatchObject({ name: 'Tab 2' });
       expect(next.activeTabId).toBe(next.tabs[1].id);
     });
   });
 
   describe('duplicateTab', () => {
-    test('inserts a copy right after the source tab, with its content, and activates it', () => {
-      const workspace = {
+    test("inserts a copy right after the source tab and activates it (content is the caller's job)", () => {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: 'hello' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'a',
       };
 
-      const next = duplicateTab(workspace, 'a');
+      const next = duplicateTab(meta, 'a');
 
       expect(next.tabs.map((tab) => tab.name)).toEqual(['Tab 1', 'Tab 1 copy', 'Tab 2']);
-      expect(next.tabs[1].content).toBe('hello');
       expect(next.activeTabId).toBe(next.tabs[1].id);
     });
 
     test('is a no-op when the tab id does not exist', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
-      expect(duplicateTab(workspace, 'missing')).toBe(workspace);
+      expect(duplicateTab(meta, 'missing')).toBe(meta);
     });
   });
 
   describe('closeTab', () => {
     test('refuses to close the last remaining tab', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
-      expect(closeTab(workspace, 'a')).toBe(workspace);
+      expect(closeTab(meta, 'a')).toBe(meta);
     });
 
     test('removes a non-active tab without changing activeTabId', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'a',
       };
 
-      const next = closeTab(workspace, 'b');
+      const next = closeTab(meta, 'b');
 
       expect(next.tabs.map((tab) => tab.id)).toEqual(['a']);
       expect(next.activeTabId).toBe('a');
     });
 
     test('closing the active tab activates the previous tab in the list', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
-          { id: 'c', name: 'Tab 3', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
+          { id: 'c', name: 'Tab 3' },
         ],
         activeTabId: 'b',
       };
 
-      const next = closeTab(workspace, 'b');
+      const next = closeTab(meta, 'b');
 
       expect(next.tabs.map((tab) => tab.id)).toEqual(['a', 'c']);
       expect(next.activeTabId).toBe('a');
     });
 
     test('closing the first (active) tab activates the new first tab', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'a',
       };
 
-      const next = closeTab(workspace, 'a');
+      const next = closeTab(meta, 'a');
 
       expect(next.tabs.map((tab) => tab.id)).toEqual(['b']);
       expect(next.activeTabId).toBe('b');
@@ -165,65 +228,46 @@ describe('workspace-tabs-service', () => {
 
   describe('setActiveTab', () => {
     test('updates activeTabId when the tab exists', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'a',
       };
 
-      expect(setActiveTab(workspace, 'b').activeTabId).toBe('b');
+      expect(setActiveTab(meta, 'b').activeTabId).toBe('b');
     });
 
     test('is a no-op when the tab id does not exist', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
-      expect(setActiveTab(workspace, 'missing')).toBe(workspace);
-    });
-  });
-
-  describe('updateTabContent', () => {
-    test('replaces only the matching tab’s content', () => {
-      const workspace = {
-        tabs: [
-          { id: 'a', name: 'Tab 1', content: 'old' },
-          { id: 'b', name: 'Tab 2', content: 'untouched' },
-        ],
-        activeTabId: 'a',
-      };
-
-      const next = updateTabContent(workspace, 'a', 'new');
-
-      expect(next.tabs).toEqual([
-        { id: 'a', name: 'Tab 1', content: 'new' },
-        { id: 'b', name: 'Tab 2', content: 'untouched' },
-      ]);
+      expect(setActiveTab(meta, 'missing')).toBe(meta);
     });
   });
 
   describe('renameTab', () => {
     test('renames only the matching tab, trimming surrounding whitespace', () => {
-      const workspace = {
+      const meta = {
         tabs: [
-          { id: 'a', name: 'Tab 1', content: '' },
-          { id: 'b', name: 'Tab 2', content: '' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'b', name: 'Tab 2' },
         ],
         activeTabId: 'a',
       };
 
-      const next = renameTab(workspace, 'a', '  My API  ');
+      const next = renameTab(meta, 'a', '  My API  ');
 
       expect(next.tabs).toEqual([
-        { id: 'a', name: 'My API', content: '' },
-        { id: 'b', name: 'Tab 2', content: '' },
+        { id: 'a', name: 'My API' },
+        { id: 'b', name: 'Tab 2' },
       ]);
     });
 
     test('is a no-op when the trimmed name is empty', () => {
-      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+      const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
-      expect(renameTab(workspace, 'a', '   ')).toBe(workspace);
+      expect(renameTab(meta, 'a', '   ')).toBe(meta);
     });
   });
 

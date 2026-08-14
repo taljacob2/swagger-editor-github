@@ -1,13 +1,14 @@
-import { getActiveTab, getWorkspace } from './workspace-tabs-service.js';
+import { getActiveTab, getTabContent, getWorkspaceMeta } from './workspace-tabs-service.js';
 
 const afterLoad = (system) => {
   const { editorActions, editorSelectors, EditorContentOrigin } = system;
 
-  const activeTab = getActiveTab(getWorkspace());
+  const activeTab = getActiveTab(getWorkspaceMeta());
+  const content = getTabContent(activeTab.id);
 
-  if (editorSelectors.selectContent() === activeTab.content) return; // content already loaded
+  if (editorSelectors.selectContent() === content) return; // content already loaded
 
-  editorActions.setContent(activeTab.content, EditorContentOrigin.LocalStorage);
+  editorActions.setContent(content, EditorContentOrigin.LocalStorage);
 };
 
 export default afterLoad;

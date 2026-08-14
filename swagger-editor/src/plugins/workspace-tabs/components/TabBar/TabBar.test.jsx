@@ -8,29 +8,46 @@ vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    getWorkspace: vi.fn(),
-    saveWorkspace: vi.fn(),
+    getWorkspaceMeta: vi.fn(),
+    saveWorkspaceMeta: vi.fn(),
+    getTabContent: vi.fn(),
+    setTabContent: vi.fn(),
+    removeTabContent: vi.fn(),
     copyTabContentToClipboard: vi.fn(),
   };
 });
 
 const EditorContentOrigin = { LocalStorage: 'local-storage' };
 
-const threeTabWorkspace = () => ({
+const threeTabMeta = () => ({
   tabs: [
-    { id: 'a', name: 'Tab 1', content: 'a-content' },
-    { id: 'b', name: 'Tab 2', content: 'b-content' },
-    { id: 'c', name: 'Tab 3', content: 'c-content' },
+    { id: 'a', name: 'Tab 1' },
+    { id: 'b', name: 'Tab 2' },
+    { id: 'c', name: 'Tab 3' },
   ],
   activeTabId: 'a',
 });
 
+const CONTENT_BY_ID = { a: 'a-content', b: 'b-content', c: 'c-content' };
+
 describe('TabBar', () => {
   let editorActions;
+  let contentStore;
 
   beforeEach(() => {
     editorActions = { setContent: vi.fn() };
-    workspaceTabsService.getWorkspace.mockReturnValue(threeTabWorkspace());
+    contentStore = { ...CONTENT_BY_ID };
+    workspaceTabsService.getWorkspaceMeta.mockReturnValue(threeTabMeta());
+    // Backed by a shared store (not just a fixed lookup) so a duplicate's
+    // setTabContent-then-getTabContent read-after-write behaves like real
+    // localStorage, the same as the component relies on.
+    workspaceTabsService.getTabContent.mockImplementation((id) => contentStore[id] || '');
+    workspaceTabsService.setTabContent.mockImplementation((id, content) => {
+      contentStore[id] = content;
+    });
+    workspaceTabsService.removeTabContent.mockImplementation((id) => {
+      delete contentStore[id];
+    });
     workspaceTabsService.copyTabContentToClipboard.mockResolvedValue(undefined);
   });
 
@@ -51,7 +68,7 @@ describe('TabBar', () => {
 
     fireEvent.click(screen.getByText('Tab 2'));
 
-    expect(workspaceTabsService.saveWorkspace).toHaveBeenCalledWith(
+    expect(workspaceTabsService.saveWorkspaceMeta).toHaveBeenCalledWith(
       expect.objectContaining({ activeTabId: 'b' })
     );
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
@@ -60,28 +77,13 @@ describe('TabBar', () => {
     );
   });
 
-  test('switching tabs does not clobber content written to storage after mount (regression: typing then switching used to lose edits)', () => {
+  test("switching tabs only touches the metadata blob, never any tab's stored content (regression: a stale full-content snapshot used to clobber other tabs' edits on switch)", () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
-
-    // Simulate the editor's debounced setContent wrap-action persisting a
-    // keystroke straight to storage, bypassing this component's own state --
-    // exactly what happens when the user types after this component mounts.
-    const editedWorkspace = workspaceTabsService.updateTabContent(
-      threeTabWorkspace(),
-      'a',
-      'a-content-edited-after-mount'
-    );
-    workspaceTabsService.getWorkspace.mockReturnValue(editedWorkspace);
 
     fireEvent.click(screen.getByText('Tab 2'));
 
-    expect(workspaceTabsService.saveWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tabs: expect.arrayContaining([
-          expect.objectContaining({ id: 'a', content: 'a-content-edited-after-mount' }),
-        ]),
-      })
-    );
+    expect(workspaceTabsService.setTabContent).not.toHaveBeenCalled();
+    expect(workspaceTabsService.removeTabContent).not.toHaveBeenCalled();
   });
 
   test('the "+" button adds a new blank tab and activates it', () => {
@@ -93,23 +95,28 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('', 'local-storage');
   });
 
-  test('duplicating a tab copies its content and activates the copy', () => {
+  test('duplicating a tab copies its content into the new tab and activates it', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
     const duplicateButtons = screen.getAllByTitle('Duplicate tab');
     fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1"
 
     expect(screen.getByText('Tab 1 copy')).toBeInTheDocument();
+    expect(workspaceTabsService.setTabContent).toHaveBeenCalledWith(
+      expect.any(String),
+      'a-content'
+    );
     expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
   });
 
-  test('closing a background tab does not touch the editor content', () => {
+  test('closing a background tab removes its stored content but does not touch the editor', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
     const closeButtons = screen.getAllByTitle('Close tab');
     fireEvent.click(closeButtons[1]); // close "Tab 2" (not active)
 
     expect(screen.queryByText('Tab 2')).not.toBeInTheDocument();
+    expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('b');
     expect(editorActions.setContent).not.toHaveBeenCalled();
   });
 
@@ -119,12 +126,13 @@ describe('TabBar', () => {
     fireEvent.click(screen.getAllByTitle('Close tab')[0]); // close "Tab 1" (active)
 
     expect(screen.queryByText('Tab 1')).not.toBeInTheDocument();
+    expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('a');
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
   });
 
   test('the close button is hidden when only one tab remains', () => {
-    workspaceTabsService.getWorkspace.mockReturnValue({
-      tabs: [{ id: 'a', name: 'Tab 1', content: '' }],
+    workspaceTabsService.getWorkspaceMeta.mockReturnValue({
+      tabs: [{ id: 'a', name: 'Tab 1' }],
       activeTabId: 'a',
     });
 
@@ -161,7 +169,7 @@ describe('TabBar', () => {
   });
 
   test('Alt+PageDown moves to the next tab, wrapping around from the last', () => {
-    workspaceTabsService.getWorkspace.mockReturnValue({ ...threeTabWorkspace(), activeTabId: 'c' });
+    workspaceTabsService.getWorkspaceMeta.mockReturnValue({ ...threeTabMeta(), activeTabId: 'c' });
 
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
@@ -187,7 +195,7 @@ describe('TabBar', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(screen.getByText('My API')).toBeInTheDocument();
-    expect(workspaceTabsService.saveWorkspace).toHaveBeenCalledWith(
+    expect(workspaceTabsService.saveWorkspaceMeta).toHaveBeenCalledWith(
       expect.objectContaining({
         tabs: expect.arrayContaining([expect.objectContaining({ id: 'a', name: 'My API' })]),
       })
@@ -215,7 +223,7 @@ describe('TabBar', () => {
 
     expect(screen.getByText('Tab 1')).toBeInTheDocument();
     expect(screen.queryByText('Discarded')).not.toBeInTheDocument();
-    expect(workspaceTabsService.saveWorkspace).not.toHaveBeenCalled();
+    expect(workspaceTabsService.saveWorkspaceMeta).not.toHaveBeenCalled();
   });
 
   test('an empty (or whitespace-only) name is a no-op, leaving the original name in place', () => {

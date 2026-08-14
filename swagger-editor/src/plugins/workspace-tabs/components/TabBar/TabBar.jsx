@@ -6,17 +6,19 @@ import {
   closeTab,
   copyTabContentToClipboard,
   duplicateTab,
-  getActiveTab,
-  getWorkspace,
+  getTabContent,
+  getWorkspaceMeta,
+  removeTabContent,
   renameTab,
-  saveWorkspace,
+  saveWorkspaceMeta,
   setActiveTab,
+  setTabContent,
 } from '../../workspace-tabs-service.js';
 
 const COPIED_FEEDBACK_DURATION_MS = 1500;
 
 const TabBar = ({ editorActions, EditorContentOrigin }) => {
-  const [workspace, setWorkspace] = useState(() => getWorkspace());
+  const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
   const [copiedTabId, setCopiedTabId] = useState(null);
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -28,35 +30,46 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   // Every keystroke in the active tab is persisted independently by the
   // wrap-actions.js setContent wrapper, straight to localStorage -- it does
   // NOT flow through this component's state. So every mutation here must
-  // start from a fresh getWorkspace() read, not the last-rendered `workspace`
-  // (or a ref mirroring it), or it would save a stale snapshot over that
-  // content the moment a tab is added/closed/switched/renamed.
-  const applyWorkspace = (next, { activateContent } = {}) => {
-    saveWorkspace(next);
+  // start from a fresh getWorkspaceMeta() read, not the last-rendered
+  // `workspace`, or it would save a stale snapshot over that content the
+  // moment a tab is added/closed/switched/renamed.
+  const applyWorkspace = (next, { activateContentFor } = {}) => {
+    saveWorkspaceMeta(next);
     setWorkspace(next);
-    if (activateContent) {
-      editorActions.setContent(getActiveTab(next).content, EditorContentOrigin.LocalStorage);
+    if (activateContentFor) {
+      editorActions.setContent(getTabContent(activateContentFor), EditorContentOrigin.LocalStorage);
     }
   };
 
   const handleSwitch = (tabId) => {
-    const current = getWorkspace();
+    const current = getWorkspaceMeta();
     if (tabId === current.activeTabId) return;
-    applyWorkspace(setActiveTab(current, tabId), { activateContent: true });
+    applyWorkspace(setActiveTab(current, tabId), { activateContentFor: tabId });
   };
 
   const handleAdd = () => {
-    applyWorkspace(addTab(getWorkspace()), { activateContent: true });
+    const next = addTab(getWorkspaceMeta());
+    applyWorkspace(next, { activateContentFor: next.activeTabId });
   };
 
   const handleDuplicate = (tabId) => {
-    applyWorkspace(duplicateTab(getWorkspace(), tabId), { activateContent: true });
+    const current = getWorkspaceMeta();
+    const sourceContent = getTabContent(tabId);
+    const next = duplicateTab(current, tabId);
+    if (next !== current) {
+      setTabContent(next.activeTabId, sourceContent);
+    }
+    applyWorkspace(next, { activateContentFor: next.activeTabId });
   };
 
   const handleClose = (tabId) => {
-    const current = getWorkspace();
+    const current = getWorkspaceMeta();
     const wasActive = tabId === current.activeTabId;
-    applyWorkspace(closeTab(current, tabId), { activateContent: wasActive });
+    const next = closeTab(current, tabId);
+    if (next !== current) {
+      removeTabContent(tabId);
+    }
+    applyWorkspace(next, wasActive ? { activateContentFor: next.activeTabId } : {});
   };
 
   const handleStartRename = (tab) => {
@@ -68,7 +81,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     if (cancelRenameRef.current) {
       cancelRenameRef.current = false;
     } else {
-      applyWorkspace(renameTab(getWorkspace(), renamingTabId, renameValue));
+      applyWorkspace(renameTab(getWorkspaceMeta(), renamingTabId, renameValue));
     }
     setRenamingTabId(null);
   };
@@ -91,7 +104,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
 
   const handleCopy = async (tab) => {
     try {
-      await copyTabContentToClipboard(tab.content);
+      await copyTabContentToClipboard(getTabContent(tab.id));
       setCopiedTabId(tab.id);
       setTimeout(() => {
         setCopiedTabId((current) => (current === tab.id ? null : current));
@@ -105,7 +118,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     const handleKeyDown = (event) => {
       if (!event.altKey) return;
 
-      const { tabs, activeTabId } = getWorkspace();
+      const { tabs, activeTabId } = getWorkspaceMeta();
 
       if (event.key >= '1' && event.key <= '9') {
         const index = Number(event.key) - 1;
