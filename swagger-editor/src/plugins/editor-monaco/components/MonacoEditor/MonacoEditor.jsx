@@ -111,10 +111,17 @@ const MonacoEditor = ({
         editorRef.current.setValue(value);
       } else if (value !== editorRef.current.getValue()) {
         const model = editorRef.current.getModel();
-        const languageId = model.getLanguageId();
-
-        model.dispose();
-        editorRef.current.setModel(monaco.editor.createModel(value, languageId));
+        // Push as a tracked edit operation rather than disposing/recreating
+        // the model (or calling model.setValue, which Monaco documents as
+        // destroying the undo stack too) -- this is what lets Ctrl+Z step
+        // back through a programmatic content replacement (Import URL,
+        // Aggregate, Resolve document, etc.) instead of leaving nothing to
+        // undo to.
+        model.pushEditOperations(
+          [],
+          [{ range: model.getFullModelRange(), text: value }],
+          () => null
+        );
       }
     },
     [value],
