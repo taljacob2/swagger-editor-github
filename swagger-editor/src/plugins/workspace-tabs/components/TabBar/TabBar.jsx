@@ -20,16 +20,18 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   const [copiedTabId, setCopiedTabId] = useState(null);
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
-  // Keyboard shortcuts are bound once on mount, so handlers read the latest
-  // workspace through this ref rather than closing over stale render state.
-  const workspaceRef = useRef(workspace);
   // Escape blurs the rename input (to unify save/cancel into one onBlur path),
   // so this flag tells that handler to discard instead of commit.
   const cancelRenameRef = useRef(false);
   const renameInputRef = useRef(null);
 
+  // Every keystroke in the active tab is persisted independently by the
+  // wrap-actions.js setContent wrapper, straight to localStorage -- it does
+  // NOT flow through this component's state. So every mutation here must
+  // start from a fresh getWorkspace() read, not the last-rendered `workspace`
+  // (or a ref mirroring it), or it would save a stale snapshot over that
+  // content the moment a tab is added/closed/switched/renamed.
   const applyWorkspace = (next, { activateContent } = {}) => {
-    workspaceRef.current = next;
     saveWorkspace(next);
     setWorkspace(next);
     if (activateContent) {
@@ -38,21 +40,21 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   };
 
   const handleSwitch = (tabId) => {
-    const { current } = workspaceRef;
+    const current = getWorkspace();
     if (tabId === current.activeTabId) return;
     applyWorkspace(setActiveTab(current, tabId), { activateContent: true });
   };
 
   const handleAdd = () => {
-    applyWorkspace(addTab(workspaceRef.current), { activateContent: true });
+    applyWorkspace(addTab(getWorkspace()), { activateContent: true });
   };
 
   const handleDuplicate = (tabId) => {
-    applyWorkspace(duplicateTab(workspaceRef.current, tabId), { activateContent: true });
+    applyWorkspace(duplicateTab(getWorkspace(), tabId), { activateContent: true });
   };
 
   const handleClose = (tabId) => {
-    const { current } = workspaceRef;
+    const current = getWorkspace();
     const wasActive = tabId === current.activeTabId;
     applyWorkspace(closeTab(current, tabId), { activateContent: wasActive });
   };
@@ -66,7 +68,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     if (cancelRenameRef.current) {
       cancelRenameRef.current = false;
     } else {
-      applyWorkspace(renameTab(workspaceRef.current, renamingTabId, renameValue));
+      applyWorkspace(renameTab(getWorkspace(), renamingTabId, renameValue));
     }
     setRenamingTabId(null);
   };
@@ -103,7 +105,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     const handleKeyDown = (event) => {
       if (!event.altKey) return;
 
-      const { tabs, activeTabId } = workspaceRef.current;
+      const { tabs, activeTabId } = getWorkspace();
 
       if (event.key >= '1' && event.key <= '9') {
         const index = Number(event.key) - 1;

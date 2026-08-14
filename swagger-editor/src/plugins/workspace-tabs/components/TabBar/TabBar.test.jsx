@@ -60,6 +60,30 @@ describe('TabBar', () => {
     );
   });
 
+  test('switching tabs does not clobber content written to storage after mount (regression: typing then switching used to lose edits)', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    // Simulate the editor's debounced setContent wrap-action persisting a
+    // keystroke straight to storage, bypassing this component's own state --
+    // exactly what happens when the user types after this component mounts.
+    const editedWorkspace = workspaceTabsService.updateTabContent(
+      threeTabWorkspace(),
+      'a',
+      'a-content-edited-after-mount'
+    );
+    workspaceTabsService.getWorkspace.mockReturnValue(editedWorkspace);
+
+    fireEvent.click(screen.getByText('Tab 2'));
+
+    expect(workspaceTabsService.saveWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabs: expect.arrayContaining([
+          expect.objectContaining({ id: 'a', content: 'a-content-edited-after-mount' }),
+        ]),
+      })
+    );
+  });
+
   test('the "+" button adds a new blank tab and activates it', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
