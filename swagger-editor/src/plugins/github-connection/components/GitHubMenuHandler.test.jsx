@@ -213,6 +213,35 @@ describe('GitHubMenuHandler', () => {
     );
   });
 
+  test('token name/description reflect the actual configured storage repo, not a hardcoded name (fork/rename safe)', async () => {
+    aggregationStorageService.getStorageSettings.mockReturnValue({
+      owner: 'someoneelse',
+      repo: 'my-forked-editor',
+      branch: 'aggregation-data',
+    });
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+    await openModal(ref);
+    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
+      target: { value: 'manage-private' },
+    });
+
+    expect(githubConnectionService.buildTokenCreationUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: 'write',
+        name: 'my-forked-editor (repo token)',
+        description: 'Write access for saving aggregation sets in someoneelse/my-forked-editor',
+      })
+    );
+    expect(githubConnectionService.buildTokenCreationUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: 'read',
+        name: 'my-forked-editor (read-only)',
+      })
+    );
+  });
+
   test('"manage sets, private specs" shows both token fields, each with its own create-token link', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);

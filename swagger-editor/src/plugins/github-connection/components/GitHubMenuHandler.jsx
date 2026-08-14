@@ -107,18 +107,26 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
     setIsTesting(false);
   };
 
+  // Named after the actual configured storage repo, not a hardcoded
+  // "swagger-editor-github" -- this app may be forked or the repo renamed,
+  // and storage.repo (defaulted from the deployed Pages URL, or explicitly
+  // set under Aggregate -> Manage Sets -> Storage location) reflects that.
+  const repoLabel =
+    storage.owner && storage.repo ? `${storage.owner}/${storage.repo}` : 'this repo';
+  const tokenName = storage.repo || 'swagger-editor-github';
+
   const readOnlyTokenUrl = buildTokenCreationUrl({
     apiBaseUrl,
     contents: 'read',
-    name: 'swagger-editor-github (read-only)',
-    description: 'Read-only access for browsing/aggregating in swagger-editor-github',
+    name: `${tokenName} (read-only)`,
+    description: `Read-only access for browsing/aggregating private specs (for use with ${tokenName})`,
   });
   const writeTokenUrl = buildTokenCreationUrl({
     apiBaseUrl,
     contents: 'write',
     targetName: storage.owner || undefined,
-    name: 'swagger-editor-github (repo token)',
-    description: 'Write access for saving aggregation sets in swagger-editor-github',
+    name: `${tokenName} (repo token)`,
+    description: `Write access for saving aggregation sets in ${repoLabel}`,
   });
 
   return (
