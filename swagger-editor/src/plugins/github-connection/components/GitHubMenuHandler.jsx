@@ -227,8 +227,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                 )}{' '}
                 On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
                 <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
-                reading — GitHub doesn&apos;t let a link preset that part, it opens on{' '}
-                <strong>All repositories</strong> by default.
+                reading.
               </p>
             )}
             {(intent === INTENTS.MANAGE_PUBLIC || intent === INTENTS.MANAGE_PRIVATE) && (
@@ -240,9 +239,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                   </Link>
                 )}{' '}
                 On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
-                <strong>Only select repositories</strong> and pick <code>{repoLabel}</code> — GitHub
-                doesn&apos;t let a link preset that part, it opens on{' '}
-                <strong>All repositories</strong> by default.
+                <strong>Only select repositories</strong> and pick <code>{repoLabel}</code>.
               </p>
             )}
           </div>
@@ -271,8 +268,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
               )}{' '}
               On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
               <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
-              reading — GitHub doesn&apos;t let a link preset that part, it opens on{' '}
-              <strong>All repositories</strong> by default.
+              reading.
             </p>
           </div>
         )}
