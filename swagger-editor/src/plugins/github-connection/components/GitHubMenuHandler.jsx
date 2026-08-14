@@ -224,7 +224,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                   <Link href={readOnlyTokenUrl} target="_blank">
                     Create a read-only token →
                   </Link>
-                )}
+                )}{' '}
+                On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
+                <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
+                reading — GitHub doesn&apos;t let a link preset that part, it opens on{' '}
+                <strong>All repositories</strong> by default.
               </p>
             )}
             {(intent === INTENTS.MANAGE_PUBLIC || intent === INTENTS.MANAGE_PRIVATE) && (
@@ -234,7 +238,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                   <Link href={writeTokenUrl} target="_blank">
                     Create a write token →
                   </Link>
-                )}
+                )}{' '}
+                On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
+                <strong>Only select repositories</strong> and pick <code>{repoLabel}</code> — GitHub
+                doesn&apos;t let a link preset that part, it opens on{' '}
+                <strong>All repositories</strong> by default.
               </p>
             )}
           </div>
@@ -260,7 +268,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                 <Link href={readOnlyTokenUrl} target="_blank">
                   Create a read-only token →
                 </Link>
-              )}
+              )}{' '}
+              On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
+              <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
+              reading — GitHub doesn&apos;t let a link preset that part, it opens on{' '}
+              <strong>All repositories</strong> by default.
             </p>
           </div>
         )}
