@@ -1,0 +1,75 @@
+.swagger-editor {
+  &__tab-bar {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    background-color: #0e2a38;
+    padding: 0 0.5rem;
+    overflow-x: auto;
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    margin: 0 0.25rem;
+    padding: 0 0.25rem 0 0.75rem;
+    border-radius: 4px 4px 0 0;
+    background-color: #173647;
+    white-space: nowrap;
+
+    &--active {
+      background-color: #ffffff;
+
+      .swagger-editor__tab-name {
+        color: #3b4151;
+      }
+
+      .swagger-editor__tab-action {
+        color: #3b4151;
+      }
+    }
+  }
+
+  &__tab-name {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0 0.5rem 0 0;
+  }
+
+  &__tab-action {
+    background: none;
+    border: none;
+    color: white;
+    opacity: 0.75;
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0.25rem;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__tab-add {
+    background: none;
+    border: 1px solid white;
+    border-radius: 4px;
+    color: white;
+    opacity: 0.75;
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    margin-left: 0.25rem;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}

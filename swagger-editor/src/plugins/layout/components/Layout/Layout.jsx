@@ -5,6 +5,7 @@ const Layout = ({ getComponent, useSwaggerEditorReactModal, useSplashScreen }) =
   const EditorPane = getComponent('EditorPane', true);
   const EditorPreviewPane = getComponent('EditorPreviewPane', true);
   const TopBar = getComponent('TopBar', true);
+  const WorkspaceTabsBar = getComponent('WorkspaceTabsBar', true);
   const Container = getComponent('Container'); // accessed from swagger-ui`
   const Dropzone = getComponent('Dropzone', true);
   const SplashScreen = getComponent('SplashScreen', true);
@@ -17,6 +18,7 @@ const Layout = ({ getComponent, useSwaggerEditorReactModal, useSplashScreen }) =
       {canDisplayLayout && (
         <>
           <TopBar />
+          {WorkspaceTabsBar && <WorkspaceTabsBar />}
           <Container className="container">
             <Dropzone>
               <SplitPane split="vertical">

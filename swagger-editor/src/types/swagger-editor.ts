@@ -21,7 +21,7 @@ enum pluginNames {
   EditorContentReadOnly = 'EditorContentReadOnly',
   EditorContentOrigin = 'EditorContentOrigin',
   EditorContentType = 'EditorContentType',
-  EditorContentPersistence = 'EditorContentPersistence',
+  WorkspaceTabs = 'WorkspaceTabs',
   EditorContentFixtures = 'EditorContentFixtures',
   EditorContentFromFile = 'EditorContentFromFile',
   EditorPreview = 'EditorPreview',

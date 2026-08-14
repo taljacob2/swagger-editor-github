@@ -1,13 +1,10 @@
 import { setContent as setContentWrap } from './extensions/editor-textarea/wrap-actions.js';
-import { editorContentPersistence } from './root-injects.js';
 import afterLoad from './after-load.js';
+import TabBar from './components/TabBar/TabBar.jsx';
 
-const EditorContentPersistencePlugin = () => {
+const WorkspaceTabsPlugin = () => {
   return {
     afterLoad,
-    rootInjects: {
-      editorContentPersistence,
-    },
     statePlugins: {
       editor: {
         wrapActions: {
@@ -15,7 +12,10 @@ const EditorContentPersistencePlugin = () => {
         },
       },
     },
+    components: {
+      WorkspaceTabsBar: TabBar,
+    },
   };
 };
 
-export default EditorContentPersistencePlugin;
+export default WorkspaceTabsPlugin;
