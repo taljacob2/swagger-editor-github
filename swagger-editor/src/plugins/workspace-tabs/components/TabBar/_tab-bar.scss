@@ -28,6 +28,10 @@
       .swagger-editor__tab-action {
         color: #3b4151;
       }
+
+      .swagger-editor__tab-name-input {
+        color: #3b4151;
+      }
     }
   }
 
@@ -39,6 +43,21 @@
     font-weight: 500;
     cursor: pointer;
     padding: 0 0.5rem 0 0;
+  }
+
+  &__tab-name-input {
+    background: none;
+    border: none;
+    border-bottom: 1px solid currentColor;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0 0.5rem 0 0;
+    width: 6rem;
+
+    &:focus {
+      outline: none;
+    }
   }
 
   &__tab-action {

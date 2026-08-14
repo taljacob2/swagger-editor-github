@@ -90,6 +90,17 @@ export function updateTabContent(workspace, tabId, content) {
   };
 }
 
+export function renameTab(workspace, tabId, name) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return workspace;
+  }
+  return {
+    ...workspace,
+    tabs: workspace.tabs.map((tab) => (tab.id === tabId ? { ...tab, name: trimmed } : tab)),
+  };
+}
+
 export async function copyTabContentToClipboard(content) {
   await navigator.clipboard.writeText(content);
 }

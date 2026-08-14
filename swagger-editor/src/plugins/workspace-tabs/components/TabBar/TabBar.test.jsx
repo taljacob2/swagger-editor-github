@@ -154,6 +154,57 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('c-content', 'local-storage');
   });
 
+  test('double-clicking a tab name enters rename mode, and Enter commits the new name', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.doubleClick(screen.getByText('Tab 1'));
+    const input = screen.getByDisplayValue('Tab 1');
+    fireEvent.change(input, { target: { value: 'My API' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(screen.getByText('My API')).toBeInTheDocument();
+    expect(workspaceTabsService.saveWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tabs: expect.arrayContaining([expect.objectContaining({ id: 'a', name: 'My API' })]),
+      })
+    );
+  });
+
+  test('blurring the rename input commits the new name', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.doubleClick(screen.getByText('Tab 1'));
+    const input = screen.getByDisplayValue('Tab 1');
+    fireEvent.change(input, { target: { value: 'Renamed' } });
+    fireEvent.blur(input);
+
+    expect(screen.getByText('Renamed')).toBeInTheDocument();
+  });
+
+  test('Escape cancels the rename without saving', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.doubleClick(screen.getByText('Tab 1'));
+    const input = screen.getByDisplayValue('Tab 1');
+    fireEvent.change(input, { target: { value: 'Discarded' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(screen.getByText('Tab 1')).toBeInTheDocument();
+    expect(screen.queryByText('Discarded')).not.toBeInTheDocument();
+    expect(workspaceTabsService.saveWorkspace).not.toHaveBeenCalled();
+  });
+
+  test('an empty (or whitespace-only) name is a no-op, leaving the original name in place', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.doubleClick(screen.getByText('Tab 1'));
+    const input = screen.getByDisplayValue('Tab 1');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(screen.getByText('Tab 1')).toBeInTheDocument();
+  });
+
   test('digit keys without Alt are ignored', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 

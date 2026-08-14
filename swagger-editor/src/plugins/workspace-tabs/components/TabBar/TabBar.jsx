@@ -8,6 +8,7 @@ import {
   duplicateTab,
   getActiveTab,
   getWorkspace,
+  renameTab,
   saveWorkspace,
   setActiveTab,
 } from '../../workspace-tabs-service.js';
@@ -17,9 +18,15 @@ const COPIED_FEEDBACK_DURATION_MS = 1500;
 const TabBar = ({ editorActions, EditorContentOrigin }) => {
   const [workspace, setWorkspace] = useState(() => getWorkspace());
   const [copiedTabId, setCopiedTabId] = useState(null);
+  const [renamingTabId, setRenamingTabId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
   // Keyboard shortcuts are bound once on mount, so handlers read the latest
   // workspace through this ref rather than closing over stale render state.
   const workspaceRef = useRef(workspace);
+  // Escape blurs the rename input (to unify save/cancel into one onBlur path),
+  // so this flag tells that handler to discard instead of commit.
+  const cancelRenameRef = useRef(false);
+  const renameInputRef = useRef(null);
 
   const applyWorkspace = (next, { activateContent } = {}) => {
     workspaceRef.current = next;
@@ -49,6 +56,36 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     const wasActive = tabId === current.activeTabId;
     applyWorkspace(closeTab(current, tabId), { activateContent: wasActive });
   };
+
+  const handleStartRename = (tab) => {
+    setRenamingTabId(tab.id);
+    setRenameValue(tab.name);
+  };
+
+  const handleRenameBlur = () => {
+    if (cancelRenameRef.current) {
+      cancelRenameRef.current = false;
+    } else {
+      applyWorkspace(renameTab(workspaceRef.current, renamingTabId, renameValue));
+    }
+    setRenamingTabId(null);
+  };
+
+  const handleRenameKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.currentTarget.blur();
+    } else if (event.key === 'Escape') {
+      cancelRenameRef.current = true;
+      event.currentTarget.blur();
+    }
+  };
+
+  useEffect(() => {
+    if (renamingTabId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingTabId]);
 
   const handleCopy = async (tab) => {
     try {
@@ -102,13 +139,27 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
               : 'swagger-editor__tab'
           }
         >
-          <button
-            type="button"
-            className="swagger-editor__tab-name"
-            onClick={() => handleSwitch(tab.id)}
-          >
-            {tab.name}
-          </button>
+          {renamingTabId === tab.id ? (
+            <input
+              ref={renameInputRef}
+              type="text"
+              className="swagger-editor__tab-name-input"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              onBlur={handleRenameBlur}
+              onKeyDown={handleRenameKeyDown}
+            />
+          ) : (
+            <button
+              type="button"
+              className="swagger-editor__tab-name"
+              onClick={() => handleSwitch(tab.id)}
+              onDoubleClick={() => handleStartRename(tab)}
+              title="Double-click to rename"
+            >
+              {tab.name}
+            </button>
+          )}
           <button
             type="button"
             className="swagger-editor__tab-action"

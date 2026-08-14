@@ -5,6 +5,7 @@ import {
   duplicateTab,
   getActiveTab,
   getWorkspace,
+  renameTab,
   saveWorkspace,
   setActiveTab,
   updateTabContent,
@@ -198,6 +199,31 @@ describe('workspace-tabs-service', () => {
         { id: 'a', name: 'Tab 1', content: 'new' },
         { id: 'b', name: 'Tab 2', content: 'untouched' },
       ]);
+    });
+  });
+
+  describe('renameTab', () => {
+    test('renames only the matching tab, trimming surrounding whitespace', () => {
+      const workspace = {
+        tabs: [
+          { id: 'a', name: 'Tab 1', content: '' },
+          { id: 'b', name: 'Tab 2', content: '' },
+        ],
+        activeTabId: 'a',
+      };
+
+      const next = renameTab(workspace, 'a', '  My API  ');
+
+      expect(next.tabs).toEqual([
+        { id: 'a', name: 'My API', content: '' },
+        { id: 'b', name: 'Tab 2', content: '' },
+      ]);
+    });
+
+    test('is a no-op when the trimmed name is empty', () => {
+      const workspace = { tabs: [{ id: 'a', name: 'Tab 1', content: '' }], activeTabId: 'a' };
+
+      expect(renameTab(workspace, 'a', '   ')).toBe(workspace);
     });
   });
 
