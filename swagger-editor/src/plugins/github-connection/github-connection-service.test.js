@@ -16,10 +16,11 @@ describe('github-connection-service', () => {
   });
 
   describe('getConnectionSettings', () => {
-    test('defaults to api.github.com with no token when nothing is stored', async () => {
+    test('defaults to api.github.com with no tokens when nothing is stored', async () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        fetchToken: '',
       });
     });
 
@@ -28,6 +29,7 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        fetchToken: '',
       });
     });
 
@@ -40,6 +42,7 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: 'legacy-plain-token',
+        fetchToken: '',
       });
     });
 
@@ -49,6 +52,7 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: 'https://api.mycompany.ghe.com',
         token: '',
+        fetchToken: '',
       });
     });
 
@@ -70,6 +74,7 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: 'https://api.mycompany.ghe.com',
         token: 'good-token',
+        fetchToken: '',
       });
     });
 
@@ -89,6 +94,44 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        fetchToken: '',
+      });
+    });
+
+    test('round-trips and encrypts fetchToken independently of token', async () => {
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'repo-token-value',
+        fetchToken: 'fetch-token-value',
+      });
+
+      const stored = JSON.parse(localStorage.getItem('github-editor:connection'));
+      expect(stored.fetchToken).not.toBe('fetch-token-value');
+      expect(stored.fetchToken).not.toContain('fetch-token-value');
+      expect(stored.token).not.toBe(stored.fetchToken);
+
+      const settings = await getConnectionSettings();
+      expect(settings.token).toBe('repo-token-value');
+      expect(settings.fetchToken).toBe('fetch-token-value');
+    });
+
+    test('saving a new token does not clobber a previously saved fetchToken, or vice versa', async () => {
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'first-token',
+        fetchToken: 'first-fetch-token',
+      });
+
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'second-token',
+        fetchToken: 'first-fetch-token',
+      });
+
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'second-token',
+        fetchToken: 'first-fetch-token',
       });
     });
   });

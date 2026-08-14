@@ -51,7 +51,11 @@ const STORAGE_SETTINGS = {
   repo: 'swagger-editor-github',
   branch: 'aggregation-data',
 };
-const CONNECTION_SETTINGS = { apiBaseUrl: 'https://api.github.com', token: 'test-token' };
+const CONNECTION_SETTINGS = {
+  apiBaseUrl: 'https://api.github.com',
+  token: 'test-token',
+  fetchToken: '',
+};
 const EDITOR_CONTENT_ORIGIN = { Aggregation: 'aggregation' };
 
 const openModal = async (ref) => {

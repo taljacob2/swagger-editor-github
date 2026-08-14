@@ -13,12 +13,16 @@ StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.n
 const StubPassthrough = ({ children }) => <div>{children}</div>;
 StubPassthrough.propTypes = { children: PropTypes.node.isRequired };
 
+const StubLink = ({ href, children }) => <a href={href}>{children}</a>;
+StubLink.propTypes = { href: PropTypes.string.isRequired, children: PropTypes.node.isRequired };
+
 const stubComponents = {
   Modal: StubModal,
   ModalHeader: StubPassthrough,
   ModalTitle: StubPassthrough,
   ModalBody: StubPassthrough,
   ModalFooter: StubPassthrough,
+  Link: StubLink,
 };
 
 const getComponent = (name) => stubComponents[name];
@@ -34,6 +38,7 @@ describe('GitHubMenuHandler', () => {
     githubConnectionService.getConnectionSettings.mockResolvedValue({
       apiBaseUrl: 'https://api.github.com',
       token: 'stored-token',
+      fetchToken: 'stored-fetch-token',
     });
     githubConnectionService.saveConnectionSettings.mockImplementation(async (settings) => settings);
     githubConnectionService.testConnection.mockResolvedValue({
@@ -52,7 +57,12 @@ describe('GitHubMenuHandler', () => {
 
     expect(githubConnectionService.getConnectionSettings).toHaveBeenCalled();
     expect(screen.getByLabelText('API base URL')).toHaveValue('https://api.github.com');
-    expect(screen.getByLabelText('Personal access token')).toHaveValue('stored-token');
+    expect(screen.getByLabelText('Repo token (write access to this repo)')).toHaveValue(
+      'stored-token'
+    );
+    expect(screen.getByLabelText('Fetch token (optional — read-only, private repos)')).toHaveValue(
+      'stored-fetch-token'
+    );
   });
 
   test('Save persists edited fields via saveConnectionSettings', async () => {
@@ -64,8 +74,11 @@ describe('GitHubMenuHandler', () => {
     fireEvent.change(screen.getByLabelText('API base URL'), {
       target: { value: 'https://api.mycompany.ghe.com' },
     });
-    fireEvent.change(screen.getByLabelText('Personal access token'), {
+    fireEvent.change(screen.getByLabelText('Repo token (write access to this repo)'), {
       target: { value: 'new-token' },
+    });
+    fireEvent.change(screen.getByLabelText('Fetch token (optional — read-only, private repos)'), {
+      target: { value: 'new-fetch-token' },
     });
     await act(async () => {
       fireEvent.click(screen.getByText('Save'));
@@ -74,6 +87,7 @@ describe('GitHubMenuHandler', () => {
     expect(githubConnectionService.saveConnectionSettings).toHaveBeenCalledWith({
       apiBaseUrl: 'https://api.mycompany.ghe.com',
       token: 'new-token',
+      fetchToken: 'new-fetch-token',
     });
     expect(screen.getByText('Saved.')).toBeInTheDocument();
   });

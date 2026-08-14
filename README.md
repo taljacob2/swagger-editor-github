@@ -10,6 +10,12 @@ This is the GitHub-native sibling of [`swagger-editor-gitlab`](https://github.co
 
 Early scaffolding — see [docs/Design.md](docs/Design.md) for the full architecture and a progress checklist. Not yet functional.
 
+## Permissions
+
+This app has no backend — every user brings their own GitHub token(s). See
+[docs/Permissions.md](docs/Permissions.md) for how to create them and what that means for teams
+where not everyone has access to the same repos.
+
 ## Development
 
 ```bash

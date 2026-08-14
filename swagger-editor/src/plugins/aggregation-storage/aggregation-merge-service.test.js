@@ -38,6 +38,24 @@ describe('fetchSpec', () => {
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/openapi.yaml', { headers: {} });
   });
 
+  test('prefers a dedicated fetchToken over the main token when both are set', async () => {
+    const connection = { ...CONNECTION, fetchToken: 'read-only-fetch-token' };
+    await fetchSpec('https://api.github.com/repos/x/y/contents/z', connection);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/x/y/contents/z',
+      expect.objectContaining({ headers: { Authorization: 'Bearer read-only-fetch-token' } })
+    );
+  });
+
+  test('falls back to the main token when fetchToken is not set', async () => {
+    const connection = { ...CONNECTION, fetchToken: '' };
+    await fetchSpec('https://api.github.com/repos/x/y/contents/z', connection);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/x/y/contents/z',
+      expect.objectContaining({ headers: { Authorization: 'Bearer test-token' } })
+    );
+  });
+
   test('throws with the status on a non-OK response', async () => {
     global.fetch.mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
     await expect(fetchSpec('https://example.com/openapi.yaml', CONNECTION)).rejects.toThrow('404');

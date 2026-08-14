@@ -30,9 +30,13 @@ function shouldAttachToken(url, apiBaseUrl) {
 }
 
 export async function fetchSpec(url, connection) {
+  // Prefer a dedicated read-only fetch token when one is set, so a token
+  // scoped only to fetching specs never needs the broader write access the
+  // main repo token carries. Falls back to the repo token when unset.
+  const token = connection.fetchToken || connection.token;
   const headers = {};
-  if (connection.token && shouldAttachToken(url, connection.apiBaseUrl)) {
-    headers.Authorization = `Bearer ${connection.token}`;
+  if (token && shouldAttachToken(url, connection.apiBaseUrl)) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(url, { headers });

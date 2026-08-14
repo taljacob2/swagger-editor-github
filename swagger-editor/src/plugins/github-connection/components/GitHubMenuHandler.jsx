@@ -11,6 +11,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [token, setToken] = useState('');
+  const [fetchToken, setFetchToken] = useState('');
   const [status, setStatus] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
 
@@ -19,12 +20,14 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const ModalTitle = getComponent('ModalTitle');
   const ModalBody = getComponent('ModalBody');
   const ModalFooter = getComponent('ModalFooter');
+  const Link = getComponent('Link');
 
   useImperativeHandle(ref, () => ({
     async openModal() {
       const settings = await getConnectionSettings();
       setApiBaseUrl(settings.apiBaseUrl);
       setToken(settings.token);
+      setFetchToken(settings.fetchToken);
       setStatus(null);
       setIsOpen(true);
     },
@@ -34,9 +37,10 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
 
   const handleApiBaseUrlChange = (event) => setApiBaseUrl(event.target.value);
   const handleTokenChange = (event) => setToken(event.target.value);
+  const handleFetchTokenChange = (event) => setFetchToken(event.target.value);
 
   const handleSaveClick = async () => {
-    await saveConnectionSettings({ apiBaseUrl, token });
+    await saveConnectionSettings({ apiBaseUrl, token, fetchToken });
     setStatus({ ok: true, message: 'Saved.' });
   };
 
@@ -78,7 +82,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
         <div className="input-group">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label htmlFor="input-github-token" aria-labelledby="input-github-token">
-            Personal access token
+            Repo token (write access to this repo)
           </label>
           <input
             id="input-github-token"
@@ -90,7 +94,34 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           />
           <p className="help-block">
             Stored in this browser&apos;s local storage only, and sent only to the API base URL
-            above.
+            above. Used to save aggregation sets, and to fetch specs unless a fetch token below is
+            set.
+          </p>
+        </div>
+        <div className="input-group">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label htmlFor="input-github-fetch-token" aria-labelledby="input-github-fetch-token">
+            Fetch token (optional — read-only, private repos)
+          </label>
+          <input
+            id="input-github-fetch-token"
+            type="password"
+            className="form-control"
+            placeholder="Leave blank to reuse the repo token above"
+            value={fetchToken}
+            onChange={handleFetchTokenChange}
+          />
+          <p className="help-block">
+            Only needed if an aggregation set references a private repo — lets you use a read-only
+            token there instead of granting the repo token above broader access than saving sets
+            requires. See{' '}
+            <Link
+              href="https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md"
+              target="_blank"
+            >
+              docs/Permissions.md
+            </Link>{' '}
+            for a step-by-step walkthrough.
           </p>
         </div>
         {status && <p className={status.ok ? 'text-success' : 'text-danger'}>{status.message}</p>}

@@ -112,26 +112,32 @@ export async function getConnectionSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '' };
+      return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '', fetchToken: '' };
     }
     const parsed = JSON.parse(raw);
     return {
       apiBaseUrl: parsed.apiBaseUrl || resolveDefaultApiBaseUrl(),
       token: await decryptToken(parsed.token || ''),
+      fetchToken: await decryptToken(parsed.fetchToken || ''),
     };
   } catch {
-    return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '' };
+    return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '', fetchToken: '' };
   }
 }
 
-export async function saveConnectionSettings({ apiBaseUrl, token }) {
+export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) {
   const settings = {
     apiBaseUrl: stripTrailingSlashes(apiBaseUrl || resolveDefaultApiBaseUrl()),
     token: token || '',
+    fetchToken: fetchToken || '',
   };
   localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({ ...settings, token: await encryptToken(settings.token) })
+    JSON.stringify({
+      ...settings,
+      token: await encryptToken(settings.token),
+      fetchToken: await encryptToken(settings.fetchToken),
+    })
   );
   return settings;
 }
