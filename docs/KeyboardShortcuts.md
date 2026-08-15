@@ -36,6 +36,17 @@ own independent history.
 | `Ctrl+Y` (`Cmd+Y`) | Redo |
 | `Ctrl+Shift+Z` (`Cmd+Shift+Z`) | Redo (alternate binding) |
 
+## Command palette
+
+| Shortcut | Action |
+| --- | --- |
+| `F1` | Open Monaco's Command Palette (unmodified default binding) |
+
+The palette includes a **Resolve document** command that dereferences every `$ref` in the active
+tab — including refs into other files — and replaces the editor content with the expanded spec.
+See [docs/ResolvingReferences.md](ResolvingReferences.md) for this and two other ways to get a
+fully resolved spec.
+
 ## Notes for contributors
 
 - The tab shortcuts are letter-based (`T`/`Q`/`S`/`A`/`X`) rather than following a strict mnemonic

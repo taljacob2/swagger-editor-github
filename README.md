@@ -38,6 +38,13 @@ The editor supports a multi-tab workspace with keyboard shortcuts for switching,
 undoing/redoing changes in tabs — see [docs/KeyboardShortcuts.md](docs/KeyboardShortcuts.md) for
 the full list.
 
+## Working with `$ref` across files
+
+Specs can reference schemas/parameters/responses defined in a completely different file via `$ref`
+— and this app gives you three ways to see or export the fully resolved result, including
+repurposing the built-in "Generate Client" menu as a spec bundler. See
+[docs/ResolvingReferences.md](docs/ResolvingReferences.md).
+
 ## License
 
 This repository is licensed under the [Apache License, Version 2.0](LICENSE). It vendors and
