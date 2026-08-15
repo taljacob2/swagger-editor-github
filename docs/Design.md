@@ -1,6 +1,6 @@
 # Design: GitHub Pages Swagger Aggregator
 
-> **Status:** Scaffolding in progress. Swagger Editor 5.8.4 is vendored under [`swagger-editor/`](../swagger-editor). Aggregation-set storage, code generation, and the GitLab-merge-request → GitHub-pull-request plugin port are not yet implemented — see [Progress](#progress) below.
+> **Status:** Scaffolding in progress. Swagger Editor 5.8.4 is vendored under [`swagger-editor/`](../swagger-editor). Aggregation-set storage is implemented; the GitLab-merge-request → GitHub-pull-request plugin port is not yet implemented — see [Progress](#progress) below.
 
 ## Overview
 
@@ -11,9 +11,9 @@ The key architectural difference from that project is that this one has **no bac
 ## Goals
 
 - Deployable as a 100% static site (GitHub Pages) — no server to run or host.
-- No self-hosted backend, and critically, **no dependency on reaching any on-prem network** (the codegen piece in particular must never require routing traffic into a private VLAN).
+- No self-hosted backend, and critically, **no dependency on reaching any on-prem network**.
 - Works against both **github.com** (personal-account development/testing) and **GitHub Enterprise Cloud with a custom domain** (production), switchable via configuration only — no code fork between the two.
-- Forkable: someone who forks this repo gets working aggregation-set storage and code generation automatically, without standing up a second repo or any external infrastructure.
+- Forkable: someone who forks this repo gets working aggregation-set storage automatically, without standing up a second repo or any external infrastructure.
 
 ## Base
 
@@ -40,15 +40,17 @@ Replaces the other repo's `/srv/aggregation-sets` disk storage + `createBackup()
 
 ## Code generation
 
-Replaces the other repo's `/swaggergen` proxy + `swaggerapi/swagger-generator-v3` container in its `docker-compose.yaml`.
+Needs no custom design: vendored Swagger Editor already ships "Generate Client"/"Generate Server"
+menus (`src/plugins/top-bar/components/GenerateServerMenu/`, wired into `TopBar.jsx`) that call the
+public `generator3.swagger.io` (OpenAPI 3) and `generator.swagger.io` (OpenAPI 2) services directly
+from the browser — no backend, no GitHub Actions workflow, no self-hosted generator container.
 
-1. **Handoff**: frontend commits the bundled spec to the data branch, e.g. `codegen-requests/<correlation-id>.yaml`.
-2. **Trigger**: `POST /repos/{owner}/{repo}/actions/workflows/codegen.yml/dispatches` (`workflow_dispatch`, inputs: `correlation_id`, `generator`, `language`) — same PAT, same direct-from-browser call, inherently access-controlled to users with `actions:write` on the repo.
-3. **Run**: workflow checks out the spec and runs `swaggerapi/swagger-generator-v3` against it.
-4. **Retention**: output uploaded via `actions/upload-artifact` with `retention-days: 1` — native expiry, no cleanup workflow.
-5. **Delivery**: frontend polls `GET /repos/{owner}/{repo}/actions/artifacts?name=<correlation-id>` until it appears, then links to the parent Actions run page (`https://github.com/{owner}/{repo}/actions/runs/{run_id}`) for the user to download via their own logged-in session — not a direct artifact-bytes fetch, since that endpoint needs an auth header a plain link can't send, its redirect target isn't reliably CORS-enabled for `fetch`, and the resulting URL is short-lived anyway.
-
-All codegen traffic routes through GitHub's own infrastructure — nothing is ever exposed on the public internet as a standalone service, and nothing requires reaching an on-prem network.
+An earlier design here replaced the other repo's `/swaggergen` proxy + self-hosted
+`swaggerapi/swagger-generator-v3` container with a `codegen.yml` GitHub Actions workflow
+(`workflow_dispatch` → run the container in CI → upload an artifact). That was genuinely redundant
+with the built-in menus above — same job, just slower (waiting on a CI run) and with real
+infrastructure (a workflow, artifact polling, correlation IDs) standing in for something that
+already works with zero configuration — so it was removed rather than finished.
 
 ## Hosting
 
@@ -60,7 +62,6 @@ Develop against this personal github.com repo, then point the API base URL and s
 
 ## Security notes
 
-- Codegen workflow only triggerable by users with write/`actions` access — same trust boundary as git write access.
 - No service is ever exposed as a standalone public endpoint — all compute runs inside GitHub-hosted Actions runners, on demand.
 - No part of this design requires network access into an on-prem VLAN.
 - **No shared credential exists anywhere in this app** — every user brings their own token(s), so per-repo/per-team access control (e.g. a GHEC org where one team can't see another's private repos) is enforced by GitHub itself, per-request, for free. Nobody can see more through this app than their own GitHub account already allows. See [docs/Permissions.md](Permissions.md) for the full explanation, including the one subtlety worth knowing: a saved set's *URL list* is only as private as read access to the storage repo, even though the *content* behind a private URL stays properly gated.
@@ -74,10 +75,9 @@ Develop against this personal github.com repo, then point the API base URL and s
 - [x] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API) — `Aggregate` menu in the top bar, `src/plugins/aggregation-storage/`. Storage location (owner/repo/branch) is user-editable; sets can be created/edited/deleted, but the actual multi-service bundling/merge logic is still the next checklist item.
 - [x] Aggregation plugin port (from `swagger-editor-gitlab`'s `src/plugins/aggregation/`) to v5's plugin system — `aggregation-merge-service.js` ports `mergeSwaggerSpecs`/`fetchAllSpecs` (fixing a real bug along the way: the original only tracked schema-name collisions, so same-named `parameters`/`responses`/etc. across services could silently overwrite each other instead of being prefixed — now every `components/*` sub-collection is tracked independently). Each saved set gets an "Aggregate" button that fetches its URLs, merges them, and loads the result straight into the editor via `editorActions.setContent`. The PAT is only ever attached to requests targeting the configured API host or `raw.githubusercontent.com`, never to an arbitrary third-party URL a set happens to reference.
 - [ ] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s `Topbar.jsx`)
-- [ ] `codegen.yml` workflow (`workflow_dispatch` → `swagger-generator-v3` → artifact with 1-day retention)
-- [ ] Frontend polling + Actions-run-page linking for codegen results
+- [x] Code generation — no port needed; vendored Swagger Editor's built-in "Generate Client"/"Generate Server" menus already call the public generator services directly (see [Code generation](#code-generation)). The custom `codegen.yml` GitHub Actions workflow this repo scaffolded early on was redundant with that and has been removed.
 
 ## Open items — not yet decided
 
-- UI/UX details for surfacing the storage-repo and codegen settings to the user.
+- UI/UX details for surfacing the storage-repo settings to the user.
 - Whether GHEC's Contents/Git Data/Actions API semantics need any adjustment versus github.com's (expected: none, but unverified against a real GHEC org).
