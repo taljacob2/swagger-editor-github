@@ -45,6 +45,12 @@ Specs can reference schemas/parameters/responses defined in a completely differe
 repurposing the built-in "Generate Client" menu as a spec bundler. See
 [docs/ResolvingReferences.md](docs/ResolvingReferences.md).
 
+## Aggregating specs from multiple services
+
+The **Aggregate** menu merges several independent, whole specs — one per microservice, say — into
+a single spec, auto-resolving any path/tag/component name collisions between them. See
+[docs/Aggregation.md](docs/Aggregation.md) for a full worked example.
+
 ## License
 
 This repository is licensed under the [Apache License, Version 2.0](LICENSE). It vendors and

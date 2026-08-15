@@ -27,9 +27,8 @@ teammate's spec, a shared "common types" file your org maintains); the part afte
 JSON Pointer into that file, same as a local `$ref`. This is exactly what lets several
 microservices share one canonical set of schemas instead of copy-pasting them, and it's a plain
 OpenAPI feature — nothing app-specific about the syntax itself. (This app's own
-[aggregation feature](Design.md#aggregation-set-storage) is a related but separate thing — it
-merges several *whole specs* into one under distinct tags, rather than resolving `$ref`s inside a
-single spec.)
+[aggregation feature](Aggregation.md) is a related but separate thing — it merges several *whole
+specs* into one under distinct tags, rather than resolving `$ref`s inside a single spec.)
 
 ## Two different outcomes: fully dereferenced vs. bundled
 
