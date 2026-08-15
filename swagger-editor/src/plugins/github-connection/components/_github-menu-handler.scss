@@ -1,0 +1,73 @@
+.swagger-editor {
+  &__intent-picker {
+    border: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+  }
+
+  &__intent-picker-title {
+    display: block;
+    padding: 0;
+    margin-bottom: 0.5rem;
+    text-align: left;
+    font-size: 0.8rem;
+    color: #758491;
+  }
+
+  &__intent-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 0.75rem 0;
+  }
+
+  &__intent-group-label {
+    padding: 0;
+    margin-bottom: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8e99ab;
+  }
+
+  &__intent-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.4rem;
+    border: 1px solid #b6becb;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #00a0b4;
+    }
+
+    &--selected {
+      border-color: #00a0b4;
+      background-color: rgba(0, 160, 180, 0.06);
+    }
+
+    input[type='radio'] {
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+  }
+
+  &__intent-option-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__intent-option-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #3b4151;
+  }
+
+  &__intent-option-description {
+    font-size: 0.75rem;
+    color: #758491;
+  }
+}

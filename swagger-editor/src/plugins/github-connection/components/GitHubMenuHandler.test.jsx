@@ -144,8 +144,10 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
 
-    expect(screen.getByLabelText('What do you want to do?')).toHaveValue('browse-public');
-    expect(screen.getByText(/Nothing to do — close this and get started/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: /Browse or aggregate — public specs only/ })
+    ).toBeChecked();
+    expect(screen.getByText('Nothing to configure — works anonymously.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Repo token')).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
@@ -163,7 +165,9 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
 
-    expect(screen.getByLabelText('What do you want to do?')).toHaveValue('manage-public');
+    expect(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
+    ).toBeChecked();
   });
 
   test('"browse private" shows only the Repo token field, with a read-only create-token link', async () => {
@@ -171,9 +175,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'browse-private' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Browse or aggregate — includes private specs/ })
+    );
 
     expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
     expect(
@@ -197,9 +201,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'manage-public' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
+    );
 
     expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
     expect(
@@ -223,9 +227,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'manage-private' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — includes private specs/ })
+    );
 
     expect(githubConnectionService.buildTokenCreationUrl).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -247,9 +251,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'manage-private' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — includes private specs/ })
+    );
 
     expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
     expect(
@@ -270,9 +274,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'manage-public' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
+    );
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {
@@ -295,9 +299,9 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'manage-public' },
-    });
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
+    );
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {
@@ -319,9 +323,7 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.change(screen.getByLabelText('What do you want to do?'), {
-      target: { value: 'browse-public' },
-    });
+    fireEvent.click(screen.getByRole('radio', { name: /Browse or aggregate — public specs only/ }));
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {

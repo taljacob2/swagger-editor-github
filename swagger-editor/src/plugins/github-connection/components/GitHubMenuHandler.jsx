@@ -29,6 +29,43 @@ const SHOWS_REPO_TOKEN = new Set([
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
 
+// Phrasing is deliberately parallel across all four -- "<what> — <public/private>"
+// -- so the underlying 2x2 (browse/manage x public/private) reads directly off
+// the labels instead of needing four independently-worded sentences.
+const INTENT_GROUPS = [
+  {
+    label: 'Browsing',
+    options: [
+      {
+        value: INTENTS.BROWSE_PUBLIC,
+        title: 'Browse or aggregate — public specs only',
+        description: 'Nothing to configure — works anonymously.',
+      },
+      {
+        value: INTENTS.BROWSE_PRIVATE,
+        title: 'Browse or aggregate — includes private specs',
+        description: 'Needs one read-only token.',
+      },
+    ],
+  },
+  {
+    label: 'Creating & editing sets',
+    options: [
+      {
+        value: INTENTS.MANAGE_PUBLIC,
+        title: 'Create, edit, or delete sets — public specs only',
+        description: 'Needs one write token, scoped to this repo.',
+      },
+      {
+        value: INTENTS.MANAGE_PRIVATE,
+        title: 'Create, edit, or delete sets — includes private specs',
+        description:
+          'Needs a write token for this repo, plus a read-only token for the private specs.',
+      },
+    ],
+  },
+];
+
 // Guesses which picker option to open with from whatever's already saved, so
 // a returning user's existing token(s) aren't hidden behind the wrong
 // selection -- a first-time user with nothing saved starts at "browse public"
@@ -143,44 +180,48 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           need less than they&apos;d expect, possibly no token at all. Pick what you&apos;re here to
           do and this will tell you exactly what (if anything) to paste below.
         </p>
-        <div className="input-group">
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label htmlFor="input-github-intent" aria-labelledby="input-github-intent">
-            What do you want to do?
-          </label>
-          <select
-            id="input-github-intent"
-            className="form-control"
-            value={intent}
-            onChange={handleIntentChange}
-          >
-            <option value={INTENTS.BROWSE_PUBLIC}>Just browse or aggregate public specs</option>
-            <option value={INTENTS.BROWSE_PRIVATE}>Browse or aggregate something private</option>
-            <option value={INTENTS.MANAGE_PUBLIC}>
-              Create, edit, or delete aggregation sets (everything public)
-            </option>
-            <option value={INTENTS.MANAGE_PRIVATE}>
-              Create/edit/delete sets AND aggregate private specs
-            </option>
-          </select>
+        <fieldset className="input-group swagger-editor__intent-picker">
+          <legend className="swagger-editor__intent-picker-title">What do you want to do?</legend>
 
-          {intent === INTENTS.BROWSE_PUBLIC && (
-            <p className="help-block">
-              Nothing to do — close this and get started. Everything works anonymously as long as
-              what you&apos;re browsing/aggregating is public.
-            </p>
-          )}
+          {INTENT_GROUPS.map((group) => (
+            <fieldset key={group.label} className="swagger-editor__intent-group">
+              <legend className="swagger-editor__intent-group-label">{group.label}</legend>
+              {group.options.map((option) => (
+                // eslint-disable-next-line jsx-a11y/label-has-associated-control
+                <label
+                  key={option.value}
+                  className={
+                    intent === option.value
+                      ? 'swagger-editor__intent-option swagger-editor__intent-option--selected'
+                      : 'swagger-editor__intent-option'
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="github-intent"
+                    value={option.value}
+                    checked={intent === option.value}
+                    onChange={handleIntentChange}
+                  />
+                  <span className="swagger-editor__intent-option-text">
+                    <span className="swagger-editor__intent-option-title">{option.title}</span>
+                    <span className="swagger-editor__intent-option-description">
+                      {option.description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ))}
 
-          {intent !== INTENTS.BROWSE_PUBLIC && (
-            <p className="help-block">
-              See{' '}
-              <Link href={PERMISSIONS_DOC_LINK} target="_blank">
-                docs/Permissions.md
-              </Link>{' '}
-              for the full walkthrough and what each permission tier means.
-            </p>
-          )}
-        </div>
+          <p className="help-block">
+            Full walkthrough of what each option needs and why:{' '}
+            <Link href={PERMISSIONS_DOC_LINK} target="_blank">
+              docs/Permissions.md
+            </Link>
+            .
+          </p>
+        </fieldset>
         <div className="input-group">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label htmlFor="input-github-api-base-url" aria-labelledby="input-github-api-base-url">
