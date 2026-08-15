@@ -134,10 +134,10 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
         return;
       }
 
-      if (event.key === 'PageUp' || event.key === 'PageDown') {
+      if (event.key === '`' || event.key === '~') {
         event.preventDefault();
         const activeIndex = tabs.findIndex((tab) => tab.id === activeTabId);
-        const delta = event.key === 'PageUp' ? -1 : 1;
+        const delta = event.key === '~' ? -1 : 1;
         const nextIndex = (activeIndex + delta + tabs.length) % tabs.length;
         handleSwitch(tabs[nextIndex].id);
       }

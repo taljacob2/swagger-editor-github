@@ -172,20 +172,20 @@ describe('TabBar', () => {
     expect(editorActions.setContent).not.toHaveBeenCalled();
   });
 
-  test('Alt+PageDown moves to the next tab, wrapping around from the last', () => {
+  test('Alt+` moves to the next tab, wrapping around from the last', () => {
     workspaceTabsService.getWorkspaceMeta.mockReturnValue({ ...threeTabMeta(), activeTabId: 'c' });
 
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
-    fireEvent.keyDown(window, { key: 'PageDown', altKey: true });
+    fireEvent.keyDown(window, { key: '`', altKey: true });
 
     expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
   });
 
-  test('Alt+PageUp moves to the previous tab, wrapping around from the first', () => {
+  test('Alt+~ (Alt+Shift+`) moves to the previous tab, wrapping around from the first', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
-    fireEvent.keyDown(window, { key: 'PageUp', altKey: true });
+    fireEvent.keyDown(window, { key: '~', altKey: true, shiftKey: true });
 
     expect(editorActions.setContent).toHaveBeenCalledWith('c-content', 'local-storage');
   });
