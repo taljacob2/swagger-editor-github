@@ -2,10 +2,22 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import * as monaco from 'monaco-editor';
 import noop from 'lodash/noop.js';
+import debounce from 'lodash/debounce.js';
 
 import seVsDarkTheme from '../../themes/se-vs-dark.js';
 import seVsLightTheme from '../../themes/se-vs-light.js';
 import { useMount, useUpdate, useSmoothResize } from './hooks.js';
+import {
+  computeOperations,
+  getHistory,
+  popFuture,
+  popPast,
+  pushPast,
+  removeHistory,
+  saveHistory,
+  toForwardEdits,
+  toInverseEdits,
+} from '../../undo-history.js';
 
 // Used as the model-map key whenever nothing (e.g. no tabs plugin) drives
 // `documentId` -- keeps the single-shared-model behavior byte-for-byte
@@ -45,6 +57,28 @@ const MonacoEditor = ({
   // later switch back to that tab reuses the same model.
   const modelsRef = useRef(new Map());
   const activeDocumentIdRef = useRef(null);
+  // documentId -> {past, future} undo/redo stacks, persisted to localStorage
+  // so Ctrl+Z/Ctrl+Y survive a reload (Monaco's own native undo stack can't
+  // be serialized -- see undo-history.js).
+  const historyRef = useRef(new Map());
+  // Content immediately before the in-flight edit, needed to compute what
+  // was removed (Monaco's change event only tells us what was inserted).
+  const previousContentForHistoryRef = useRef(value);
+  // Sidesteps the history-capture logic while *replaying* an undo/redo, so
+  // replaying one doesn't get recorded as a brand new history entry.
+  const isApplyingHistoryRef = useRef(false);
+  // One shared debounce, always persisting whatever the active document's
+  // history is *right now* when it fires -- same shape and 500ms window as
+  // the existing content-persistence debounce, keeping localStorage writes
+  // off the hot per-keystroke path (onDidChangeModelContent fires on every
+  // real edit, not debounced).
+  const persistActiveHistoryRef = useRef(
+    debounce(() => {
+      const activeId = activeDocumentIdRef.current;
+      const history = historyRef.current.get(activeId);
+      if (history) saveHistory(activeId, history);
+    }, 500)
+  );
 
   const createEditor = useCallback(() => {
     if (!containerRef.current) return;
@@ -94,6 +128,8 @@ const MonacoEditor = ({
 
     modelsRef.current.set(initialDocumentId, initialModel);
     activeDocumentIdRef.current = initialDocumentId;
+    historyRef.current.set(initialDocumentId, getHistory(initialDocumentId));
+    previousContentForHistoryRef.current = value;
 
     setIsEditorReady(true);
     preventCreation.current = true;
@@ -169,6 +205,10 @@ const MonacoEditor = ({
         editorRef.current.setModel(model);
         activeDocumentIdRef.current = normalizedDocumentId;
         valueRef.current = model.getValue();
+        previousContentForHistoryRef.current = model.getValue();
+        if (!historyRef.current.has(normalizedDocumentId)) {
+          historyRef.current.set(normalizedDocumentId, getHistory(normalizedDocumentId));
+        }
 
         // Monaco only fires onDidChangeMarkers when markers actually change,
         // not just because setModel() was called -- resync the Redux mirror
@@ -204,6 +244,8 @@ const MonacoEditor = ({
       if (model && normalizedDisposeId !== activeDocumentIdRef.current) {
         model.dispose();
         modelsRef.current.delete(normalizedDisposeId);
+        historyRef.current.delete(normalizedDisposeId);
+        removeHistory(normalizedDisposeId);
       }
     },
     [disposeDocumentRequestId],
@@ -254,6 +296,15 @@ const MonacoEditor = ({
       subscriptionRef.current = editorRef.current?.onDidChangeModelContent((event) => {
         const editorValue = editorRef.current.getValue();
 
+        if (!isApplyingHistoryRef.current) {
+          const activeId = activeDocumentIdRef.current;
+          const operations = computeOperations(event.changes, previousContentForHistoryRef.current);
+          const history = historyRef.current.get(activeId) ?? { past: [], future: [] };
+          historyRef.current.set(activeId, pushPast(history, operations));
+          persistActiveHistoryRef.current();
+        }
+        previousContentForHistoryRef.current = editorValue;
+
         if (valueRef.current !== editorValue) {
           valueRef.current = editorValue;
           onChange(editorValue, event);
@@ -261,6 +312,68 @@ const MonacoEditor = ({
       });
     }
   }, [isEditorReady, onChange]);
+
+  // register custom undo/redo commands backed by the persisted history
+  // stack, overriding Monaco's own native (unpersistable) undo -- addCommand
+  // returns a command id string rather than a disposable, and this only
+  // ever needs to run once, so there's nothing to clean up on re-run/unmount
+  useEffect(() => {
+    if (!isEditorReady) return;
+
+    const applyHistoryEdits = (edits) => {
+      const model = editorRef.current.getModel();
+      const monacoEdits = edits.map(({ rangeOffset, rangeLength, text }) => ({
+        range: monaco.Range.fromPositions(
+          model.getPositionAt(rangeOffset),
+          model.getPositionAt(rangeOffset + rangeLength)
+        ),
+        text,
+      }));
+
+      // Guarded so the onDidChangeModelContent handler's history-capture
+      // logic doesn't record this replay as a brand new edit -- it still
+      // updates valueRef/previousContentForHistoryRef and dispatches the
+      // usual Redux round-trip, since that part of the handler isn't gated.
+      isApplyingHistoryRef.current = true;
+      model.pushEditOperations([], monacoEdits, () => null);
+      isApplyingHistoryRef.current = false;
+
+      persistActiveHistoryRef.current();
+    };
+
+    const handleUndo = () => {
+      if (editorRef.current.getOption(monaco.editor.EditorOption.readOnly)) return;
+
+      const activeId = activeDocumentIdRef.current;
+      const history = historyRef.current.get(activeId) ?? { past: [], future: [] };
+      const result = popPast(history);
+      if (!result) return;
+
+      historyRef.current.set(activeId, result.history);
+      applyHistoryEdits(toInverseEdits(result.operations));
+    };
+
+    const handleRedo = () => {
+      if (editorRef.current.getOption(monaco.editor.EditorOption.readOnly)) return;
+
+      const activeId = activeDocumentIdRef.current;
+      const history = historyRef.current.get(activeId) ?? { past: [], future: [] };
+      const result = popFuture(history);
+      if (!result) return;
+
+      historyRef.current.set(activeId, result.history);
+      applyHistoryEdits(toForwardEdits(result.operations));
+    };
+
+    editorRef.current.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, handleUndo); // eslint-disable-line no-bitwise
+    // Both of Monaco's own default redo bindings, so this isn't a narrower
+    // shortcut surface than what shipped natively.
+    editorRef.current.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, handleRedo); // eslint-disable-line no-bitwise
+    editorRef.current.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, // eslint-disable-line no-bitwise
+      handleRedo
+    );
+  }, [isEditorReady]);
 
   // allow editor to resize to available space
   useEffect(() => {
