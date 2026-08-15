@@ -16,6 +16,12 @@ This app has no backend — every user brings their own GitHub token(s). See
 [docs/Permissions.md](docs/Permissions.md) for how to create them and what that means for teams
 where not everyone has access to the same repos.
 
+## Keyboard shortcuts
+
+The editor supports a multi-tab workspace with keyboard shortcuts for switching, managing, and
+undoing/redoing changes in tabs — see [docs/KeyboardShortcuts.md](docs/KeyboardShortcuts.md) for
+the full list.
+
 ## Development
 
 ```bash
