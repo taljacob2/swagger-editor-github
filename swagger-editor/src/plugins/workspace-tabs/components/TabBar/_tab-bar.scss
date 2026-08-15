@@ -17,6 +17,7 @@
     border-radius: 4px 4px 0 0;
     background-color: #173647;
     white-space: nowrap;
+    box-shadow: 2px 0 0 0 transparent, -2px 0 0 0 transparent;
 
     &--active {
       background-color: #ffffff;
@@ -32,6 +33,18 @@
       .swagger-editor__tab-name-input {
         color: #3b4151;
       }
+    }
+
+    &--dragging {
+      opacity: 0.4;
+    }
+
+    &--drag-over-before {
+      box-shadow: -2px 0 0 0 #63c6ff, 2px 0 0 0 transparent;
+    }
+
+    &--drag-over-after {
+      box-shadow: 2px 0 0 0 #63c6ff, -2px 0 0 0 transparent;
     }
   }
 

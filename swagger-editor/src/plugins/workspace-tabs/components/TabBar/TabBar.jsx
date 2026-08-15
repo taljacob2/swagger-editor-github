@@ -10,6 +10,7 @@ import {
   getWorkspaceMeta,
   removeTabContent,
   renameTab,
+  reorderTab,
   saveWorkspaceMeta,
   setActiveTab,
   setTabContent,
@@ -22,6 +23,11 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   const [copiedTabId, setCopiedTabId] = useState(null);
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [draggedTabId, setDraggedTabId] = useState(null);
+  // Which tab is currently being dragged over, and which side of it (the
+  // reorder target/position pair `reorderTab` expects) -- drives both the
+  // drop-indicator styling and the actual reorder on drop.
+  const [dropIndicator, setDropIndicator] = useState(null);
   // Escape blurs the rename input (to unify save/cancel into one onBlur path),
   // so this flag tells that handler to discard instead of commit.
   const cancelRenameRef = useRef(false);
@@ -119,6 +125,51 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     }
   };
 
+  const dropPositionFor = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientX - rect.left > rect.width / 2 ? 'after' : 'before';
+  };
+
+  const handleDragStart = (event, tabId) => {
+    setDraggedTabId(tabId);
+    const { dataTransfer } = event;
+    dataTransfer.effectAllowed = 'move';
+    // Firefox refuses to start a drag at all unless data is actually set.
+    dataTransfer.setData('text/plain', tabId);
+  };
+
+  const handleDragOver = (event, tabId) => {
+    if (!draggedTabId || draggedTabId === tabId) return;
+    event.preventDefault();
+    const { dataTransfer } = event;
+    dataTransfer.dropEffect = 'move';
+    const position = dropPositionFor(event);
+    setDropIndicator((current) =>
+      current && current.tabId === tabId && current.position === position
+        ? current
+        : { tabId, position }
+    );
+  };
+
+  const handleDragLeave = (event, tabId) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setDropIndicator((current) => (current && current.tabId === tabId ? null : current));
+  };
+
+  const handleDrop = (event, tabId) => {
+    event.preventDefault();
+    const sourceTabId = draggedTabId;
+    setDraggedTabId(null);
+    setDropIndicator(null);
+    if (!sourceTabId || sourceTabId === tabId) return;
+    applyWorkspace(reorderTab(getWorkspaceMeta(), sourceTabId, tabId, dropPositionFor(event)));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTabId(null);
+    setDropIndicator(null);
+  };
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!event.altKey) return;
@@ -178,11 +229,21 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
       {workspace.tabs.map((tab) => (
         <div
           key={tab.id}
-          className={
-            tab.id === workspace.activeTabId
-              ? 'swagger-editor__tab swagger-editor__tab--active'
-              : 'swagger-editor__tab'
-          }
+          draggable={renamingTabId !== tab.id}
+          onDragStart={(event) => handleDragStart(event, tab.id)}
+          onDragOver={(event) => handleDragOver(event, tab.id)}
+          onDragLeave={(event) => handleDragLeave(event, tab.id)}
+          onDrop={(event) => handleDrop(event, tab.id)}
+          onDragEnd={handleDragEnd}
+          className={[
+            'swagger-editor__tab',
+            tab.id === workspace.activeTabId && 'swagger-editor__tab--active',
+            draggedTabId === tab.id && 'swagger-editor__tab--dragging',
+            dropIndicator?.tabId === tab.id &&
+              `swagger-editor__tab--drag-over-${dropIndicator.position}`,
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
           {renamingTabId === tab.id ? (
             <input

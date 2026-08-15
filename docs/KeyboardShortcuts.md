@@ -19,6 +19,10 @@ page. Undo/redo use **Ctrl** (**Cmd** on macOS) and are scoped to the Monaco edi
 | `Alt+A` | Copy the active tab's content to the clipboard |
 | `Alt+X` | Rename the active tab (same inline edit field as double-clicking its name) |
 
+Tabs can also be **dragged** by their name to reorder them — drop on the left or right half of a
+target tab to place the dragged tab before or after it. The active tab and its content are
+untouched by a reorder; only the tab order (persisted to `localStorage`) changes.
+
 ## Editor undo/redo
 
 Undo/redo history is captured per edit (not on a timer) and persisted to `localStorage` per tab,

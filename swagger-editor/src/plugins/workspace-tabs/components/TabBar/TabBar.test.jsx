@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import TabBar from './TabBar.jsx';
 import * as workspaceTabsService from '../../workspace-tabs-service.js';
@@ -317,5 +317,121 @@ describe('TabBar', () => {
     fireEvent.keyDown(window, { key: '2', altKey: false });
 
     expect(editorActions.setContent).not.toHaveBeenCalled();
+  });
+
+  describe('drag-and-drop reordering', () => {
+    const dataTransfer = () => ({ setData: vi.fn() });
+
+    // testing-library's fireEvent.dragOver/drop can't carry `clientX` through
+    // in jsdom: jsdom has no DragEvent constructor
+    // (https://github.com/jsdom/jsdom/issues/2913), so createEvent() falls
+    // back to a plain Event, whose init dict silently ignores MouseEvent-only
+    // fields like clientX. Building the event via createEvent and setting
+    // clientX on it directly (a plain own-property assignment, since plain
+    // Event doesn't declare it at all) works around that gap.
+    const fireDragOver = (element, clientX) => {
+      const event = createEvent.dragOver(element, { dataTransfer: dataTransfer() });
+      event.clientX = clientX;
+      fireEvent(element, event);
+    };
+
+    const fireDrop = (element, clientX) => {
+      const event = createEvent.drop(element, { dataTransfer: dataTransfer() });
+      event.clientX = clientX;
+      fireEvent(element, event);
+    };
+
+    test('dropping before a target tab moves the dragged tab in front of it', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+      const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDragOver(target, 0);
+      fireDrop(target, 0);
+
+      expect(workspaceTabsService.saveWorkspaceMeta).toHaveBeenCalledWith({
+        tabs: [
+          { id: 'b', name: 'Tab 2' },
+          { id: 'a', name: 'Tab 1' },
+          { id: 'c', name: 'Tab 3' },
+        ],
+        activeTabId: 'a',
+      });
+    });
+
+    test('dropping after a target tab moves the dragged tab behind it', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+      const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDragOver(target, 100);
+      fireDrop(target, 100);
+
+      expect(workspaceTabsService.saveWorkspaceMeta).toHaveBeenCalledWith({
+        tabs: [
+          { id: 'b', name: 'Tab 2' },
+          { id: 'c', name: 'Tab 3' },
+          { id: 'a', name: 'Tab 1' },
+        ],
+        activeTabId: 'a',
+      });
+    });
+
+    test('reordering never activates a different tab or reloads editor content', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+      const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDragOver(target, 0);
+      fireDrop(target, 0);
+
+      expect(editorActions.setContent).not.toHaveBeenCalled();
+      expect(editorActions.setActiveDocument).not.toHaveBeenCalled();
+    });
+
+    test('dropping a tab onto itself is a no-op', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDrop(source, 0);
+
+      expect(workspaceTabsService.saveWorkspaceMeta).not.toHaveBeenCalled();
+    });
+
+    test('shows a drop indicator on the side of the target tab being hovered', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+      const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDragOver(target, 100);
+
+      expect(target).toHaveClass('swagger-editor__tab--drag-over-after');
+    });
+
+    test('dragging ends without dropping clears the indicator', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
+      const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
+
+      fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+      fireDragOver(target, 100);
+      fireEvent.dragEnd(source);
+
+      expect(target).not.toHaveClass('swagger-editor__tab--drag-over-after');
+    });
+
+    test('a tab being renamed is not draggable, so a stray drag cannot clobber the edit', () => {
+      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+      fireEvent.doubleClick(screen.getByText('Tab 1'));
+      const input = screen.getByDisplayValue('Tab 1');
+
+      expect(input.closest('.swagger-editor__tab')).toHaveAttribute('draggable', 'false');
+    });
   });
 });

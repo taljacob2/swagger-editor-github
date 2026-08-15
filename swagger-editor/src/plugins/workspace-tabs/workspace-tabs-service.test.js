@@ -8,6 +8,7 @@ import {
   getWorkspaceMeta,
   removeTabContent,
   renameTab,
+  reorderTab,
   saveWorkspaceMeta,
   setActiveTab,
   setTabContent,
@@ -268,6 +269,65 @@ describe('workspace-tabs-service', () => {
       const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
       expect(renameTab(meta, 'a', '   ')).toBe(meta);
+    });
+  });
+
+  describe('reorderTab', () => {
+    const threeTabMeta = () => ({
+      tabs: [
+        { id: 'a', name: 'Tab 1' },
+        { id: 'b', name: 'Tab 2' },
+        { id: 'c', name: 'Tab 3' },
+      ],
+      activeTabId: 'b',
+    });
+
+    test('moves a tab before an earlier target', () => {
+      const next = reorderTab(threeTabMeta(), 'c', 'a', 'before');
+
+      expect(next.tabs.map((tab) => tab.id)).toEqual(['c', 'a', 'b']);
+    });
+
+    test('moves a tab after a later target', () => {
+      const next = reorderTab(threeTabMeta(), 'a', 'c', 'after');
+
+      expect(next.tabs.map((tab) => tab.id)).toEqual(['b', 'c', 'a']);
+    });
+
+    test('moves a tab after an earlier target (drop position, not just direction)', () => {
+      const next = reorderTab(threeTabMeta(), 'c', 'a', 'after');
+
+      expect(next.tabs.map((tab) => tab.id)).toEqual(['a', 'c', 'b']);
+    });
+
+    test('moves a tab before a later target', () => {
+      const next = reorderTab(threeTabMeta(), 'a', 'c', 'before');
+
+      expect(next.tabs.map((tab) => tab.id)).toEqual(['b', 'a', 'c']);
+    });
+
+    test('preserves activeTabId, since reordering never changes which tab is active', () => {
+      const next = reorderTab(threeTabMeta(), 'a', 'c', 'after');
+
+      expect(next.activeTabId).toBe('b');
+    });
+
+    test('is a no-op when source and target are the same tab', () => {
+      const meta = threeTabMeta();
+
+      expect(reorderTab(meta, 'a', 'a', 'after')).toBe(meta);
+    });
+
+    test('is a no-op when the source tab id does not exist', () => {
+      const meta = threeTabMeta();
+
+      expect(reorderTab(meta, 'missing', 'a', 'before')).toBe(meta);
+    });
+
+    test('is a no-op when the target tab id does not exist', () => {
+      const meta = threeTabMeta();
+
+      expect(reorderTab(meta, 'a', 'missing', 'before')).toBe(meta);
     });
   });
 

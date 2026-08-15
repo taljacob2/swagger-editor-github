@@ -126,6 +126,28 @@ export function setActiveTab(meta, tabId) {
   return { ...meta, activeTabId: tabId };
 }
 
+// Moves `sourceTabId` to sit immediately before/after `targetTabId`.
+// `position` is 'before' or 'after'; anything else defaults to 'before'.
+export function reorderTab(meta, sourceTabId, targetTabId, position) {
+  if (sourceTabId === targetTabId) {
+    return meta;
+  }
+  const sourceIndex = meta.tabs.findIndex((tab) => tab.id === sourceTabId);
+  if (sourceIndex === -1 || !meta.tabs.some((tab) => tab.id === targetTabId)) {
+    return meta;
+  }
+  const tabs = [...meta.tabs];
+  const [movedTab] = tabs.splice(sourceIndex, 1);
+  // Recomputed after removal: if the moved tab sat before the target, every
+  // index past it just shifted down by one.
+  let targetIndex = tabs.findIndex((tab) => tab.id === targetTabId);
+  if (position === 'after') {
+    targetIndex += 1;
+  }
+  tabs.splice(targetIndex, 0, movedTab);
+  return { ...meta, tabs };
+}
+
 export function renameTab(meta, tabId, name) {
   const trimmed = name.trim();
   if (!trimmed) {
