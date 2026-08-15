@@ -1,6 +1,6 @@
 # Design: GitHub Pages Swagger Aggregator
 
-> **Status:** Scaffolding in progress. Swagger Editor 5.8.4 is vendored under [`swagger-editor/`](../swagger-editor). Aggregation-set storage is implemented; the GitLab-merge-request → GitHub-pull-request plugin port is not yet implemented — see [Progress](#progress) below.
+> **Status:** Functional and deployed at https://taljacob2.github.io/swagger-editor-github/. Swagger Editor 5.8.4 is vendored under [`swagger-editor/`](../swagger-editor). Aggregation-set storage, GitHub auth, multi-tab editing, and code generation are implemented; the GitLab-merge-request → GitHub-pull-request plugin port is not yet implemented — see [Progress](#progress) below.
 
 ## Overview
 
@@ -70,7 +70,7 @@ Develop against this personal github.com repo, then point the API base URL and s
 ## Progress
 
 - [x] Vendor Swagger Editor 5.8.4 (`swagger-editor/`)
-- [ ] GitHub Pages deploy workflow
+- [x] GitHub Pages deploy workflow (`.github/workflows/deploy-pages.yml`) — see [docs/GettingStarted.md](GettingStarted.md) for how a fork deploys its own copy
 - [x] Configurable API base URL (github.com vs. GHEC) + PAT entry, replacing the proxy-mediated GitLab auth (`GitHub` menu in the top bar, `src/plugins/github-connection/`). The PAT is encrypted at rest in `localStorage` with a browser-generated AES-GCM key, ported from the GitLab-based repo's `TokenCrypto`/`docs/RememberToken.md` — same caveat applies: it guards against casual inspection of storage, not a fully compromised device, since the key lives alongside the ciphertext. Two tokens are supported: a "repo token" (write access only needed to save sets — read-only or blank works fine just to browse/aggregate) and an optional "fetch token" (read-only, used for fetching specs, falling back to the repo token when unset). See [docs/Permissions.md](Permissions.md) for the four permission tiers this maps to, from zero-config (everything public) to full maintainer access.
 - [x] Aggregation-set storage against the `aggregation-data` orphan branch (Contents + Git Data API) — `Aggregate` menu in the top bar, `src/plugins/aggregation-storage/`. Storage location (owner/repo/branch) is user-editable; sets can be created/edited/deleted, but the actual multi-service bundling/merge logic is still the next checklist item.
 - [x] Aggregation plugin port (from `swagger-editor-gitlab`'s `src/plugins/aggregation/`) to v5's plugin system — `aggregation-merge-service.js` ports `mergeSwaggerSpecs`/`fetchAllSpecs` (fixing a real bug along the way: the original only tracked schema-name collisions, so same-named `parameters`/`responses`/etc. across services could silently overwrite each other instead of being prefixed — now every `components/*` sub-collection is tracked independently). Each saved set gets an "Aggregate" button that fetches its URLs, merges them, and loads the result straight into the editor via `editorActions.setContent`. The PAT is only ever attached to requests targeting the configured API host or `raw.githubusercontent.com`, never to an arbitrary third-party URL a set happens to reference.
