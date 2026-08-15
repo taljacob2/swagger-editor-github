@@ -164,8 +164,12 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Capture phase: Monaco's own keybinding service can claim an Alt+<letter>
+    // combo (e.g. Alt+R) and stop it from ever bubbling up to a window-level
+    // bubble-phase listener while the editor has focus. Running ahead of that,
+    // during capture, guarantees these shortcuts fire regardless of focus.
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
