@@ -140,6 +140,27 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
         const delta = event.key === '~' ? -1 : 1;
         const nextIndex = (activeIndex + delta + tabs.length) % tabs.length;
         handleSwitch(tabs[nextIndex].id);
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const activeTab = tabs.find((tab) => tab.id === activeTabId);
+
+      if (key === 't') {
+        event.preventDefault();
+        handleAdd();
+      } else if (key === 'q') {
+        event.preventDefault();
+        if (activeTab) handleClose(activeTab.id);
+      } else if (key === 's') {
+        event.preventDefault();
+        if (activeTab) handleDuplicate(activeTab.id);
+      } else if (key === 'a') {
+        event.preventDefault();
+        if (activeTab) handleCopy(activeTab);
+      } else if (key === 'r') {
+        event.preventDefault();
+        if (activeTab) handleStartRename(activeTab);
       }
     };
 

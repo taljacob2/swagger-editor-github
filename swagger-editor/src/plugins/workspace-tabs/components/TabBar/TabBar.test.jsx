@@ -190,6 +190,68 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('c-content', 'local-storage');
   });
 
+  test('Alt+T adds a new blank tab and activates it', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 't', altKey: true });
+
+    expect(screen.getByText('Tab 4')).toBeInTheDocument();
+    expect(editorActions.setContent).toHaveBeenCalledWith('', 'local-storage');
+  });
+
+  test('Alt+Q closes the active tab and activates the previous tab', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 'q', altKey: true });
+
+    expect(screen.queryByText('Tab 1')).not.toBeInTheDocument();
+    expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('a');
+    expect(editorActions.disposeDocument).toHaveBeenCalledWith('a');
+    expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
+  });
+
+  test('Alt+Q is a no-op when only one tab remains', () => {
+    workspaceTabsService.getWorkspaceMeta.mockReturnValue({
+      tabs: [{ id: 'a', name: 'Tab 1' }],
+      activeTabId: 'a',
+    });
+
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 'q', altKey: true });
+
+    expect(workspaceTabsService.removeTabContent).not.toHaveBeenCalled();
+  });
+
+  test('Alt+S duplicates the active tab and activates the copy', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 's', altKey: true });
+
+    expect(screen.getByText('Tab 1 copy')).toBeInTheDocument();
+    expect(workspaceTabsService.setTabContent).toHaveBeenCalledWith(
+      expect.any(String),
+      'a-content'
+    );
+    expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
+  });
+
+  test('Alt+A copies the active tab content to the clipboard', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 'a', altKey: true });
+
+    expect(workspaceTabsService.copyTabContentToClipboard).toHaveBeenCalledWith('a-content');
+  });
+
+  test('Alt+R enters rename mode for the active tab', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    fireEvent.keyDown(window, { key: 'r', altKey: true });
+
+    expect(screen.getByDisplayValue('Tab 1')).toBeInTheDocument();
+  });
+
   test('double-clicking a tab name enters rename mode, and Enter commits the new name', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
