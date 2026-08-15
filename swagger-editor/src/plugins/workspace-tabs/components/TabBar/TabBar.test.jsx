@@ -244,10 +244,10 @@ describe('TabBar', () => {
     expect(workspaceTabsService.copyTabContentToClipboard).toHaveBeenCalledWith('a-content');
   });
 
-  test('Alt+R enters rename mode for the active tab', () => {
+  test('Alt+X enters rename mode for the active tab', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
-    fireEvent.keyDown(window, { key: 'r', altKey: true });
+    fireEvent.keyDown(window, { key: 'x', altKey: true });
 
     expect(screen.getByDisplayValue('Tab 1')).toBeInTheDocument();
   });

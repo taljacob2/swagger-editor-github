@@ -158,7 +158,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
       } else if (key === 'a') {
         event.preventDefault();
         if (activeTab) handleCopy(activeTab);
-      } else if (key === 'r') {
+      } else if (key === 'x') {
         event.preventDefault();
         if (activeTab) handleStartRename(activeTab);
       }
