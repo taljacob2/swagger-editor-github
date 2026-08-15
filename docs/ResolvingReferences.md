@@ -106,6 +106,30 @@ looking like:
 }
 ```
 
+The `openapi-yaml`/`swagger-yaml` targets produce the exact same bundling, just as YAML instead of
+JSON:
+
+```yaml
+paths:
+  /order-with-user:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+    Order:
+      type: object
+```
+
 Both `User` and `Order` got hoisted into this one file's `components/schemas` — the two hops
 across files collapsed into zero — but the `$ref` from `User.order` to `Order` is still a `$ref`,
 not an inlined copy. That's the bundling behavior in one file: single-file portability, still DRY.
