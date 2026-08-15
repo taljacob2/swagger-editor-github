@@ -31,37 +31,81 @@ OpenAPI feature — nothing app-specific about the syntax itself. (This app's ow
 merges several *whole specs* into one under distinct tags, rather than resolving `$ref`s inside a
 single spec.)
 
-## Seeing the fully resolved spec
+## Two different outcomes: fully dereferenced vs. bundled
 
-Editing is easier when every `$ref` is still a pointer — you only change a schema in one place. But
-sometimes you want the *expanded* version: to hand to a tool that doesn't follow cross-file refs,
-to sanity-check what a consumer actually sees, or just to read the whole thing in one place. Three
-ways to get that, from quickest to most portable:
+There isn't just one "expanded" form — there are two, and they're useful for different things:
 
-### 1. File menu → Download Resolved JSON/YAML
+- **Fully dereferenced**: every `$ref`, local or cross-file, is replaced with the actual content it
+  points to, inline, everywhere it's used. No `$ref`s remain anywhere. Simple to reason about, but
+  if the same schema is reused in five places, you now have five duplicated copies of it.
+- **Bundled**: every file gets merged into one, so no `$ref` ever crosses a file boundary anymore —
+  but `$ref`s *within* that one file are left alone. A schema reused five times is still defined
+  once and referenced five times; it just no longer needs a second file to do it. This is the
+  **best-practice output** for handing a spec to another tool or team: portable (one file) without
+  giving up the DRY-ness `$ref` exists for in the first place.
 
-The most direct route: **File → Download Resolved JSON** (or **Download Resolved YAML**) resolves
-every `$ref` — local and cross-file — and downloads the result as a single file. No network round
-trip beyond fetching the referenced files themselves.
+### 1. File menu → Download Resolved JSON/YAML (fully dereferenced)
 
-### 2. Command Palette (F1) → "Resolve document"
+**File → Download Resolved JSON** (or **Download Resolved YAML**) fully dereferences every `$ref` —
+local and cross-file — and downloads the result as a single file. No network round trip beyond
+fetching the referenced files themselves.
+
+### 2. Command Palette (F1) → "Resolve document" (fully dereferenced)
 
 Press **F1** with the editor focused — this opens Monaco's built-in Command Palette (the same F1
 you'd get in VS Code; this app doesn't override it). Type "resolve" and pick **Resolve document**.
-Unlike the download option, this replaces the *editor's own content* with the expanded spec in
-place, so you can keep scrolling/searching/editing the resolved version live instead of opening a
+Same full dereferencing as the download option, but it replaces the *editor's own content* in
+place, so you can keep scrolling/searching/editing the expanded version live instead of opening a
 downloaded file. (Undo (`Ctrl+Z`) puts back the `$ref`-based version afterward, same as any other
 edit — see [KeyboardShortcuts.md](KeyboardShortcuts.md).)
 
-### 3. Generate Client → `openapi`/`openapi-yaml` (or `swagger`/`swagger-yaml`)
+### 3. Generate Client → `openapi`/`openapi-yaml` (or `swagger`/`swagger-yaml`) (bundled)
 
 A less obvious but genuinely useful trick: the **Generate Client** menu's language list isn't only
 programming languages. Alongside `python`, `typescript-axios`, `java`, etc., the public generator
 service also offers **`openapi`** and **`openapi-yaml`** for OpenAPI 3 specs (**`swagger`** and
 **`swagger-yaml`** for OpenAPI 2/Swagger 2.0 specs) — these are "meta" targets that, instead of
-generating client code, hand back a bundled, fully-resolved copy of the spec itself as JSON or
-YAML, zipped up like any other generated client. Pick your spec's version menu (**OpenAPI 3** or
-**OpenAPI 2**) → **Generate Client** → `openapi-yaml`/`swagger-yaml` (or the JSON variants), and
-you get a portable, ref-free copy of the spec produced by the same public
-`generator3.swagger.io`/`generator.swagger.io` service the app already uses for real client/server
-generation — no separate tool or setup required.
+generating client code, hand back a *bundled* copy of the spec as JSON or YAML, zipped up like any
+other generated client. Pick your spec's version menu (**OpenAPI 3** or **OpenAPI 2**) →
+**Generate Client** → `openapi-yaml`/`swagger-yaml` (or the JSON variants), and you get a portable
+single-file spec produced by the same public `generator3.swagger.io`/`generator.swagger.io` service
+the app already uses for real client/server generation — no separate tool or setup required.
+
+**Worked example** — a spec whose response schema is a two-hop cross-file `$ref` chain
+(`main` → `User` in one file → `User.order` → `Order` in a second file) comes back from this trick
+looking like:
+
+```json
+{
+  "paths": {
+    "/order-with-user": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "order": { "$ref": "#/components/schemas/Order" }
+        }
+      },
+      "Order": { "type": "object" }
+    }
+  }
+}
+```
+
+Both `User` and `Order` got hoisted into this one file's `components/schemas` — the two hops
+across files collapsed into zero — but the `$ref` from `User.order` to `Order` is still a `$ref`,
+not an inlined copy. That's the bundling behavior in one file: single-file portability, still DRY.
