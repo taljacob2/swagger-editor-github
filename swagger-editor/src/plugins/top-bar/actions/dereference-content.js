@@ -1,5 +1,3 @@
-import * as monaco from 'monaco-editor';
-
 /**
  * Action types.
  */
@@ -50,13 +48,18 @@ export const dereferenceContentFailure = ({ error, content, baseURI, requestId }
 export const dereferenceContent =
   ({ content, baseURI }) =>
   async (system) => {
-    const { editorActions, fn } = system;
+    const { editorActions, editorSelectors, fn } = system;
     const requestId = fn.generateRequestId();
 
     editorActions.dereferenceContentStarted({ content, baseURI, requestId });
 
     try {
-      const model = monaco.editor.getModels().find((m) => m.getValue() === content);
+      // Resolve the model from the currently-active editor rather than
+      // scanning every model by value equality -- with multiple tabs open,
+      // more than one model can exist (and even share identical content,
+      // e.g. right after Duplicate tab), making a value-based lookup
+      // ambiguous.
+      const model = editorSelectors.selectEditor().getModel();
       const worker = await fn.getApiDOMWorker()(model.uri);
       const contentDereferenced = await worker.doDeref(model.uri.toString(), {
         baseURI: baseURI ?? globalThis.location.href,

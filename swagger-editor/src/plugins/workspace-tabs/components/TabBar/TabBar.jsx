@@ -37,6 +37,10 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     saveWorkspaceMeta(next);
     setWorkspace(next);
     if (activateContentFor) {
+      // setActiveDocument is optional-chained: it's only defined when
+      // editor-monaco's per-document model support is loaded (the textarea
+      // preset doesn't have it), and workspace-tabs is used by both presets.
+      editorActions.setActiveDocument?.(activateContentFor);
       editorActions.setContent(getTabContent(activateContentFor), EditorContentOrigin.LocalStorage);
     }
   };
@@ -68,6 +72,7 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     const next = closeTab(current, tabId);
     if (next !== current) {
       removeTabContent(tabId);
+      editorActions.disposeDocument?.(tabId);
     }
     applyWorkspace(next, wasActive ? { activateContentFor: next.activeTabId } : {});
   };
@@ -213,6 +218,8 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
 TabBar.propTypes = {
   editorActions: PropTypes.shape({
     setContent: PropTypes.func.isRequired,
+    setActiveDocument: PropTypes.func,
+    disposeDocument: PropTypes.func,
   }).isRequired,
   EditorContentOrigin: PropTypes.shape({
     LocalStorage: PropTypes.string.isRequired,

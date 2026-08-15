@@ -35,7 +35,7 @@ describe('TabBar', () => {
   let contentStore;
 
   beforeEach(() => {
-    editorActions = { setContent: vi.fn() };
+    editorActions = { setContent: vi.fn(), setActiveDocument: vi.fn(), disposeDocument: vi.fn() };
     contentStore = { ...CONTENT_BY_ID };
     workspaceTabsService.getWorkspaceMeta.mockReturnValue(threeTabMeta());
     // Backed by a shared store (not just a fixed lookup) so a duplicate's
@@ -71,6 +71,7 @@ describe('TabBar', () => {
     expect(workspaceTabsService.saveWorkspaceMeta).toHaveBeenCalledWith(
       expect.objectContaining({ activeTabId: 'b' })
     );
+    expect(editorActions.setActiveDocument).toHaveBeenCalledWith('b');
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
     expect(screen.getByText('Tab 2').closest('.swagger-editor__tab')).toHaveClass(
       'swagger-editor__tab--active'
@@ -117,6 +118,7 @@ describe('TabBar', () => {
 
     expect(screen.queryByText('Tab 2')).not.toBeInTheDocument();
     expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('b');
+    expect(editorActions.disposeDocument).toHaveBeenCalledWith('b');
     expect(editorActions.setContent).not.toHaveBeenCalled();
   });
 
@@ -127,6 +129,8 @@ describe('TabBar', () => {
 
     expect(screen.queryByText('Tab 1')).not.toBeInTheDocument();
     expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('a');
+    expect(editorActions.disposeDocument).toHaveBeenCalledWith('a');
+    expect(editorActions.setActiveDocument).toHaveBeenCalledWith('b');
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
   });
 
@@ -235,6 +239,14 @@ describe('TabBar', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(screen.getByText('Tab 1')).toBeInTheDocument();
+  });
+
+  test('switching and closing tabs does not throw when setActiveDocument/disposeDocument are absent (textarea preset has no editor-monaco)', () => {
+    editorActions = { setContent: vi.fn() };
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    expect(() => fireEvent.click(screen.getByText('Tab 2'))).not.toThrow();
+    expect(() => fireEvent.click(screen.getAllByTitle('Close tab')[0])).not.toThrow();
   });
 
   test('digit keys without Alt are ignored', () => {

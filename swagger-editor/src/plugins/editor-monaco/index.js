@@ -20,6 +20,8 @@ import {
 } from './actions/set-position.js';
 import { setTheme } from './actions/set-theme.js';
 import { setModelVersionId } from './actions/set-model-version-id.js';
+import { setActiveDocument } from './actions/set-active-document.js';
+import { disposeDocument } from './actions/dispose-document.js';
 import reducers from './reducers.js';
 import {
   selectTheme,
@@ -29,6 +31,9 @@ import {
   selectEditorWidth,
   selectModelVersionId,
   selectModelAlternativeVersionId,
+  selectActiveDocumentId,
+  selectDisposeDocumentId,
+  selectDisposeDocumentRequestId,
 } from './selectors.js';
 import { registerMarkerDataProvider } from './fn.js';
 import { monaco, monacoInitializationDeferred } from './root-injects.js';
@@ -66,6 +71,8 @@ const EditorMonacoPlugin = () => ({
         clearMarkers,
         setLanguage,
         setModelVersionId,
+        setActiveDocument,
+        disposeDocument,
 
         setPosition,
         setPositionStarted,
@@ -85,6 +92,9 @@ const EditorMonacoPlugin = () => ({
         selectEditorWidth,
         selectModelVersionId,
         selectModelAlternativeVersionId,
+        selectActiveDocumentId,
+        selectDisposeDocumentId,
+        selectDisposeDocumentRequestId,
       },
     },
   },

@@ -7,6 +7,11 @@ import seVsDarkTheme from '../../themes/se-vs-dark.js';
 import seVsLightTheme from '../../themes/se-vs-light.js';
 import { useMount, useUpdate, useSmoothResize } from './hooks.js';
 
+// Used as the model-map key whenever nothing (e.g. no tabs plugin) drives
+// `documentId` -- keeps the single-shared-model behavior byte-for-byte
+// identical to before per-document models existed.
+const DEFAULT_DOCUMENT_ID = '__default__';
+
 /**
  * Hooks in MonacoEditor component are divided into 4 categories:
  *  - hooks that are executed only on mount (useMount)
@@ -19,6 +24,9 @@ const MonacoEditor = ({
   value,
   theme,
   language,
+  documentId,
+  disposeDocumentId,
+  disposeDocumentRequestId,
   isReadOnly = false,
   bracketPairColorizationEnabled = false,
   onMount = noop,
@@ -32,14 +40,27 @@ const MonacoEditor = ({
   const valueRef = useRef(value);
   const preventCreation = useRef(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  // documentId -> ITextModel. Each tab gets its own model (and therefore its
+  // own independent undo/redo stack) the first time it's switched to; every
+  // later switch back to that tab reuses the same model.
+  const modelsRef = useRef(new Map());
+  const activeDocumentIdRef = useRef(null);
 
   const createEditor = useCallback(() => {
     if (!containerRef.current) return;
     if (preventCreation.current) return;
 
+    const initialDocumentId = documentId ?? DEFAULT_DOCUMENT_ID;
+    // Explicitly created (monaco.editor.createModel), not left for
+    // monaco.editor.create() to synthesize implicitly from `value`/
+    // `language` -- an editor's own implicitly-created default model gets
+    // auto-disposed by Monaco as soon as a *different* model is attached via
+    // setModel(), which would silently invalidate this tab's own model the
+    // first time another tab is switched to.
+    const initialModel = monaco.editor.createModel(value, language);
+
     editorRef.current = monaco.editor.create(containerRef.current, {
-      value,
-      language,
+      model: initialModel,
       // semantic tokens provider is disabled by default; https://github.com/microsoft/monaco-editor/issues/1833
       'semanticHighlighting.enabled': true,
       theme,
@@ -69,15 +90,25 @@ const MonacoEditor = ({
       matchOnWordStartOnly: false,
     });
 
-    editorRef.current.getModel().updateOptions({ tabSize: 2 });
+    initialModel.updateOptions({ tabSize: 2 });
+
+    modelsRef.current.set(initialDocumentId, initialModel);
+    activeDocumentIdRef.current = initialDocumentId;
+
     setIsEditorReady(true);
     preventCreation.current = true;
+    // documentId intentionally excluded -- creation only ever runs once
+    // (guarded by preventCreation), so re-running this callback identity on
+    // documentId changes would be misleading; the *current* value is read
+    // fresh at the one moment this function actually executes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, language, theme, isReadOnly, bracketPairColorizationEnabled]);
 
   const disposeEditor = useCallback(() => {
     onWillUnmount(editorRef.current, monaco);
     subscriptionRef.current?.dispose();
-    editorRef.current.getModel()?.dispose();
+    modelsRef.current.forEach((model) => model.dispose());
+    modelsRef.current.clear();
     editorRef.current.dispose();
   }, [onWillUnmount]);
 
@@ -107,8 +138,44 @@ const MonacoEditor = ({
   useUpdate(
     () => {
       valueRef.current = value;
+
       if (editorRef.current.getOption(monaco.editor.EditorOption.readOnly)) {
         editorRef.current.setValue(value);
+        return;
+      }
+
+      const normalizedDocumentId = documentId ?? DEFAULT_DOCUMENT_ID;
+
+      if (normalizedDocumentId !== activeDocumentIdRef.current) {
+        // Switching to a different tab's own document: attach its own model
+        // (creating one on first visit) instead of pushing content into the
+        // current model, so each tab keeps its own independent undo/redo
+        // stack rather than sharing one linear history across tabs.
+        let model = modelsRef.current.get(normalizedDocumentId);
+        if (!model) {
+          model = monaco.editor.createModel(value, language);
+          modelsRef.current.set(normalizedDocumentId, model);
+        } else if (model.getValue() !== value) {
+          // Defensive reconciliation only -- shouldn't normally happen,
+          // since the model itself is the source of truth for a tab once
+          // created.
+          model.pushEditOperations(
+            [],
+            [{ range: model.getFullModelRange(), text: value }],
+            () => null
+          );
+        }
+
+        editorRef.current.setModel(model);
+        activeDocumentIdRef.current = normalizedDocumentId;
+        valueRef.current = model.getValue();
+
+        // Monaco only fires onDidChangeMarkers when markers actually change,
+        // not just because setModel() was called -- resync the Redux mirror
+        // (ValidationPane/ValidationTable) explicitly so it reflects the
+        // newly-attached tab's own markers immediately, not a stale copy of
+        // the previous tab's.
+        onEditorMarkersDidChange(monaco.editor.getModelMarkers({ resource: model.uri }));
       } else if (value !== editorRef.current.getValue()) {
         const model = editorRef.current.getModel();
         // Push as a tracked edit operation rather than disposing/recreating
@@ -124,7 +191,22 @@ const MonacoEditor = ({
         );
       }
     },
-    [value],
+    [value, documentId],
+    isEditorReady
+  );
+
+  // dispose a closed tab's model once it's safely no longer attached
+  useUpdate(
+    () => {
+      const normalizedDisposeId = disposeDocumentId ?? DEFAULT_DOCUMENT_ID;
+      const model = modelsRef.current.get(normalizedDisposeId);
+
+      if (model && normalizedDisposeId !== activeDocumentIdRef.current) {
+        model.dispose();
+        modelsRef.current.delete(normalizedDisposeId);
+      }
+    },
+    [disposeDocumentRequestId],
     isEditorReady
   );
 
@@ -211,6 +293,9 @@ MonacoEditor.propTypes = {
   value: PropTypes.string.isRequired,
   language: PropTypes.string.isRequired,
   theme: PropTypes.string.isRequired,
+  documentId: PropTypes.string,
+  disposeDocumentId: PropTypes.string,
+  disposeDocumentRequestId: PropTypes.string,
   isReadOnly: PropTypes.bool,
   bracketPairColorizationEnabled: PropTypes.bool,
   onMount: PropTypes.func,

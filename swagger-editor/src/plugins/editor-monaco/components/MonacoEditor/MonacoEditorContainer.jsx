@@ -13,6 +13,9 @@ const MonacoEditorContainer = ({
   const theme = editorSelectors.selectTheme();
   const value = editorSelectors.selectContent();
   const language = editorSelectors.selectLanguage();
+  const documentId = editorSelectors.selectActiveDocumentId();
+  const disposeDocumentId = editorSelectors.selectDisposeDocumentId();
+  const disposeDocumentRequestId = editorSelectors.selectDisposeDocumentRequestId();
 
   const handleEditorDidMount = useCallback(
     (editor) => {
@@ -48,6 +51,9 @@ const MonacoEditorContainer = ({
       language={language}
       theme={theme}
       value={value}
+      documentId={documentId}
+      disposeDocumentId={disposeDocumentId}
+      disposeDocumentRequestId={disposeDocumentRequestId}
       isReadOnly={isReadOnly}
       bracketPairColorizationEnabled={bracketPairColorizationEnabled}
       onChange={handleChangeEditorValue}
@@ -71,6 +77,9 @@ MonacoEditorContainer.propTypes = {
     selectLanguage: PropTypes.func.isRequired,
     selectContent: PropTypes.func.isRequired,
     selectTheme: PropTypes.func.isRequired,
+    selectActiveDocumentId: PropTypes.func.isRequired,
+    selectDisposeDocumentId: PropTypes.func.isRequired,
+    selectDisposeDocumentRequestId: PropTypes.func.isRequired,
   }).isRequired,
   EditorContentOrigin: PropTypes.shape({
     Editor: PropTypes.string.isRequired,

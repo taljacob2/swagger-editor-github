@@ -25,3 +25,11 @@ export const selectEditorWidth = () => (system) => {
 export const selectModelVersionId = (state) => state.get('versionId', null);
 
 export const selectModelAlternativeVersionId = (state) => state.get('alternativeVersionId', null);
+
+export const selectActiveDocumentId = (state) => state.get('activeDocumentId', null);
+
+export const selectDisposeDocumentId = (state) =>
+  state.getIn(['disposeDocumentRequest', 'documentId'], null);
+
+export const selectDisposeDocumentRequestId = (state) =>
+  state.getIn(['disposeDocumentRequest', 'requestId'], null);
