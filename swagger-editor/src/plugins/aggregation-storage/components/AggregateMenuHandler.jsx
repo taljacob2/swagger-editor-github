@@ -58,23 +58,21 @@ const AggregateMenuHandler = forwardRef(
       setIsLoadingSets(true);
       const connection = await getConnectionSettings();
 
-      // Resolved independently so a permission-check hiccup never blocks the
-      // sets list itself from loading — fail closed (no write controls) on
-      // any error, since that's the safer default.
-      try {
-        setCanWrite(await canWriteToStorage(storage, connection));
-      } catch {
-        setCanWrite(false);
-      }
+      // Run concurrently so a slow permission check can't delay the sets list
+      // (or vice versa) — fail closed (no write controls) on any error, since
+      // that's the safer default.
+      const [canWriteResult, setsResult] = await Promise.allSettled([
+        canWriteToStorage(storage, connection),
+        listAggregationSets(storage, connection),
+      ]);
 
-      try {
-        const result = await listAggregationSets(storage, connection);
-        setSets(result);
-      } catch (error) {
-        setStatus({ ok: false, message: error.message });
-      } finally {
-        setIsLoadingSets(false);
+      setCanWrite(canWriteResult.status === 'fulfilled' ? canWriteResult.value : false);
+      if (setsResult.status === 'fulfilled') {
+        setSets(setsResult.value);
+      } else {
+        setStatus({ ok: false, message: setsResult.reason.message });
       }
+      setIsLoadingSets(false);
     };
 
     useImperativeHandle(ref, () => ({
@@ -432,7 +430,13 @@ const AggregateMenuHandler = forwardRef(
               </div>
             )}
 
-            {!showForm && (
+            {!showForm && isLoadingSets && (
+              <p className="swagger-editor__aggregate-note">Loading sets…</p>
+            )}
+
+            {/* Held back until loading resolves -- otherwise canWrite's stale/default value
+                paints a wrong permission note that then flips once the real check lands. */}
+            {!showForm && !isLoadingSets && (
               <>
                 {canWrite && (
                   <button
@@ -450,8 +454,7 @@ const AggregateMenuHandler = forwardRef(
                     can save sets.
                   </p>
                 )}
-                {isLoadingSets && <p className="swagger-editor__aggregate-note">Loading sets…</p>}
-                {!isLoadingSets && sets.length === 0 && (
+                {sets.length === 0 && (
                   <p className="swagger-editor__aggregate-note">No aggregation sets saved yet.</p>
                 )}
                 <ul className="swagger-editor__aggregate-set-list">

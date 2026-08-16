@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "preview", "--outDir", "swagger-editor/build", "--port", "4173", "--strictPort"],
       "port": 4173
+    },
+    {
+      "name": "swagger-editor-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "swagger-editor", "run", "start", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
     }
   ]
 }
