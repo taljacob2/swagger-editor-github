@@ -3,6 +3,7 @@ import { languages as vscodeLanguages } from 'vscode';
 
 import Provider from './Provider.js';
 import * as apidom from '../apidom.js';
+import { describeYamlSyntaxError, isGenericYamlSyntaxMessage } from '../yaml-syntax-error.js';
 
 class DiagnosticsProvider extends Provider {
   #listener = [];
@@ -93,11 +94,18 @@ class DiagnosticsProvider extends Provider {
 
   async #validate(model) {
     const diagnostics = await this.#getDiagnostics(model);
+    const enrichedDiagnostics = diagnostics.map((diagnostic) => {
+      if (diagnostic.source !== 'syntax' || !isGenericYamlSyntaxMessage(diagnostic.message)) {
+        return diagnostic;
+      }
+      const reason = describeYamlSyntaxError(model.getValue());
+      return reason ? { ...diagnostic, message: reason } : diagnostic;
+    });
 
     if (this.protocolConverter && this.#diagnosticCollection) {
       this.#diagnosticCollection.set(
         model.uri,
-        await this.protocolConverter.asDiagnostics(diagnostics)
+        await this.protocolConverter.asDiagnostics(enrichedDiagnostics)
       );
     }
   }
