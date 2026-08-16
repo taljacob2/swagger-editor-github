@@ -31,6 +31,7 @@ const AggregateMenuHandler = forwardRef(
     const [form, setForm] = useState(emptyForm);
     const [newUrlName, setNewUrlName] = useState('');
     const [newUrlValue, setNewUrlValue] = useState('');
+    const [isAddingUrl, setIsAddingUrl] = useState(false);
     const [editingUrlIndex, setEditingUrlIndex] = useState(null);
     const [editUrlDraft, setEditUrlDraft] = useState({ name: '', url: '' });
     const [isSaving, setIsSaving] = useState(false);
@@ -103,14 +104,24 @@ const AggregateMenuHandler = forwardRef(
       setForm(emptyForm);
       setNewUrlName('');
       setNewUrlValue('');
+      // A brand-new set is always empty, so "add a service" is virtually
+      // certain to be the very next thing the user does -- start expanded.
+      setIsAddingUrl(true);
       setEditingUrlIndex(null);
       setShowForm(true);
     };
 
     const handleEditSetClick = (set) => {
-      setForm({ id: set.id, name: set.name, swaggerUrls: set.swaggerUrls || [] });
+      const swaggerUrls = set.swaggerUrls || [];
+      setForm({ id: set.id, name: set.name, swaggerUrls });
       setNewUrlName('');
       setNewUrlValue('');
+      // Someone opening Edit on a set that already has services is usually
+      // here to tweak one, not add another -- keep the add-service fields
+      // collapsed by default so they aren't staring at empty inputs they
+      // didn't ask for. A set with no services yet has nothing else to do,
+      // so it still starts expanded.
+      setIsAddingUrl(swaggerUrls.length === 0);
       setEditingUrlIndex(null);
       setShowForm(true);
     };
@@ -118,6 +129,14 @@ const AggregateMenuHandler = forwardRef(
     const handleCancelFormClick = () => {
       setEditingUrlIndex(null);
       setShowForm(false);
+    };
+
+    const handleStartAddUrlClick = () => setIsAddingUrl(true);
+
+    const handleDoneAddingUrlClick = () => {
+      setIsAddingUrl(false);
+      setNewUrlName('');
+      setNewUrlValue('');
     };
 
     const handleAddUrlClick = () => {
@@ -437,7 +456,8 @@ const AggregateMenuHandler = forwardRef(
                   <ul className="swagger-editor__aggregate-url-list">
                     {form.swaggerUrls.map((entry, index) => {
                       const isEditingThis = editingUrlIndex === index;
-                      const isEditingOther = editingUrlIndex !== null && !isEditingThis;
+                      const isEditingOther =
+                        (editingUrlIndex !== null && !isEditingThis) || isAddingUrl;
                       return (
                         <li
                           // eslint-disable-next-line react/no-array-index-key
@@ -544,44 +564,65 @@ const AggregateMenuHandler = forwardRef(
                   </ul>
                 )}
 
-                <div className="swagger-editor__aggregate-add-url-row">
-                  <div className="input-group swagger-editor__aggregate-add-url-name">
-                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                    <label htmlFor="input-new-url-name" aria-labelledby="input-new-url-name">
-                      Service name
-                    </label>
-                    <input
-                      id="input-new-url-name"
-                      type="text"
-                      className="form-control"
-                      value={newUrlName}
+                {isAddingUrl ? (
+                  <div className="swagger-editor__aggregate-add-url-row">
+                    <div className="input-group swagger-editor__aggregate-add-url-name">
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                      <label htmlFor="input-new-url-name" aria-labelledby="input-new-url-name">
+                        Service name
+                      </label>
+                      <input
+                        id="input-new-url-name"
+                        type="text"
+                        className="form-control"
+                        value={newUrlName}
+                        disabled={editingUrlIndex !== null}
+                        // eslint-disable-next-line jsx-a11y/no-autofocus
+                        autoFocus
+                        onChange={(e) => setNewUrlName(e.target.value)}
+                      />
+                    </div>
+                    <div className="input-group swagger-editor__aggregate-add-url-value">
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                      <label htmlFor="input-new-url-value" aria-labelledby="input-new-url-value">
+                        Swagger URL
+                      </label>
+                      <input
+                        id="input-new-url-value"
+                        type="text"
+                        className="form-control"
+                        value={newUrlValue}
+                        disabled={editingUrlIndex !== null}
+                        onChange={(e) => setNewUrlValue(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary swagger-editor__aggregate-add-url-button"
                       disabled={editingUrlIndex !== null}
-                      onChange={(e) => setNewUrlName(e.target.value)}
-                    />
-                  </div>
-                  <div className="input-group swagger-editor__aggregate-add-url-value">
-                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                    <label htmlFor="input-new-url-value" aria-labelledby="input-new-url-value">
-                      Swagger URL
-                    </label>
-                    <input
-                      id="input-new-url-value"
-                      type="text"
-                      className="form-control"
-                      value={newUrlValue}
+                      onClick={handleAddUrlClick}
+                    >
+                      Add URL
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
                       disabled={editingUrlIndex !== null}
-                      onChange={(e) => setNewUrlValue(e.target.value)}
-                    />
+                      onClick={handleDoneAddingUrlClick}
+                    >
+                      Done
+                    </button>
                   </div>
+                ) : (
                   <button
                     type="button"
-                    className="btn btn-secondary swagger-editor__aggregate-add-url-button"
+                    className="btn btn-secondary swagger-editor__aggregate-add-service-toggle"
                     disabled={editingUrlIndex !== null}
-                    onClick={handleAddUrlClick}
+                    onClick={handleStartAddUrlClick}
                   >
-                    Add URL
+                    + Add Service
                   </button>
-                </div>
+                )}
 
                 <div className="swagger-editor__aggregate-form-actions">
                   <button

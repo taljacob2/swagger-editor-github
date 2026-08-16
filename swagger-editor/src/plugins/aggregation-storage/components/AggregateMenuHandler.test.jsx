@@ -213,6 +213,119 @@ describe('AggregateMenuHandler', () => {
     expect(screen.getByText('2 services')).toBeInTheDocument();
   });
 
+  describe('add-service fields collapse by default when editing an existing set', () => {
+    test('New Set starts with the add-service fields already expanded', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+
+      fireEvent.click(screen.getByText('New Set'));
+
+      expect(screen.getByLabelText('Service name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Swagger URL')).toBeInTheDocument();
+      expect(screen.queryByText('+ Add Service')).not.toBeInTheDocument();
+    });
+
+    test('editing a set that already has services starts collapsed, hiding the fields', async () => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        {
+          id: 'set-1',
+          name: 'Orders',
+          swaggerUrls: [{ name: 'Orders API', url: 'https://x/o.yaml' }],
+        },
+      ]);
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+
+      fireEvent.click(screen.getByText('Edit'));
+
+      expect(screen.getByText('+ Add Service')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Swagger URL')).not.toBeInTheDocument();
+    });
+
+    test('editing a set with no services yet starts expanded, since there is nothing else to do', async () => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        { id: 'set-1', name: 'Empty Set', swaggerUrls: [] },
+      ]);
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+
+      fireEvent.click(screen.getByText('Edit'));
+
+      expect(screen.getByLabelText('Service name')).toBeInTheDocument();
+      expect(screen.queryByText('+ Add Service')).not.toBeInTheDocument();
+    });
+
+    test('clicking + Add Service reveals the fields', async () => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        {
+          id: 'set-1',
+          name: 'Orders',
+          swaggerUrls: [{ name: 'Orders API', url: 'https://x/o.yaml' }],
+        },
+      ]);
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+      fireEvent.click(screen.getByText('Edit'));
+
+      fireEvent.click(screen.getByText('+ Add Service'));
+
+      expect(screen.getByLabelText('Service name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Swagger URL')).toBeInTheDocument();
+    });
+
+    test('Done collapses the fields again and discards unsaved input', async () => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([
+        {
+          id: 'set-1',
+          name: 'Orders',
+          swaggerUrls: [{ name: 'Orders API', url: 'https://x/o.yaml' }],
+        },
+      ]);
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+      fireEvent.click(screen.getByText('Edit'));
+      fireEvent.click(screen.getByText('+ Add Service'));
+      fireEvent.change(screen.getByLabelText('Service name'), {
+        target: { value: 'should be discarded' },
+      });
+
+      fireEvent.click(screen.getByText('Done'));
+
+      expect(screen.getByText('+ Add Service')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('+ Add Service'));
+      expect(screen.getByLabelText('Service name')).toHaveValue('');
+    });
+
+    test('adding a service keeps the fields open, ready for another', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+
+      fireEvent.click(screen.getByText('New Set'));
+      fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Users' } });
+      fireEvent.change(screen.getByLabelText('Swagger URL'), {
+        target: { value: 'https://x/users.yaml' },
+      });
+      fireEvent.click(screen.getByText('Add URL'));
+
+      expect(screen.getByText('Users')).toBeInTheDocument();
+      expect(screen.getByLabelText('Service name')).toBeInTheDocument();
+      expect(screen.queryByText('+ Add Service')).not.toBeInTheDocument();
+    });
+  });
+
   describe('reordering services in the edit form', () => {
     const THREE_SERVICE_SET = {
       id: 'set-1',
@@ -410,14 +523,16 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByText('Service 2')).toBeInTheDocument();
     });
 
-    test('Move/Remove/Edit on other rows and Add URL are disabled while a row is being edited', async () => {
+    test('Move/Remove/Edit on other rows and the Add Service toggle are disabled while a row is being edited', async () => {
       const ref = createRef();
       renderHandler(ref);
       await openEditForm(ref);
 
       fireEvent.click(screen.getAllByLabelText('Edit')[0]);
 
-      expect(screen.getByText('Add URL')).toBeDisabled();
+      // A set with existing services starts with the add-service fields
+      // collapsed, so the collapsed toggle button is what must be disabled.
+      expect(screen.getByText('+ Add Service')).toBeDisabled();
       // Only the row being edited remains -- its Move/Remove are replaced by
       // Save/Cancel, so any surviving "Remove" belongs to a different, still
       // -displayed row and must be disabled.

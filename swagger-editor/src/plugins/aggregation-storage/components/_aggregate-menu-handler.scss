@@ -225,6 +225,10 @@
     flex: 1 1 auto;
   }
 
+  &__aggregate-add-service-toggle {
+    margin: 0.75rem 0;
+  }
+
   &__aggregate-form-actions {
     display: flex;
     justify-content: flex-end;
