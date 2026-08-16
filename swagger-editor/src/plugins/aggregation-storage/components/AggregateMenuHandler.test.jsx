@@ -299,7 +299,7 @@ describe('AggregateMenuHandler', () => {
         target: { value: 'should be discarded' },
       });
 
-      fireEvent.click(screen.getByText('Done'));
+      fireEvent.click(screen.getByLabelText('Hide add-service fields'));
 
       expect(screen.getByText('+ Add Service')).toBeInTheDocument();
       expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
