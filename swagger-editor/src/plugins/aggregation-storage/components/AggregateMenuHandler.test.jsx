@@ -309,6 +309,145 @@ describe('AggregateMenuHandler', () => {
     });
   });
 
+  describe('editing a service in the edit form', () => {
+    const TWO_SERVICE_SET = {
+      id: 'set-1',
+      name: 'Public API',
+      swaggerUrls: [
+        { name: 'Users', url: 'https://x/users.yaml' },
+        { name: 'Orders', url: 'https://x/orders.yaml' },
+      ],
+    };
+
+    beforeEach(() => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([TWO_SERVICE_SET]);
+    });
+
+    const openEditForm = async (ref) => {
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+      fireEvent.click(screen.getByText('Edit'));
+    };
+
+    test('clicking Edit on a row shows prefilled fields and Save/Cancel instead of Move/Remove', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+
+      expect(screen.getByLabelText('Edit service name')).toHaveValue('Users');
+      expect(screen.getByLabelText('Edit Swagger URL')).toHaveValue('https://x/users.yaml');
+      // Only the (untouched) Orders row still shows a Move up button -- the
+      // Users row being edited has swapped its Move/Remove for Save/Cancel.
+      const moveUpButtons = screen.getAllByLabelText('Move up');
+      expect(moveUpButtons).toHaveLength(1);
+      expect(moveUpButtons[0]).toBeDisabled();
+      // "Cancel" also matches the form's own footer button -- there should be
+      // exactly two now (row-level + form-level).
+      expect(screen.getAllByText('Cancel')).toHaveLength(2);
+      expect(screen.getByText('Save')).toBeInTheDocument();
+    });
+
+    test('editing and saving updates that row, leaving the other untouched', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users API' },
+      });
+      fireEvent.change(screen.getByLabelText('Edit Swagger URL'), {
+        target: { value: 'https://x/users-v2.yaml' },
+      });
+      fireEvent.click(screen.getByText('Save'));
+
+      expect(screen.getByText('Users API')).toBeInTheDocument();
+      expect(screen.getByText('https://x/users-v2.yaml')).toBeInTheDocument();
+      expect(screen.getByText('Orders')).toBeInTheDocument();
+      expect(screen.getByText('https://x/orders.yaml')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Edit service name')).not.toBeInTheDocument();
+    });
+
+    test('Cancel discards changes and restores the original values', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Something else entirely' },
+      });
+      // The row-level Cancel is the first of the two "Cancel" buttons on
+      // screen (row-level, then the form's own footer Cancel).
+      fireEvent.click(screen.getAllByText('Cancel')[0]);
+
+      expect(screen.getByText('Users')).toBeInTheDocument();
+      expect(screen.queryByText('Something else entirely')).not.toBeInTheDocument();
+    });
+
+    test('an empty URL disables Save', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit Swagger URL'), { target: { value: '   ' } });
+
+      expect(screen.getByText('Save')).toBeDisabled();
+    });
+
+    test('saving with a blank name falls back to a positional default', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[1]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), { target: { value: '  ' } });
+      fireEvent.click(screen.getByText('Save'));
+
+      expect(screen.getByText('Service 2')).toBeInTheDocument();
+    });
+
+    test('Move/Remove/Edit on other rows and Add URL are disabled while a row is being edited', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+
+      expect(screen.getByText('Add URL')).toBeDisabled();
+      // Only the row being edited remains -- its Move/Remove are replaced by
+      // Save/Cancel, so any surviving "Remove" belongs to a different, still
+      // -displayed row and must be disabled.
+      screen.getAllByText('Remove').forEach((button) => expect(button).toBeDisabled());
+    });
+
+    test('Enter saves, Escape cancels', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users API' },
+      });
+      fireEvent.keyDown(screen.getByLabelText('Edit service name'), { key: 'Enter' });
+
+      expect(screen.getByText('Users API')).toBeInTheDocument();
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'discarded' },
+      });
+      fireEvent.keyDown(screen.getByLabelText('Edit service name'), { key: 'Escape' });
+
+      expect(screen.getByText('Users API')).toBeInTheDocument();
+      expect(screen.queryByText('discarded')).not.toBeInTheDocument();
+    });
+  });
+
   test('Delete asks for confirmation before calling deleteAggregationSet', async () => {
     aggregationStorageService.listAggregationSets.mockResolvedValue([
       { id: 'set-1', name: 'Orders', swaggerUrls: [] },

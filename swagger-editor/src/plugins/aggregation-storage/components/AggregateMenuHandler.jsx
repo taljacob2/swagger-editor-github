@@ -31,6 +31,8 @@ const AggregateMenuHandler = forwardRef(
     const [form, setForm] = useState(emptyForm);
     const [newUrlName, setNewUrlName] = useState('');
     const [newUrlValue, setNewUrlValue] = useState('');
+    const [editingUrlIndex, setEditingUrlIndex] = useState(null);
+    const [editUrlDraft, setEditUrlDraft] = useState({ name: '', url: '' });
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
     const [aggregatingId, setAggregatingId] = useState(null);
@@ -101,6 +103,7 @@ const AggregateMenuHandler = forwardRef(
       setForm(emptyForm);
       setNewUrlName('');
       setNewUrlValue('');
+      setEditingUrlIndex(null);
       setShowForm(true);
     };
 
@@ -108,10 +111,14 @@ const AggregateMenuHandler = forwardRef(
       setForm({ id: set.id, name: set.name, swaggerUrls: set.swaggerUrls || [] });
       setNewUrlName('');
       setNewUrlValue('');
+      setEditingUrlIndex(null);
       setShowForm(true);
     };
 
-    const handleCancelFormClick = () => setShowForm(false);
+    const handleCancelFormClick = () => {
+      setEditingUrlIndex(null);
+      setShowForm(false);
+    };
 
     const handleAddUrlClick = () => {
       if (!newUrlValue.trim()) {
@@ -138,6 +145,37 @@ const AggregateMenuHandler = forwardRef(
         ...prev,
         swaggerUrls: moveSwaggerUrl(prev.swaggerUrls, index, direction),
       }));
+    };
+
+    const handleStartEditUrlClick = (index, entry) => {
+      setEditUrlDraft({ name: entry.name, url: entry.url });
+      setEditingUrlIndex(index);
+    };
+
+    const handleCancelEditUrlClick = () => setEditingUrlIndex(null);
+
+    const handleSaveEditUrlClick = () => {
+      if (!editUrlDraft.url.trim()) {
+        return;
+      }
+      const index = editingUrlIndex;
+      const entry = {
+        name: editUrlDraft.name.trim() || `Service ${index + 1}`,
+        url: editUrlDraft.url.trim(),
+      };
+      setForm((prev) => ({
+        ...prev,
+        swaggerUrls: prev.swaggerUrls.map((existing, i) => (i === index ? entry : existing)),
+      }));
+      setEditingUrlIndex(null);
+    };
+
+    const handleEditUrlKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        handleSaveEditUrlClick();
+      } else if (event.key === 'Escape') {
+        handleCancelEditUrlClick();
+      }
     };
 
     const handleSaveSetClick = async () => {
@@ -397,47 +435,112 @@ const AggregateMenuHandler = forwardRef(
 
                 {form.swaggerUrls.length > 0 && (
                   <ul className="swagger-editor__aggregate-url-list">
-                    {form.swaggerUrls.map((entry, index) => (
-                      <li
-                        // eslint-disable-next-line react/no-array-index-key
-                        key={`${entry.url}-${index}`}
-                        className="swagger-editor__aggregate-url-row"
-                      >
-                        <div className="swagger-editor__aggregate-url-info">
-                          <div className="swagger-editor__aggregate-url-name">{entry.name}</div>
-                          <div className="swagger-editor__aggregate-url-value">{entry.url}</div>
-                        </div>
-                        <div className="swagger-editor__aggregate-url-actions">
-                          <button
-                            type="button"
-                            className="swagger-editor__aggregate-icon-button"
-                            aria-label="Move up"
-                            title="Move up"
-                            disabled={index === 0}
-                            onClick={() => handleMoveUrlClick(index, 'up')}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="swagger-editor__aggregate-icon-button"
-                            aria-label="Move down"
-                            title="Move down"
-                            disabled={index === form.swaggerUrls.length - 1}
-                            onClick={() => handleMoveUrlClick(index, 'down')}
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => handleRemoveUrlClick(index)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </li>
-                    ))}
+                    {form.swaggerUrls.map((entry, index) => {
+                      const isEditingThis = editingUrlIndex === index;
+                      const isEditingOther = editingUrlIndex !== null && !isEditingThis;
+                      return (
+                        <li
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={`${entry.url}-${index}`}
+                          className="swagger-editor__aggregate-url-row"
+                        >
+                          {isEditingThis ? (
+                            <>
+                              <div className="swagger-editor__aggregate-url-edit-fields">
+                                <input
+                                  type="text"
+                                  aria-label="Edit service name"
+                                  value={editUrlDraft.name}
+                                  onChange={(e) =>
+                                    setEditUrlDraft((prev) => ({ ...prev, name: e.target.value }))
+                                  }
+                                  onKeyDown={handleEditUrlKeyDown}
+                                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                                  autoFocus
+                                />
+                                <input
+                                  type="text"
+                                  aria-label="Edit Swagger URL"
+                                  value={editUrlDraft.url}
+                                  onChange={(e) =>
+                                    setEditUrlDraft((prev) => ({ ...prev, url: e.target.value }))
+                                  }
+                                  onKeyDown={handleEditUrlKeyDown}
+                                />
+                              </div>
+                              <div className="swagger-editor__aggregate-url-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={handleCancelEditUrlClick}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  disabled={!editUrlDraft.url.trim()}
+                                  onClick={handleSaveEditUrlClick}
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="swagger-editor__aggregate-url-info">
+                                <div className="swagger-editor__aggregate-url-name">
+                                  {entry.name}
+                                </div>
+                                <div className="swagger-editor__aggregate-url-value">
+                                  {entry.url}
+                                </div>
+                              </div>
+                              <div className="swagger-editor__aggregate-url-actions">
+                                <button
+                                  type="button"
+                                  className="swagger-editor__aggregate-icon-button"
+                                  aria-label="Move up"
+                                  title="Move up"
+                                  disabled={index === 0 || isEditingOther}
+                                  onClick={() => handleMoveUrlClick(index, 'up')}
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  className="swagger-editor__aggregate-icon-button"
+                                  aria-label="Move down"
+                                  title="Move down"
+                                  disabled={index === form.swaggerUrls.length - 1 || isEditingOther}
+                                  onClick={() => handleMoveUrlClick(index, 'down')}
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  className="swagger-editor__aggregate-icon-button"
+                                  aria-label="Edit"
+                                  title="Edit"
+                                  disabled={isEditingOther}
+                                  onClick={() => handleStartEditUrlClick(index, entry)}
+                                >
+                                  ✎
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  disabled={isEditingOther}
+                                  onClick={() => handleRemoveUrlClick(index)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 
@@ -452,6 +555,7 @@ const AggregateMenuHandler = forwardRef(
                       type="text"
                       className="form-control"
                       value={newUrlName}
+                      disabled={editingUrlIndex !== null}
                       onChange={(e) => setNewUrlName(e.target.value)}
                     />
                   </div>
@@ -465,12 +569,14 @@ const AggregateMenuHandler = forwardRef(
                       type="text"
                       className="form-control"
                       value={newUrlValue}
+                      disabled={editingUrlIndex !== null}
                       onChange={(e) => setNewUrlValue(e.target.value)}
                     />
                   </div>
                   <button
                     type="button"
                     className="btn btn-secondary swagger-editor__aggregate-add-url-button"
+                    disabled={editingUrlIndex !== null}
                     onClick={handleAddUrlClick}
                   >
                     Add URL

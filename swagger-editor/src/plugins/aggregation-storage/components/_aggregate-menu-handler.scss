@@ -165,6 +165,24 @@
     flex-shrink: 0;
   }
 
+  &__aggregate-url-edit-fields {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1 1 auto;
+    min-width: 0;
+
+    input {
+      flex: 1 1 auto;
+      min-width: 0;
+      background-color: #ffffff;
+      border: 1px solid #b6becb;
+      border-radius: 4px;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8rem;
+      color: #758491;
+    }
+  }
+
   &__aggregate-icon-button {
     display: flex;
     align-items: center;
