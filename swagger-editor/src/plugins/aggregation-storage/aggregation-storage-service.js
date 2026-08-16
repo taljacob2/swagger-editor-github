@@ -16,7 +16,7 @@ function utf8ToBase64(text) {
   return btoa(binary);
 }
 
-function base64ToUtf8(base64) {
+export function base64ToUtf8(base64) {
   const binary = atob(base64.replace(/\n/g, ''));
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   return new TextDecoder().decode(bytes);

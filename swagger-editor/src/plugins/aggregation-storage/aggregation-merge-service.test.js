@@ -25,12 +25,64 @@ describe('fetchSpec', () => {
     );
   });
 
-  test('attaches the token to raw.githubusercontent.com', async () => {
-    await fetchSpec('https://raw.githubusercontent.com/owner/repo/main/openapi.yaml', CONNECTION);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://raw.githubusercontent.com/owner/repo/main/openapi.yaml',
-      expect.objectContaining({ headers: { Authorization: 'Bearer test-token' } })
-    );
+  // raw.githubusercontent.com rejects any cross-origin fetch carrying an
+  // Authorization header at the CORS preflight stage -- confirmed against
+  // the real service, not just a config assumption -- so raw/blob URLs are
+  // rewritten to the Contents API instead, which does support it.
+  describe('GitHub raw/blob URL rewriting', () => {
+    const contentsFetch = (base64Content) =>
+      vi.fn(async () => ({ ok: true, json: async () => ({ content: base64Content }) }));
+
+    test('rewrites a raw.githubusercontent.com URL to the Contents API and decodes the result', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+
+      const spec = await fetchSpec(
+        'https://raw.githubusercontent.com/owner/repo/main/openapi.yaml',
+        CONNECTION
+      );
+
+      expect(spec).toEqual({ openapi: '3.0.0' });
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: 'Bearer test-token',
+          },
+        }
+      );
+    });
+
+    test('rewrites a github.com blob URL the same way, including nested paths', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+
+      await fetchSpec(
+        'https://github.com/owner/repo/blob/main/specs/nested/openapi.yaml',
+        CONNECTION
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/owner/repo/contents/specs/nested/openapi.yaml?ref=main',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: expect.any(String) }),
+        })
+      );
+    });
+
+    test('does not attach a token when the configured API base URL is not github.com', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'test-token' };
+
+      await fetchSpec(
+        'https://raw.githubusercontent.com/owner/repo/main/openapi.yaml',
+        ghecConnection
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        { headers: { Accept: 'application/vnd.github+json' } }
+      );
+    });
   });
 
   test('does NOT attach the token to an unrelated third-party URL', async () => {

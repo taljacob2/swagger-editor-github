@@ -1,5 +1,7 @@
 import YAML from 'js-yaml';
 
+import { base64ToUtf8 } from './aggregation-storage-service.js';
+
 // Component sub-collections that can each independently collide by name
 // across services — mirrors OpenAPI 3's components object.
 const COMPONENT_TYPES = [
@@ -14,34 +16,67 @@ const COMPONENT_TYPES = [
   'callbacks',
 ];
 
-const RAW_GITHUB_CONTENT_HOSTS = ['raw.githubusercontent.com'];
+// github.com's raw-content CDN and file-viewer URLs -- always github.com
+// itself, never a GHEC custom domain, regardless of what apiBaseUrl the
+// user has configured (see the comment on GITHUB_COM_API_BASE_URL below).
+const RAW_URL_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
+const BLOB_URL_RE = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
+
+function parseGitHubFileUrl(url) {
+  const match = url.match(RAW_URL_RE) || url.match(BLOB_URL_RE);
+  if (!match) {
+    return null;
+  }
+  const [, owner, repo, ref, path] = match;
+  return { owner, repo, ref, path };
+}
+
+// raw.githubusercontent.com does not support authenticated CORS requests at
+// all -- any fetch to it carrying an Authorization header gets blocked at
+// the preflight, for public *and* private repos alike, regardless of token
+// validity. So a raw/blob URL is rewritten into a Contents API call instead:
+// same content, but served from api.github.com, which (like the rest of
+// this app's GitHub access) does support authenticated CORS.
+const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
 
 // Only attach the PAT to requests that are actually going to GitHub — never
 // to an arbitrary third-party URL a set happens to reference, which would
 // leak the token to whatever server is on the other end.
 function shouldAttachToken(url, apiBaseUrl) {
   try {
-    const targetHost = new URL(url).hostname;
-    const apiHost = new URL(apiBaseUrl).hostname;
-    return targetHost === apiHost || RAW_GITHUB_CONTENT_HOSTS.includes(targetHost);
+    return new URL(url).hostname === new URL(apiBaseUrl).hostname;
   } catch {
     return false;
   }
 }
 
 export async function fetchSpec(url, connection) {
+  const parsed = parseGitHubFileUrl(url);
+  // Always api.github.com, never connection.apiBaseUrl -- a raw.githubusercontent.com
+  // or github.com/blob/ URL is inherently a github.com resource even when
+  // this app itself is configured against a GHEC custom domain for its own
+  // repo access.
+  const requestUrl = parsed
+    ? `${GITHUB_COM_API_BASE_URL}/repos/${parsed.owner}/${parsed.repo}/contents/${parsed.path}?ref=${encodeURIComponent(parsed.ref)}`
+    : url;
+
   // Prefer a dedicated read-only fetch token when one is set, so a token
   // scoped only to fetching specs never needs the broader write access the
   // main repo token carries. Falls back to the repo token when unset.
   const token = connection.fetchToken || connection.token;
-  const headers = {};
-  if (token && shouldAttachToken(url, connection.apiBaseUrl)) {
+  const headers = parsed ? { Accept: 'application/vnd.github+json' } : {};
+  if (token && shouldAttachToken(requestUrl, connection.apiBaseUrl)) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(requestUrl, { headers });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  if (parsed) {
+    const file = await response.json();
+    return YAML.load(base64ToUtf8(file.content));
   }
 
   const text = await response.text();
