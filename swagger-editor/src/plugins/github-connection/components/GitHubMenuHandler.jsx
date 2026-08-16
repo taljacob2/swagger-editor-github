@@ -183,36 +183,38 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
         <fieldset className="input-group swagger-editor__intent-picker">
           <legend className="swagger-editor__intent-picker-title">What do you want to do?</legend>
 
-          {INTENT_GROUPS.map((group) => (
-            <fieldset key={group.label} className="swagger-editor__intent-group">
-              <legend className="swagger-editor__intent-group-label">{group.label}</legend>
-              {group.options.map((option) => (
-                // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                <label
-                  key={option.value}
-                  className={
-                    intent === option.value
-                      ? 'swagger-editor__intent-option swagger-editor__intent-option--selected'
-                      : 'swagger-editor__intent-option'
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="github-intent"
-                    value={option.value}
-                    checked={intent === option.value}
-                    onChange={handleIntentChange}
-                  />
-                  <span className="swagger-editor__intent-option-text">
-                    <span className="swagger-editor__intent-option-title">{option.title}</span>
-                    <span className="swagger-editor__intent-option-description">
-                      {option.description}
+          <div className="swagger-editor__intent-grid">
+            {INTENT_GROUPS.map((group) => (
+              <React.Fragment key={group.label}>
+                <div className="swagger-editor__intent-group-label">{group.label}</div>
+                {group.options.map((option) => (
+                  // eslint-disable-next-line jsx-a11y/label-has-associated-control
+                  <label
+                    key={option.value}
+                    className={
+                      intent === option.value
+                        ? 'swagger-editor__intent-option swagger-editor__intent-option--selected'
+                        : 'swagger-editor__intent-option'
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="github-intent"
+                      value={option.value}
+                      checked={intent === option.value}
+                      onChange={handleIntentChange}
+                    />
+                    <span className="swagger-editor__intent-option-text">
+                      <span className="swagger-editor__intent-option-title">{option.title}</span>
+                      <span className="swagger-editor__intent-option-description">
+                        {option.description}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-          ))}
+                  </label>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
 
           <p className="help-block">
             Full walkthrough of what each option needs and why:{' '}
