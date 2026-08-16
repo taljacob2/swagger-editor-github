@@ -69,7 +69,7 @@ describe('fetchSpec', () => {
       );
     });
 
-    test('does not attach a token when the configured API base URL is not github.com', async () => {
+    test('a plain github.com URL does not attach a GHEC-configured token (wrong instance)', async () => {
       global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
       const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'test-token' };
 
@@ -81,6 +81,72 @@ describe('fetchSpec', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         'https://api.github.com/repos/owner/repo/contents/openapi.yaml?ref=main',
         { headers: { Accept: 'application/vnd.github+json' } }
+      );
+    });
+
+    // GHEC/GHE.com blob and raw hosts are derived from the user's own
+    // configured apiBaseUrl (api.mycompany.ghe.com -> mycompany.ghe.com),
+    // not hardcoded -- unverified against a real org, but this is the
+    // best-effort generalization of github.com's own host-splitting pattern.
+    test('rewrites a GHEC blob URL to that instance’s own Contents API, with its own token', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'ghec-token' };
+
+      await fetchSpec(
+        'https://mycompany.ghe.com/owner/repo/blob/main/openapi.yaml',
+        ghecConnection
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.mycompany.ghe.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: 'Bearer ghec-token',
+          },
+        }
+      );
+    });
+
+    test('rewrites a guessed GHEC raw-content URL (raw.<domain>) the same way', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'ghec-token' };
+
+      await fetchSpec('https://raw.mycompany.ghe.com/owner/repo/main/openapi.yaml', ghecConnection);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.mycompany.ghe.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer ghec-token' }),
+        })
+      );
+    });
+
+    test('strips a trailing slash from a configured apiBaseUrl before building the Contents API URL', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com/', token: 'ghec-token' };
+
+      await fetchSpec(
+        'https://mycompany.ghe.com/owner/repo/blob/main/openapi.yaml',
+        ghecConnection
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.mycompany.ghe.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        expect.anything()
+      );
+    });
+
+    test('does not treat an unrelated third-party host as a GitHub file URL just because it has a similar shape', async () => {
+      // Unparsed fallback path reads response.text(), not .json() -- reuse
+      // the plain text-based mock from the outer beforeEach, not contentsFetch.
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'ghec-token' };
+
+      await fetchSpec('https://evil.example.com/owner/repo/blob/main/openapi.yaml', ghecConnection);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://evil.example.com/owner/repo/blob/main/openapi.yaml',
+        { headers: {} }
       );
     });
   });

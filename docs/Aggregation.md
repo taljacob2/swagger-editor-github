@@ -15,6 +15,13 @@ its own.
    [Permissions.md](Permissions.md)).
 2. **New Set**, give it a name, and add one **Service name** + **Swagger URL** pair per
    microservice you want merged in. **Save Set**.
+
+   The URL can be any plain HTTP(S) URL. GitHub-hosted specs get special handling: a
+   `raw.githubusercontent.com` link, a `github.com/owner/repo/blob/ref/path` link (the URL you'd
+   copy straight from GitHub's file viewer), or the equivalent on a configured GHEC/GHE.com custom
+   domain are all recognized and transparently routed through the Contents API with your token
+   attached — see [Design.md](Design.md#progress) for why (`raw.githubusercontent.com` itself
+   rejects authenticated cross-origin requests outright).
 3. Click **Aggregate** on the saved set. The merge result is loaded straight into the active tab,
    and a status line reports how it went, e.g.:
 

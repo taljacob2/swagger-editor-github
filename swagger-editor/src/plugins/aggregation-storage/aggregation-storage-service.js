@@ -3,7 +3,7 @@ const SETS_DIR = 'aggregation-sets';
 
 export const DEFAULT_BRANCH = 'aggregation-data';
 
-const stripTrailingSlashes = (value) => value.replace(/\/+$/, '');
+export const stripTrailingSlashes = (value) => value.replace(/\/+$/, '');
 
 // UTF-8 safe base64 helpers — the Contents API round-trips base64 bytes, and
 // plain btoa()/atob() only handle Latin1, which mangles non-ASCII spec content.

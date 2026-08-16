@@ -1,6 +1,6 @@
 import YAML from 'js-yaml';
 
-import { base64ToUtf8 } from './aggregation-storage-service.js';
+import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
 
 // Component sub-collections that can each independently collide by name
 // across services — mirrors OpenAPI 3's components object.
@@ -16,28 +16,68 @@ const COMPONENT_TYPES = [
   'callbacks',
 ];
 
-// github.com's raw-content CDN and file-viewer URLs -- always github.com
-// itself, never a GHEC custom domain, regardless of what apiBaseUrl the
-// user has configured (see the comment on GITHUB_COM_API_BASE_URL below).
-const RAW_URL_RE = /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
-const BLOB_URL_RE = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
+const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
+const GITHUB_COM_RAW_HOST = 'raw.githubusercontent.com';
+const GITHUB_COM_WEB_HOST = 'github.com';
 
-function parseGitHubFileUrl(url) {
-  const match = url.match(RAW_URL_RE) || url.match(BLOB_URL_RE);
-  if (!match) {
+const RAW_PATH_RE = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
+const BLOB_PATH_RE = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
+
+// A GHEC/GHE.com custom domain's web/raw hosts aren't fixed strings the way
+// github.com's are -- they're derived from whatever apiBaseUrl the user has
+// configured: api.<domain> -> <domain> for the file-viewer (blob) host,
+// raw.<domain> for the raw-content host, by analogy with how github.com
+// itself splits api.github.com from github.com and raw.githubusercontent.com.
+// The blob-URL pattern is high-confidence -- same product, same route, just
+// a different domain. The raw-content pattern is a best-effort guess,
+// unverified against a real GHEC/GHE.com org -- see docs/Design.md.
+function webHostFromApiBaseUrl(apiBaseUrl) {
+  try {
+    const { hostname } = new URL(apiBaseUrl);
+    return hostname.startsWith('api.') ? hostname.slice('api.'.length) : hostname;
+  } catch {
     return null;
   }
-  const [, owner, repo, ref, path] = match;
-  return { owner, repo, ref, path };
 }
 
 // raw.githubusercontent.com does not support authenticated CORS requests at
 // all -- any fetch to it carrying an Authorization header gets blocked at
 // the preflight, for public *and* private repos alike, regardless of token
-// validity. So a raw/blob URL is rewritten into a Contents API call instead:
-// same content, but served from api.github.com, which (like the rest of
-// this app's GitHub access) does support authenticated CORS.
-const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
+// validity (confirmed against the live service). So a raw/blob URL that
+// belongs to a recognized GitHub web/raw host is rewritten into a Contents
+// API call instead: same content, but served from a host that (like the
+// rest of this app's GitHub access) does support authenticated CORS.
+function parseGitHubFileUrl(url, apiBaseUrl) {
+  let hostname;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+
+  const webHost = webHostFromApiBaseUrl(apiBaseUrl);
+  const candidates = [
+    { host: GITHUB_COM_RAW_HOST, apiBase: GITHUB_COM_API_BASE_URL, pattern: RAW_PATH_RE },
+    { host: GITHUB_COM_WEB_HOST, apiBase: GITHUB_COM_API_BASE_URL, pattern: BLOB_PATH_RE },
+    ...(webHost && webHost !== GITHUB_COM_WEB_HOST
+      ? [
+          { host: `raw.${webHost}`, apiBase: apiBaseUrl, pattern: RAW_PATH_RE },
+          { host: webHost, apiBase: apiBaseUrl, pattern: BLOB_PATH_RE },
+        ]
+      : []),
+  ];
+
+  const candidate = candidates.find((c) => c.host === hostname);
+  if (!candidate) {
+    return null;
+  }
+  const match = url.match(candidate.pattern);
+  if (!match) {
+    return null;
+  }
+  const [, owner, repo, ref, path] = match;
+  return { owner, repo, ref, path, apiBase: candidate.apiBase };
+}
 
 // Only attach the PAT to requests that are actually going to GitHub — never
 // to an arbitrary third-party URL a set happens to reference, which would
@@ -51,13 +91,9 @@ function shouldAttachToken(url, apiBaseUrl) {
 }
 
 export async function fetchSpec(url, connection) {
-  const parsed = parseGitHubFileUrl(url);
-  // Always api.github.com, never connection.apiBaseUrl -- a raw.githubusercontent.com
-  // or github.com/blob/ URL is inherently a github.com resource even when
-  // this app itself is configured against a GHEC custom domain for its own
-  // repo access.
+  const parsed = parseGitHubFileUrl(url, connection.apiBaseUrl);
   const requestUrl = parsed
-    ? `${GITHUB_COM_API_BASE_URL}/repos/${parsed.owner}/${parsed.repo}/contents/${parsed.path}?ref=${encodeURIComponent(parsed.ref)}`
+    ? `${stripTrailingSlashes(parsed.apiBase)}/repos/${parsed.owner}/${parsed.repo}/contents/${parsed.path}?ref=${encodeURIComponent(parsed.ref)}`
     : url;
 
   // Prefer a dedicated read-only fetch token when one is set, so a token
