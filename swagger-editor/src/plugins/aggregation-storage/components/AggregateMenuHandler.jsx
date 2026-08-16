@@ -606,7 +606,7 @@ const AggregateMenuHandler = forwardRef(
                     </button>
                     <button
                       type="button"
-                      className="swagger-editor__aggregate-icon-button"
+                      className="btn btn-secondary"
                       aria-label="Hide add-service fields"
                       title="Hide add-service fields"
                       disabled={editingUrlIndex !== null}
