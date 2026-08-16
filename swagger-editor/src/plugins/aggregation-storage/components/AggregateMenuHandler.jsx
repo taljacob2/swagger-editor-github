@@ -6,6 +6,7 @@ import { aggregateSet } from '../aggregation-merge-service.js';
 import {
   canWriteToStorage,
   deleteAggregationSet,
+  getRepoDefaultBranch,
   getStorageSettings,
   listAggregationSets,
   moveSwaggerUrl,
@@ -39,6 +40,7 @@ const AggregateMenuHandler = forwardRef(
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
     const [aggregatingId, setAggregatingId] = useState(null);
     const [canWrite, setCanWrite] = useState(false);
+    const [repoDefaultBranch, setRepoDefaultBranch] = useState(null);
 
     const Modal = getComponent('Modal');
     const ModalHeader = getComponent('ModalHeader');
@@ -53,6 +55,7 @@ const AggregateMenuHandler = forwardRef(
       if (!storage.owner || !storage.repo) {
         setSets([]);
         setCanWrite(false);
+        setRepoDefaultBranch(null);
         return;
       }
       setIsLoadingSets(true);
@@ -61,12 +64,16 @@ const AggregateMenuHandler = forwardRef(
       // Run concurrently so a slow permission check can't delay the sets list
       // (or vice versa) — fail closed (no write controls) on any error, since
       // that's the safer default.
-      const [canWriteResult, setsResult] = await Promise.allSettled([
+      const [canWriteResult, setsResult, defaultBranchResult] = await Promise.allSettled([
         canWriteToStorage(storage, connection),
         listAggregationSets(storage, connection),
+        getRepoDefaultBranch(storage, connection),
       ]);
 
       setCanWrite(canWriteResult.status === 'fulfilled' ? canWriteResult.value : false);
+      setRepoDefaultBranch(
+        defaultBranchResult.status === 'fulfilled' ? defaultBranchResult.value : null
+      );
       if (setsResult.status === 'fulfilled') {
         setSets(setsResult.value);
       } else {
@@ -271,6 +278,9 @@ const AggregateMenuHandler = forwardRef(
       }
     };
 
+    const isBranchDefaultBranch = Boolean(repoDefaultBranch) && branch.trim() === repoDefaultBranch;
+    const canEditSets = canWrite && !isBranchDefaultBranch;
+
     const conflictGroups = status?.conflicts
       ? [
           {
@@ -365,14 +375,23 @@ const AggregateMenuHandler = forwardRef(
                     type="text"
                     className="form-control"
                     value={branch}
+                    aria-invalid={isBranchDefaultBranch}
                     onChange={(e) => setBranch(e.target.value)}
                   />
                 </div>
               </div>
+              {isBranchDefaultBranch && (
+                <p className="swagger-editor__aggregate-alert swagger-editor__aggregate-alert--error">
+                  &quot;{branch.trim()}&quot; is <code>{`${owner}/${repo}`}</code>&apos;s default
+                  branch — choose a different branch so aggregation sets aren&apos;t committed on
+                  top of it.
+                </p>
+              )}
               <button
                 type="button"
                 className="btn btn-secondary swagger-editor__aggregate-save-location"
                 onClick={handleSaveLocationClick}
+                disabled={isBranchDefaultBranch}
               >
                 Save Location
               </button>
@@ -438,7 +457,7 @@ const AggregateMenuHandler = forwardRef(
                 paints a wrong permission note that then flips once the real check lands. */}
             {!showForm && !isLoadingSets && (
               <>
-                {canWrite && (
+                {canEditSets && (
                   <button
                     type="button"
                     className="btn btn-primary swagger-editor__aggregate-new-set-button"
@@ -490,7 +509,7 @@ const AggregateMenuHandler = forwardRef(
                           >
                             {aggregatingId === set.id ? 'Aggregating…' : 'Aggregate'}
                           </button>
-                          {canWrite && (
+                          {canEditSets && (
                             <>
                               <button
                                 type="button"
@@ -721,7 +740,7 @@ const AggregateMenuHandler = forwardRef(
                     type="button"
                     className="btn btn-primary"
                     onClick={handleSaveSetClick}
-                    disabled={isSaving}
+                    disabled={isSaving || isBranchDefaultBranch}
                   >
                     {isSaving ? 'Saving…' : 'Save Set'}
                   </button>

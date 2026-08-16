@@ -85,6 +85,7 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.saveAggregationSet.mockResolvedValue({});
     aggregationStorageService.deleteAggregationSet.mockResolvedValue();
     aggregationStorageService.canWriteToStorage.mockResolvedValue(true);
+    aggregationStorageService.getRepoDefaultBranch.mockResolvedValue(null);
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -126,6 +127,31 @@ describe('AggregateMenuHandler', () => {
       branch: 'aggregation-data',
     });
     expect(screen.getByText('Storage location saved.')).toBeInTheDocument();
+  });
+
+  test('blocks the default branch from being used as the storage branch', async () => {
+    aggregationStorageService.getRepoDefaultBranch.mockResolvedValue('main');
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'main' } });
+    });
+
+    expect(document.querySelector('.swagger-editor__aggregate-alert--error').textContent).toMatch(
+      "is taljacob2/swagger-editor-github's default branch"
+    );
+    expect(screen.getByText('Save Location')).toBeDisabled();
+    expect(screen.queryByText('New Set')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'aggregation-data' } });
+    });
+
+    expect(document.querySelector('.swagger-editor__aggregate-alert--error')).toBeNull();
+    expect(screen.getByText('Save Location')).not.toBeDisabled();
+    expect(screen.getByText('New Set')).toBeInTheDocument();
   });
 
   test('creating a new set with an added URL calls saveAggregationSet with the right payload', async () => {

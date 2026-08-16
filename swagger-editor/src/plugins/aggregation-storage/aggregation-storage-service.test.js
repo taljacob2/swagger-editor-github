@@ -4,6 +4,7 @@ import {
   deleteAggregationSet,
   ensureDataBranch,
   getAggregationSet,
+  getRepoDefaultBranch,
   getStorageSettings,
   listAggregationSets,
   moveSwaggerUrl,
@@ -249,6 +250,44 @@ describe('aggregation-storage-service', () => {
         throw new TypeError('Failed to fetch');
       });
       expect(await canWriteToStorage(STORAGE, CONNECTION)).toBe(false);
+    });
+  });
+
+  describe('getRepoDefaultBranch', () => {
+    test('returns the repo response default_branch', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith('/repos/taljacob2/swagger-editor-github'),
+          json: { default_branch: 'main' },
+        },
+      ]);
+
+      expect(await getRepoDefaultBranch(STORAGE, CONNECTION)).toBe('main');
+    });
+
+    test('null when the repo has no default_branch (unexpected response shape)', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith('/repos/taljacob2/swagger-editor-github'),
+          json: {},
+        },
+      ]);
+
+      expect(await getRepoDefaultBranch(STORAGE, CONNECTION)).toBeNull();
+    });
+
+    test('null on a 404, rather than throwing', async () => {
+      mockFetch([{ method: 'GET', test: () => true, status: 404 }]);
+      expect(await getRepoDefaultBranch(STORAGE, CONNECTION)).toBeNull();
+    });
+
+    test('null if the request itself fails, rather than throwing', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      expect(await getRepoDefaultBranch(STORAGE, CONNECTION)).toBeNull();
     });
   });
 

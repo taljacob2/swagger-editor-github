@@ -170,6 +170,21 @@ export async function canWriteToStorage(storage, connection) {
   }
 }
 
+// The storage repo's actual default branch (e.g. "main") -- used to block
+// the Branch field from being set to it, since every write here (set saves,
+// deletes, ensureDataBranch) commits straight to whatever branch is
+// configured. Returns null (no comparison possible) if the check itself
+// fails, so a transient API hiccup doesn't block legitimate saves.
+export async function getRepoDefaultBranch(storage, connection) {
+  const { owner, repo } = storage;
+  try {
+    const repoInfo = await ghRequest(`/repos/${owner}/${repo}`, { connection, allow404: true });
+    return repoInfo?.default_branch || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAggregationSet(id, storage, connection) {
   const { owner, repo, branch } = storage;
   const file = await ghRequest(
