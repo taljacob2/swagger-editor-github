@@ -27,6 +27,7 @@ const AggregateMenuHandler = forwardRef(
     const [sets, setSets] = useState([]);
     const [isLoadingSets, setIsLoadingSets] = useState(false);
     const [status, setStatus] = useState(null);
+    const [showConflictDetails, setShowConflictDetails] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState(emptyForm);
     const [newUrlName, setNewUrlName] = useState('');
@@ -221,6 +222,7 @@ const AggregateMenuHandler = forwardRef(
     const handleAggregateClick = async (set) => {
       setAggregatingId(set.id);
       setStatus(null);
+      setShowConflictDetails(false);
       try {
         const result = await aggregateSet(set, await getConnectionSettings());
         editorActions.setContent(result.yaml, EditorContentOrigin.Aggregation);
@@ -229,9 +231,6 @@ const AggregateMenuHandler = forwardRef(
           result.conflicts.paths.length +
           result.conflicts.tags.length +
           result.conflicts.components.length;
-        const conflictNote = conflictCount
-          ? `, resolved ${conflictCount} naming conflict${conflictCount === 1 ? '' : 's'}`
-          : '';
         const errorNote = result.errors.length
           ? ` (${result.errors.length} URL${result.errors.length === 1 ? '' : 's'} failed: ${result.errors
               .map((e) => e.name)
@@ -239,13 +238,22 @@ const AggregateMenuHandler = forwardRef(
           : '';
         setStatus({
           ok: true,
-          message: `Loaded "${set.name}" into the editor: ${result.specCount} spec(s) merged${conflictNote}.${errorNote}`,
+          message: `Loaded "${set.name}" into the editor: ${result.specCount} spec(s) merged`,
+          conflictLabel: conflictCount
+            ? `resolved ${conflictCount} naming conflict${conflictCount === 1 ? '' : 's'}`
+            : null,
+          conflicts: conflictCount ? result.conflicts : null,
+          suffix: `.${errorNote}`,
         });
       } catch (error) {
         setStatus({ ok: false, message: error.message });
       } finally {
         setAggregatingId(null);
       }
+    };
+
+    const handleToggleConflictDetailsClick = () => {
+      setShowConflictDetails((isOpenAlready) => !isOpenAlready);
     };
 
     const handleDeleteConfirmClose = async (confirmed) => {
@@ -264,6 +272,38 @@ const AggregateMenuHandler = forwardRef(
         setStatus({ ok: false, message });
       }
     };
+
+    const conflictGroups = status?.conflicts
+      ? [
+          {
+            key: 'paths',
+            title: 'Paths',
+            items: status.conflicts.paths.map((c) => ({
+              key: c.path,
+              label: c.path,
+              renamed: c.renamed,
+            })),
+          },
+          {
+            key: 'tags',
+            title: 'Tags',
+            items: status.conflicts.tags.map((c) => ({
+              key: c.tagName,
+              label: c.tagName,
+              renamed: c.renamed,
+            })),
+          },
+          {
+            key: 'components',
+            title: 'Components',
+            items: status.conflicts.components.map((c) => ({
+              key: `${c.type}:${c.name}`,
+              label: `${c.name} (${c.type})`,
+              renamed: c.renamed,
+            })),
+          },
+        ].filter((group) => group.items.length > 0)
+      : [];
 
     return (
       <>
@@ -349,7 +389,47 @@ const AggregateMenuHandler = forwardRef(
                 }
               >
                 {status.message}
+                {status.conflictLabel && (
+                  <>
+                    {', '}
+                    <button
+                      type="button"
+                      className="swagger-editor__aggregate-inline-link"
+                      onClick={handleToggleConflictDetailsClick}
+                      aria-expanded={showConflictDetails}
+                    >
+                      {status.conflictLabel}
+                    </button>
+                  </>
+                )}
+                {status.suffix}
               </p>
+            )}
+
+            {conflictGroups.length > 0 && showConflictDetails && (
+              <div className="swagger-editor__aggregate-conflict-details">
+                {conflictGroups.map((group) => (
+                  <div key={group.key} className="swagger-editor__aggregate-conflict-group">
+                    <div className="swagger-editor__aggregate-conflict-group-title">
+                      {group.title}
+                    </div>
+                    <ul className="swagger-editor__aggregate-conflict-list">
+                      {group.items.map((item) => (
+                        <li key={item.key} className="swagger-editor__aggregate-conflict-item">
+                          <code>{item.label}</code>
+                          <ul className="swagger-editor__aggregate-conflict-renamed-list">
+                            {item.renamed.map((r) => (
+                              <li key={r.service}>
+                                {r.service} &rarr; <code>{r.to}</code>
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
 
             {!showForm && (

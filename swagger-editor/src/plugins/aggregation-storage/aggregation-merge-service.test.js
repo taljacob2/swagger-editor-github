@@ -229,7 +229,16 @@ describe('mergeSpecs', () => {
     const { merged, conflicts } = mergeSpecs([a, b]);
 
     expect(Object.keys(merged.paths).sort()).toEqual(['/orders/profile', '/users/profile']);
-    expect(conflicts.paths).toEqual([{ path: '/profile', services: ['Users', 'Orders'] }]);
+    expect(conflicts.paths).toEqual([
+      {
+        path: '/profile',
+        services: ['Users', 'Orders'],
+        renamed: [
+          { service: 'Users', to: '/users/profile' },
+          { service: 'Orders', to: '/orders/profile' },
+        ],
+      },
+    ]);
   });
 
   test('prefixes a colliding tag name and the operations referencing it', () => {
@@ -247,7 +256,16 @@ describe('mergeSpecs', () => {
     expect(merged.paths['/a'].get.tags).toEqual(['Users-Shared']);
     expect(merged.paths['/b'].get.tags).toEqual(['Orders-Shared']);
     expect(merged.tags.map((t) => t.name).sort()).toEqual(['Orders-Shared', 'Users-Shared']);
-    expect(conflicts.tags).toEqual([{ tagName: 'Shared', services: ['Users', 'Orders'] }]);
+    expect(conflicts.tags).toEqual([
+      {
+        tagName: 'Shared',
+        services: ['Users', 'Orders'],
+        renamed: [
+          { service: 'Users', to: 'Users-Shared' },
+          { service: 'Orders', to: 'Orders-Shared' },
+        ],
+      },
+    ]);
   });
 
   test('prefixes a colliding schema name in both services', () => {
@@ -261,7 +279,15 @@ describe('mergeSpecs', () => {
       OrdersEntity: { type: 'string' },
     });
     expect(conflicts.components).toEqual([
-      { type: 'schemas', name: 'Entity', services: ['Users', 'Orders'] },
+      {
+        type: 'schemas',
+        name: 'Entity',
+        services: ['Users', 'Orders'],
+        renamed: [
+          { service: 'Users', to: 'UsersEntity' },
+          { service: 'Orders', to: 'OrdersEntity' },
+        ],
+      },
     ]);
   });
 

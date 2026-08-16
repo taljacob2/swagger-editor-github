@@ -162,6 +162,7 @@ export function mergeSpecs(specs, infoOverrides = {}) {
   const pathOwners = new Map();
   const tagOwners = new Map();
   const componentOwners = new Map(); // key: `${type}:${name}` -> [service names]
+  const prefixFor = (serviceName) => serviceName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   specs.forEach(({ name, spec }) => {
     Object.keys(spec.paths || {}).forEach((path) => {
@@ -181,22 +182,41 @@ export function mergeSpecs(specs, infoOverrides = {}) {
     });
   });
 
+  // Record what each colliding name gets renamed to, per service, so the UI
+  // can show the resolution instead of just the fact that a conflict happened.
   pathOwners.forEach((services, path) => {
-    if (services.length > 1) conflicts.paths.push({ path, services });
+    if (services.length > 1) {
+      conflicts.paths.push({
+        path,
+        services,
+        renamed: services.map((service) => ({ service, to: `/${prefixFor(service)}${path}` })),
+      });
+    }
   });
   tagOwners.forEach((services, tagName) => {
-    if (services.length > 1) conflicts.tags.push({ tagName, services });
+    if (services.length > 1) {
+      conflicts.tags.push({
+        tagName,
+        services,
+        renamed: services.map((service) => ({ service, to: `${service}-${tagName}` })),
+      });
+    }
   });
   componentOwners.forEach((services, key) => {
     if (services.length > 1) {
       const [type, name] = key.split(':');
-      conflicts.components.push({ type, name, services });
+      conflicts.components.push({
+        type,
+        name,
+        services,
+        renamed: services.map((service) => ({ service, to: `${service}${name}` })),
+      });
     }
   });
 
   // Second pass: merge, prefixing only what collided above.
   specs.forEach(({ name, spec }) => {
-    const prefix = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const prefix = prefixFor(name);
 
     (spec.servers || []).forEach((server) => {
       const exists = merged.servers.some((s) => JSON.stringify(s) === JSON.stringify(server));

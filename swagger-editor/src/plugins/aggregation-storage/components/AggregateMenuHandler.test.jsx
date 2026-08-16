@@ -717,8 +717,52 @@ describe('AggregateMenuHandler', () => {
       });
 
       expect(
-        screen.getByText(/resolved 1 naming conflict.*\(1 URL failed: Broken\)/)
+        screen.getByRole('button', { name: 'resolved 1 naming conflict' })
       ).toBeInTheDocument();
+      expect(screen.getByText(/\(1 URL failed: Broken\)/)).toBeInTheDocument();
+    });
+
+    test('clicking the conflict summary reveals per-service renamed details', async () => {
+      aggregationMergeService.aggregateSet.mockResolvedValue({
+        yaml: 'openapi: 3.0.0\n',
+        conflicts: {
+          paths: [
+            {
+              path: '/profile',
+              services: ['Users', 'Orders'],
+              renamed: [
+                { service: 'Users', to: '/users/profile' },
+                { service: 'Orders', to: '/orders/profile' },
+              ],
+            },
+          ],
+          tags: [],
+          components: [],
+        },
+        errors: [],
+        specCount: 2,
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Aggregate'));
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Aggregate'));
+      });
+
+      const toggle = screen.getByRole('button', { name: 'resolved 1 naming conflict' });
+      expect(screen.queryByText('/users/profile')).not.toBeInTheDocument();
+
+      fireEvent.click(toggle);
+
+      expect(screen.getByText('/profile')).toBeInTheDocument();
+      expect(screen.getByText('/users/profile')).toBeInTheDocument();
+      expect(screen.getByText('/orders/profile')).toBeInTheDocument();
+
+      fireEvent.click(toggle);
+
+      expect(screen.queryByText('/users/profile')).not.toBeInTheDocument();
     });
 
     test('reports an aggregation failure without crashing', async () => {
