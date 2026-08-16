@@ -69,6 +69,21 @@ export function saveStorageSettings({ owner, repo, branch }) {
   return settings;
 }
 
+// Order is functionally meaningful, not just cosmetic: mergeSpecs iterates
+// swaggerUrls in array order, so for non-colliding paths/tags/components,
+// whichever service is first here ends up first in the merged output. Same
+// no-op-at-the-edge contract as workspace-tabs-service.js's reorderTab —
+// returns the same array reference when there's nothing to move.
+export function moveSwaggerUrl(swaggerUrls, index, direction) {
+  const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= swaggerUrls.length) {
+    return swaggerUrls;
+  }
+  const next = [...swaggerUrls];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
+}
+
 async function ghRequest(path, { connection, method = 'GET', body, allow404 = false } = {}) {
   // Omit Authorization entirely when there's no token, rather than sending an
   // empty bearer value — GitHub treats a malformed token as bad credentials

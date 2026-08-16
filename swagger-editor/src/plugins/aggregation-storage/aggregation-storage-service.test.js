@@ -6,6 +6,7 @@ import {
   getAggregationSet,
   getStorageSettings,
   listAggregationSets,
+  moveSwaggerUrl,
   saveAggregationSet,
   saveStorageSettings,
 } from './aggregation-storage-service.js';
@@ -377,6 +378,42 @@ describe('aggregation-storage-service', () => {
         sha: 'sha-to-delete',
         branch: DEFAULT_BRANCH,
       });
+    });
+  });
+
+  describe('moveSwaggerUrl', () => {
+    const urls = (...names) => names.map((name) => ({ name, url: `https://example.com/${name}` }));
+
+    test('moves an entry up, swapping it with its predecessor', () => {
+      const result = moveSwaggerUrl(urls('a', 'b', 'c'), 1, 'up');
+      expect(result.map((e) => e.name)).toEqual(['b', 'a', 'c']);
+    });
+
+    test('moves an entry down, swapping it with its successor', () => {
+      const result = moveSwaggerUrl(urls('a', 'b', 'c'), 1, 'down');
+      expect(result.map((e) => e.name)).toEqual(['a', 'c', 'b']);
+    });
+
+    test('moving the first entry up is a no-op, same reference', () => {
+      const input = urls('a', 'b');
+      expect(moveSwaggerUrl(input, 0, 'up')).toBe(input);
+    });
+
+    test('moving the last entry down is a no-op, same reference', () => {
+      const input = urls('a', 'b');
+      expect(moveSwaggerUrl(input, 1, 'down')).toBe(input);
+    });
+
+    test('a single-entry list is a no-op in either direction', () => {
+      const input = urls('a');
+      expect(moveSwaggerUrl(input, 0, 'up')).toBe(input);
+      expect(moveSwaggerUrl(input, 0, 'down')).toBe(input);
+    });
+
+    test('does not mutate the original array', () => {
+      const input = urls('a', 'b');
+      moveSwaggerUrl(input, 0, 'down');
+      expect(input.map((e) => e.name)).toEqual(['a', 'b']);
     });
   });
 });

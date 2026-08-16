@@ -89,7 +89,11 @@ describe('AggregateMenuHandler', () => {
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
     aggregationStorageService.listAggregationSets.mockResolvedValue([
-      { id: 'set-1', name: 'Orders', swaggerUrls: [{ name: 'Orders', url: 'https://x/o.yaml' }] },
+      {
+        id: 'set-1',
+        name: 'Orders',
+        swaggerUrls: [{ name: 'Billing API', url: 'https://x/o.yaml' }],
+      },
     ]);
     const ref = createRef();
     renderHandler(ref);
@@ -137,7 +141,8 @@ describe('AggregateMenuHandler', () => {
     });
     fireEvent.click(screen.getByText('Add URL'));
 
-    expect(screen.getByText(/Orders API: https:\/\/x\/orders\.yaml/)).toBeInTheDocument();
+    expect(screen.getByText('Orders API')).toBeInTheDocument();
+    expect(screen.getByText('https://x/orders.yaml')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByText('Save Set'));
@@ -184,7 +189,124 @@ describe('AggregateMenuHandler', () => {
     fireEvent.click(screen.getByText('Edit'));
 
     expect(screen.getByLabelText('Set name')).toHaveValue('Orders');
-    expect(screen.getByText(/Orders API: https:\/\/x\/o\.yaml/)).toBeInTheDocument();
+    expect(screen.getByText('Orders API')).toBeInTheDocument();
+    expect(screen.getByText('https://x/o.yaml')).toBeInTheDocument();
+  });
+
+  test('shows each service as a chip on the set card', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      {
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Users', url: 'https://x/users.yaml' },
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+        ],
+      },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await waitFor(() => expect(screen.getByText('Users')).toBeInTheDocument());
+    expect(screen.getByText('Orders')).toBeInTheDocument();
+    expect(screen.getByText('2 services')).toBeInTheDocument();
+  });
+
+  describe('reordering services in the edit form', () => {
+    const THREE_SERVICE_SET = {
+      id: 'set-1',
+      name: 'Public API',
+      swaggerUrls: [
+        { name: 'Users', url: 'https://x/users.yaml' },
+        { name: 'Orders', url: 'https://x/orders.yaml' },
+        { name: 'Billing', url: 'https://x/billing.yaml' },
+      ],
+    };
+
+    beforeEach(() => {
+      aggregationStorageService.listAggregationSets.mockResolvedValue([THREE_SERVICE_SET]);
+      // aggregation-storage-service.js is auto-mocked at the top of this file
+      // (its own pure-function correctness is covered by
+      // aggregation-storage-service.test.js), so these integration tests need
+      // a real implementation wired up to actually see the reorder happen.
+      aggregationStorageService.moveSwaggerUrl.mockImplementation(
+        (swaggerUrls, index, direction) => {
+          const targetIndex = direction === 'up' ? index - 1 : index + 1;
+          if (targetIndex < 0 || targetIndex >= swaggerUrls.length) {
+            return swaggerUrls;
+          }
+          const next = [...swaggerUrls];
+          [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+          return next;
+        }
+      );
+    });
+
+    const openEditForm = async (ref) => {
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Edit'));
+      fireEvent.click(screen.getByText('Edit'));
+    };
+
+    const rowOrder = () =>
+      screen
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('.swagger-editor__aggregate-url-name').textContent);
+
+    test('the first row cannot move up, the last row cannot move down', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      const moveUpButtons = screen.getAllByLabelText('Move up');
+      const moveDownButtons = screen.getAllByLabelText('Move down');
+
+      expect(moveUpButtons[0]).toBeDisabled();
+      expect(moveDownButtons[moveDownButtons.length - 1]).toBeDisabled();
+      expect(moveUpButtons[1]).not.toBeDisabled();
+      expect(moveDownButtons[0]).not.toBeDisabled();
+    });
+
+    test('moving a service down reorders it, and Save Set persists the new order', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      expect(rowOrder()).toEqual(['Users', 'Orders', 'Billing']);
+
+      fireEvent.click(screen.getAllByLabelText('Move down')[0]);
+
+      expect(rowOrder()).toEqual(['Orders', 'Users', 'Billing']);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Save Set'));
+      });
+
+      expect(aggregationStorageService.saveAggregationSet).toHaveBeenCalledWith(
+        {
+          id: 'set-1',
+          name: 'Public API',
+          swaggerUrls: [
+            { name: 'Orders', url: 'https://x/orders.yaml' },
+            { name: 'Users', url: 'https://x/users.yaml' },
+            { name: 'Billing', url: 'https://x/billing.yaml' },
+          ],
+        },
+        STORAGE_SETTINGS,
+        CONNECTION_SETTINGS
+      );
+    });
+
+    test('moving the middle service up reorders it', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[1]);
+
+      expect(rowOrder()).toEqual(['Orders', 'Users', 'Billing']);
+    });
   });
 
   test('Delete asks for confirmation before calling deleteAggregationSet', async () => {

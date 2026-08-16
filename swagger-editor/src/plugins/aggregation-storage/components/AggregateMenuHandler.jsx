@@ -8,6 +8,7 @@ import {
   deleteAggregationSet,
   getStorageSettings,
   listAggregationSets,
+  moveSwaggerUrl,
   saveAggregationSet,
   saveStorageSettings,
 } from '../aggregation-storage-service.js';
@@ -132,6 +133,13 @@ const AggregateMenuHandler = forwardRef(
       }));
     };
 
+    const handleMoveUrlClick = (index, direction) => {
+      setForm((prev) => ({
+        ...prev,
+        swaggerUrls: moveSwaggerUrl(prev.swaggerUrls, index, direction),
+      }));
+    };
+
     const handleSaveSetClick = async () => {
       if (!form.name.trim()) {
         setStatus({ ok: false, message: 'Enter a name for this set.' });
@@ -217,114 +225,162 @@ const AggregateMenuHandler = forwardRef(
             <ModalTitle>Manage Aggregation Sets</ModalTitle>
           </ModalHeader>
           <ModalBody>
-            <fieldset>
-              <legend>Storage location</legend>
-              <div className="input-group">
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label htmlFor="input-aggregation-owner" aria-labelledby="input-aggregation-owner">
-                  Owner
-                </label>
-                <input
-                  id="input-aggregation-owner"
-                  type="text"
-                  className="form-control"
-                  value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
-                />
+            <fieldset className="swagger-editor__aggregate-section">
+              <legend className="swagger-editor__aggregate-section-title">Storage location</legend>
+              <div className="swagger-editor__aggregate-storage-grid">
+                <div className="input-group">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label
+                    htmlFor="input-aggregation-owner"
+                    aria-labelledby="input-aggregation-owner"
+                  >
+                    Owner
+                  </label>
+                  <input
+                    id="input-aggregation-owner"
+                    type="text"
+                    className="form-control"
+                    value={owner}
+                    onChange={(e) => setOwner(e.target.value)}
+                  />
+                </div>
+                <div className="input-group">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label htmlFor="input-aggregation-repo" aria-labelledby="input-aggregation-repo">
+                    Repository
+                  </label>
+                  <input
+                    id="input-aggregation-repo"
+                    type="text"
+                    className="form-control"
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                  />
+                </div>
+                <div className="input-group">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label
+                    htmlFor="input-aggregation-branch"
+                    aria-labelledby="input-aggregation-branch"
+                  >
+                    Branch
+                  </label>
+                  <input
+                    id="input-aggregation-branch"
+                    type="text"
+                    className="form-control"
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="input-group">
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label htmlFor="input-aggregation-repo" aria-labelledby="input-aggregation-repo">
-                  Repository
-                </label>
-                <input
-                  id="input-aggregation-repo"
-                  type="text"
-                  className="form-control"
-                  value={repo}
-                  onChange={(e) => setRepo(e.target.value)}
-                />
-              </div>
-              <div className="input-group">
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label
-                  htmlFor="input-aggregation-branch"
-                  aria-labelledby="input-aggregation-branch"
-                >
-                  Branch
-                </label>
-                <input
-                  id="input-aggregation-branch"
-                  type="text"
-                  className="form-control"
-                  value={branch}
-                  onChange={(e) => setBranch(e.target.value)}
-                />
-              </div>
-              <button type="button" className="btn btn-secondary" onClick={handleSaveLocationClick}>
+              <button
+                type="button"
+                className="btn btn-secondary swagger-editor__aggregate-save-location"
+                onClick={handleSaveLocationClick}
+              >
                 Save Location
               </button>
             </fieldset>
 
             {status && (
-              <p className={status.ok ? 'text-success' : 'text-danger'}>{status.message}</p>
+              <p
+                className={
+                  status.ok
+                    ? 'swagger-editor__aggregate-alert swagger-editor__aggregate-alert--success'
+                    : 'swagger-editor__aggregate-alert swagger-editor__aggregate-alert--error'
+                }
+              >
+                {status.message}
+              </p>
             )}
 
             {!showForm && (
               <>
                 {canWrite && (
-                  <button type="button" className="btn btn-primary" onClick={handleNewSetClick}>
+                  <button
+                    type="button"
+                    className="btn btn-primary swagger-editor__aggregate-new-set-button"
+                    onClick={handleNewSetClick}
+                  >
                     New Set
                   </button>
                 )}
                 {!canWrite && owner && repo && (
-                  <p className="help-block">
+                  <p className="swagger-editor__aggregate-note">
                     Read-only — you don&apos;t have write access to{' '}
                     <code>{`${owner}/${repo}`}</code>. See docs/Permissions.md to get a token that
                     can save sets.
                   </p>
                 )}
-                {isLoadingSets && <p>Loading sets…</p>}
-                {!isLoadingSets && sets.length === 0 && <p>No aggregation sets saved yet.</p>}
-                <ul>
-                  {sets.map((set) => (
-                    <li key={set.id}>
-                      <strong>{set.name}</strong> ({(set.swaggerUrls || []).length} URLs)
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => handleAggregateClick(set)}
-                        disabled={aggregatingId === set.id}
-                      >
-                        {aggregatingId === set.id ? 'Aggregating…' : 'Aggregate'}
-                      </button>
-                      {canWrite && (
-                        <>
+                {isLoadingSets && <p className="swagger-editor__aggregate-note">Loading sets…</p>}
+                {!isLoadingSets && sets.length === 0 && (
+                  <p className="swagger-editor__aggregate-note">No aggregation sets saved yet.</p>
+                )}
+                <ul className="swagger-editor__aggregate-set-list">
+                  {sets.map((set) => {
+                    const urls = set.swaggerUrls || [];
+                    return (
+                      <li key={set.id} className="swagger-editor__aggregate-set-card">
+                        <div className="swagger-editor__aggregate-set-info">
+                          <div className="swagger-editor__aggregate-set-name">{set.name}</div>
+                          <div className="swagger-editor__aggregate-set-meta">
+                            {urls.length} service{urls.length === 1 ? '' : 's'}
+                          </div>
+                          {urls.length > 0 && (
+                            <ul className="swagger-editor__aggregate-set-chips">
+                              {urls.map((entry, index) => (
+                                <li
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={`${entry.url}-${index}`}
+                                  className="swagger-editor__aggregate-chip"
+                                >
+                                  {entry.name}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="swagger-editor__aggregate-set-actions">
                           <button
                             type="button"
-                            className="btn btn-secondary"
-                            onClick={() => handleEditSetClick(set)}
+                            className="btn btn-primary"
+                            onClick={() => handleAggregateClick(set)}
+                            disabled={aggregatingId === set.id}
                           >
-                            Edit
+                            {aggregatingId === set.id ? 'Aggregating…' : 'Aggregate'}
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => setPendingDeleteId(set.id)}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </li>
-                  ))}
+                          {canWrite && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => handleEditSetClick(set)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => setPendingDeleteId(set.id)}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             )}
 
             {showForm && (
-              <fieldset>
-                <legend>{form.id ? 'Edit set' : 'New set'}</legend>
+              <fieldset className="swagger-editor__aggregate-section">
+                <legend className="swagger-editor__aggregate-section-title">
+                  {form.id ? 'Edit set' : 'New set'}
+                </legend>
                 <div className="input-group">
                   {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label htmlFor="input-set-name" aria-labelledby="input-set-name">
@@ -339,53 +395,89 @@ const AggregateMenuHandler = forwardRef(
                   />
                 </div>
 
-                <ul>
-                  {form.swaggerUrls.map((entry, index) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <li key={`${entry.url}-${index}`}>
-                      {entry.name}: {entry.url}
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleRemoveUrlClick(index)}
+                {form.swaggerUrls.length > 0 && (
+                  <ul className="swagger-editor__aggregate-url-list">
+                    {form.swaggerUrls.map((entry, index) => (
+                      <li
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={`${entry.url}-${index}`}
+                        className="swagger-editor__aggregate-url-row"
                       >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                        <div className="swagger-editor__aggregate-url-info">
+                          <div className="swagger-editor__aggregate-url-name">{entry.name}</div>
+                          <div className="swagger-editor__aggregate-url-value">{entry.url}</div>
+                        </div>
+                        <div className="swagger-editor__aggregate-url-actions">
+                          <button
+                            type="button"
+                            className="swagger-editor__aggregate-icon-button"
+                            aria-label="Move up"
+                            title="Move up"
+                            disabled={index === 0}
+                            onClick={() => handleMoveUrlClick(index, 'up')}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="swagger-editor__aggregate-icon-button"
+                            aria-label="Move down"
+                            title="Move down"
+                            disabled={index === form.swaggerUrls.length - 1}
+                            onClick={() => handleMoveUrlClick(index, 'down')}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => handleRemoveUrlClick(index)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
-                <div className="input-group">
-                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                  <label htmlFor="input-new-url-name" aria-labelledby="input-new-url-name">
-                    Service name
-                  </label>
-                  <input
-                    id="input-new-url-name"
-                    type="text"
-                    className="form-control"
-                    value={newUrlName}
-                    onChange={(e) => setNewUrlName(e.target.value)}
-                  />
+                <div className="swagger-editor__aggregate-add-url-row">
+                  <div className="input-group swagger-editor__aggregate-add-url-name">
+                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                    <label htmlFor="input-new-url-name" aria-labelledby="input-new-url-name">
+                      Service name
+                    </label>
+                    <input
+                      id="input-new-url-name"
+                      type="text"
+                      className="form-control"
+                      value={newUrlName}
+                      onChange={(e) => setNewUrlName(e.target.value)}
+                    />
+                  </div>
+                  <div className="input-group swagger-editor__aggregate-add-url-value">
+                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                    <label htmlFor="input-new-url-value" aria-labelledby="input-new-url-value">
+                      Swagger URL
+                    </label>
+                    <input
+                      id="input-new-url-value"
+                      type="text"
+                      className="form-control"
+                      value={newUrlValue}
+                      onChange={(e) => setNewUrlValue(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary swagger-editor__aggregate-add-url-button"
+                    onClick={handleAddUrlClick}
+                  >
+                    Add URL
+                  </button>
                 </div>
-                <div className="input-group">
-                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                  <label htmlFor="input-new-url-value" aria-labelledby="input-new-url-value">
-                    Swagger URL
-                  </label>
-                  <input
-                    id="input-new-url-value"
-                    type="text"
-                    className="form-control"
-                    value={newUrlValue}
-                    onChange={(e) => setNewUrlValue(e.target.value)}
-                  />
-                </div>
-                <button type="button" className="btn btn-secondary" onClick={handleAddUrlClick}>
-                  Add URL
-                </button>
 
-                <div>
+                <div className="swagger-editor__aggregate-form-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
