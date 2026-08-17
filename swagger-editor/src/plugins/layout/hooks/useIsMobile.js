@@ -9,7 +9,7 @@ export const MOBILE_BREAKPOINT_PX = 600;
 // top bar's hamburger-vs-full-row decision is also a React prop, driven by
 // its own wider breakpoint (see that file for why it differs from the one
 // above).
-export const TOPBAR_BREAKPOINT_PX = 1100;
+export const TOPBAR_BREAKPOINT_PX = 1600;
 
 export default function useIsMobile(breakpointPx = MOBILE_BREAKPOINT_PX) {
   const query = `(max-width: ${breakpointPx}px)`;

@@ -26,12 +26,17 @@ $mobile-breakpoint: 600px;
 
 // A separate, wider breakpoint for just the top bar and the dropdown menus
 // it triggers (File/Edit/Generate*/Aggregate/GitHub/About). That row needs
-// real horizontal room -- 7+ discrete labels -- and overflows well above
-// $mobile-breakpoint on a "medium" window (a half-split desktop screen, a
-// smaller laptop, a tablet), while everything else (modals, the editor/
-// preview split) still has plenty of room there. Keep in sync with
-// TOPBAR_BREAKPOINT_PX in plugins/layout/hooks/useIsMobile.js.
-$topbar-breakpoint: 1100px;
+// real horizontal room -- with both Generate Server and Generate Client
+// showing (common for OpenAPI/AsyncAPI content) it's 7 discrete labels,
+// confirmed still overflowing its available space at 1340px wide -- while
+// everything else (modals, the editor/preview split) has plenty of room
+// well below that. There's no reliable static width where "7 labels always
+// fit" holds (font rendering/zoom/OS all vary), so this is set generously
+// high rather than precisely: below it, the row goes into the (verified
+// non-overflowing) hamburger panel instead of risking a cramped or
+// overflowing row. Keep in sync with TOPBAR_BREAKPOINT_PX in
+// plugins/layout/hooks/useIsMobile.js.
+$topbar-breakpoint: 1600px;
 
 @mixin topbar-compact {
   @media (max-width: #{$topbar-breakpoint}) {

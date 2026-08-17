@@ -420,27 +420,27 @@
 // breakpoint the top bar itself switches to a hamburger at -- rather than
 // the general (narrower) mobile one. Every size variant above (dd-menu-sm/
 // -md/-lg/-xl/.long) is a fixed pixel width (150-700px) anchored via
-// position: absolute to its trigger; below that breakpoint the row it's
-// anchored to may itself have scrolled or collapsed into the hamburger
-// panel, so the panel can render partly or fully off the visible page
-// (dragging the whole document into horizontal scroll along with it, most
-// visibly for the 700px .long variant). Decouple it from both the
-// trigger's position and its size-variant width: pin it under the
-// fixed-height top bar AND the tabs bar below it (54px + 40px, matching
-// _layout.scss's own SplitPane offset) and let it span the available
-// viewport width instead. !important matches this file's existing
-// convention for overriding the vendored width/margin rules above --
-// including the vendored 1.1rem top margin, which would otherwise push
-// the panel further down and back into the tabs bar it's meant to clear.
+// position: absolute to its trigger; below that breakpoint the triggers
+// themselves are stacked vertically inside the hamburger panel (see
+// TopBar.jsx / _top-bar.scss's --compact), at very different heights, so a
+// panel anchored to the *viewport* instead of its own trigger (an earlier
+// version of this rule) always opened in the same spot near the top of the
+// screen regardless of which item -- File or About -- was actually tapped.
+// Stay position: absolute (i.e. don't touch it) so it keeps anchoring to
+// its trigger's actual position like the wide-screen behavior above, and
+// only override the parts that caused off-screen/overflowing panels: full
+// width instead of a fixed 150-700px, and no horizontal escape.
 @include topbar-compact {
   .dd-menu .dd-menu-items {
-    position: fixed !important;
-    top: calc(54px + 40px + 0.5rem) !important;
-    left: 1rem !important;
-    right: 1rem !important;
+    left: 0 !important;
+    right: 0 !important;
     width: auto !important;
     max-width: none !important;
-    max-height: calc(100vh - 54px - 40px - 1.5rem) !important;
+    // No fixed viewport-relative cap makes sense here since the trigger's
+    // own height varies -- rely mostly on the hamburger panel's own scroll
+    // (see --compact in _top-bar.scss) and just keep this from being
+    // taller than the screen on its own.
+    max-height: calc(100vh - 8rem) !important;
     overflow-y: auto !important;
     // Without an explicit overflow-x, the browser auto-promotes it from
     // visible to auto too (CSS Overflow spec: an axis left visible next to
@@ -448,7 +448,6 @@
     // even a sliver of overflow. Pin it to hidden explicitly.
     overflow-x: hidden !important;
     transform: none !important;
-    margin: 0 !important;
   }
 
   .dd-menu.long {

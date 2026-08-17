@@ -100,6 +100,12 @@
         // width turns it into a proper full-row tap target in the list.
         display: block;
         width: 100%;
+        // Without this, width: 100% + padding (content-box is the default,
+        // and nothing in this app resets it) makes the actual box ~2.5rem
+        // wider than its parent -- which .dd-menu-items (position: absolute,
+        // left/right: 0 relative to *this* box) then inherits, overflowing
+        // the same amount off each side.
+        box-sizing: border-box;
         margin: 0;
         padding: 0.85rem 1.25rem;
       }

@@ -6,7 +6,7 @@ import useIsMobile from '../../../layout/hooks/useIsMobile.js';
 
 vi.mock('../../../layout/hooks/useIsMobile.js', () => ({
   default: vi.fn(),
-  TOPBAR_BREAKPOINT_PX: 1100,
+  TOPBAR_BREAKPOINT_PX: 1600,
 }));
 
 const StubMenu = (label) => {
