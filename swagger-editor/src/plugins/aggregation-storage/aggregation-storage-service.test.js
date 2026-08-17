@@ -5,6 +5,7 @@ import {
   buildBranchName,
   canWriteToStorage,
   deleteAggregationSet,
+  doesBranchExist,
   ensureDataBranch,
   getAggregationSet,
   getRepoDefaultBranch,
@@ -240,6 +241,32 @@ describe('aggregation-storage-service', () => {
       await expect(getAggregationSet('set-1', STORAGE, CONNECTION)).rejects.toMatchObject({
         status: 403,
       });
+    });
+  });
+
+  describe('doesBranchExist', () => {
+    test('true when the ref exists', async () => {
+      mockFetch([
+        {
+          method: 'GET',
+          test: (u) => u.endsWith(`/git/refs/heads/${DEFAULT_BRANCH}`),
+          json: { ref: `refs/heads/${DEFAULT_BRANCH}` },
+        },
+      ]);
+
+      expect(await doesBranchExist(STORAGE, CONNECTION)).toBe(true);
+    });
+
+    test('false on a 404 (branch does not exist)', async () => {
+      mockFetch([{ method: 'GET', test: () => true, status: 404 }]);
+      expect(await doesBranchExist(STORAGE, CONNECTION)).toBe(false);
+    });
+
+    test('false if the request itself fails, rather than throwing', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      expect(await doesBranchExist(STORAGE, CONNECTION)).toBe(false);
     });
   });
 

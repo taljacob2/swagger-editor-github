@@ -20,8 +20,13 @@
     column-gap: 0.75rem;
   }
 
-  &__aggregate-save-location {
+  &__aggregate-branch-status {
     margin-top: 0.75rem;
+  }
+
+  &__aggregate-branch-status--new {
+    color: #00707d;
+    background-color: rgba(0, 160, 180, 0.08);
   }
 
   &__aggregate-branch-field {

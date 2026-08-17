@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useState, forwardRef } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import PropTypes from 'prop-types';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
@@ -9,6 +9,7 @@ import {
   buildBranchName,
   canWriteToStorage,
   deleteAggregationSet,
+  doesBranchExist,
   getRepoDefaultBranch,
   getStorageSettings,
   listAggregationSets,
@@ -16,6 +17,11 @@ import {
   saveAggregationSet,
   saveStorageSettings,
 } from '../aggregation-storage-service.js';
+
+// How long to wait after the last Storage location edit before auto-loading
+// that location -- long enough that a normal typing burst doesn't fire a
+// GitHub request per keystroke, short enough to feel immediate once you stop.
+const STORAGE_LOCATION_AUTOLOAD_DELAY_MS = 500;
 
 const emptyForm = { id: null, name: '', swaggerUrls: [] };
 
@@ -44,6 +50,8 @@ const AggregateMenuHandler = forwardRef(
     const [aggregatingId, setAggregatingId] = useState(null);
     const [canWrite, setCanWrite] = useState(false);
     const [repoDefaultBranch, setRepoDefaultBranch] = useState(null);
+    const [branchExists, setBranchExists] = useState(null);
+    const lastRefreshedStorageKeyRef = useRef('');
 
     const Modal = getComponent('Modal');
     const ModalHeader = getComponent('ModalHeader');
@@ -58,29 +66,39 @@ const AggregateMenuHandler = forwardRef(
 
     const currentStorage = () => ({ owner, repo, branch });
 
+    // Tracks the owner/repo/branch this modal has already fetched for, so the
+    // auto-load effect below can tell "storage location actually changed"
+    // apart from "isOpen just changed" without double-fetching on open.
+    const storageKey = (storage) => `${storage.owner}|${storage.repo}|${storage.branch}`;
+
     const refreshSets = async (storage) => {
+      lastRefreshedStorageKeyRef.current = storageKey(storage);
       if (!storage.owner || !storage.repo) {
         setSets([]);
         setCanWrite(false);
         setRepoDefaultBranch(null);
+        setBranchExists(null);
         return;
       }
       setIsLoadingSets(true);
       const connection = await getConnectionSettings();
 
-      // Run concurrently so a slow permission check can't delay the sets list
-      // (or vice versa) — fail closed (no write controls) on any error, since
-      // that's the safer default.
-      const [canWriteResult, setsResult, defaultBranchResult] = await Promise.allSettled([
-        canWriteToStorage(storage, connection),
-        listAggregationSets(storage, connection),
-        getRepoDefaultBranch(storage, connection),
-      ]);
+      // Run concurrently so a slow check can't delay the others — fail closed
+      // (no write controls, unknown branch status) on any error, since that's
+      // the safer default.
+      const [canWriteResult, setsResult, defaultBranchResult, branchExistsResult] =
+        await Promise.allSettled([
+          canWriteToStorage(storage, connection),
+          listAggregationSets(storage, connection),
+          getRepoDefaultBranch(storage, connection),
+          doesBranchExist(storage, connection),
+        ]);
 
       setCanWrite(canWriteResult.status === 'fulfilled' ? canWriteResult.value : false);
       setRepoDefaultBranch(
         defaultBranchResult.status === 'fulfilled' ? defaultBranchResult.value : null
       );
+      setBranchExists(branchExistsResult.status === 'fulfilled' ? branchExistsResult.value : null);
       if (setsResult.status === 'fulfilled') {
         setSets(setsResult.value);
       } else {
@@ -102,15 +120,30 @@ const AggregateMenuHandler = forwardRef(
       },
     }));
 
-    const handleClose = () => setIsOpen(false);
+    // Auto-loads whenever Storage location changes while the modal is open,
+    // debounced so a typing burst doesn't fire a request per keystroke.
+    // Skipped right after openModal's own (immediate, un-debounced) load --
+    // lastRefreshedStorageKeyRef is already set to match at that point.
+    useEffect(() => {
+      if (!isOpen || storageKey({ owner, repo, branch }) === lastRefreshedStorageKeyRef.current) {
+        return undefined;
+      }
+      const handle = setTimeout(() => {
+        const settings = saveStorageSettings({ owner, repo, branch });
+        setOwner(settings.owner);
+        setRepo(settings.repo);
+        setBranchSuffix(branchSuffixFromBranch(settings.branch));
+        refreshSets(settings);
+      }, STORAGE_LOCATION_AUTOLOAD_DELAY_MS);
+      return () => clearTimeout(handle);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, owner, repo, branch]);
 
-    const handleSaveLocationClick = () => {
-      const settings = saveStorageSettings({ owner, repo, branch });
-      setOwner(settings.owner);
-      setRepo(settings.repo);
-      setBranchSuffix(branchSuffixFromBranch(settings.branch));
-      setStatus({ ok: true, message: 'Storage location saved.' });
-      refreshSets(settings);
+    const handleClose = () => {
+      // Persist immediately so an edit made just before closing isn't lost to
+      // the debounce above getting cancelled by isOpen flipping to false.
+      saveStorageSettings({ owner, repo, branch });
+      setIsOpen(false);
     };
 
     const handleNewSetClick = () => {
@@ -397,14 +430,31 @@ const AggregateMenuHandler = forwardRef(
                   top of it.
                 </p>
               )}
-              <button
-                type="button"
-                className="btn btn-secondary swagger-editor__aggregate-save-location"
-                onClick={handleSaveLocationClick}
-                disabled={isBranchDefaultBranch}
-              >
-                Save Location
-              </button>
+              {!isBranchDefaultBranch &&
+                !isLoadingSets &&
+                owner &&
+                repo &&
+                branchExists !== null && (
+                  <p
+                    className={
+                      branchExists
+                        ? 'swagger-editor__aggregate-note swagger-editor__aggregate-branch-status'
+                        : 'swagger-editor__aggregate-note swagger-editor__aggregate-branch-status swagger-editor__aggregate-branch-status--new'
+                    }
+                  >
+                    {branchExists ? (
+                      <>
+                        Branch <code>{branch}</code> already exists — its aggregation sets are shown
+                        below.
+                      </>
+                    ) : (
+                      <>
+                        Branch <code>{branch}</code> doesn&apos;t exist yet — it will be created
+                        automatically when you save your first set here.
+                      </>
+                    )}
+                  </p>
+                )}
             </fieldset>
 
             {status && (
@@ -483,7 +533,7 @@ const AggregateMenuHandler = forwardRef(
                     can save sets.
                   </p>
                 )}
-                {sets.length === 0 && (
+                {sets.length === 0 && branchExists !== false && (
                   <p className="swagger-editor__aggregate-note">No aggregation sets saved yet.</p>
                 )}
                 <ul className="swagger-editor__aggregate-set-list">

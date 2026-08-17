@@ -86,6 +86,7 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.deleteAggregationSet.mockResolvedValue();
     aggregationStorageService.canWriteToStorage.mockResolvedValue(true);
     aggregationStorageService.getRepoDefaultBranch.mockResolvedValue(null);
+    aggregationStorageService.doesBranchExist.mockResolvedValue(true);
     // aggregation-storage-service.js is auto-mocked at the top of this file
     // (its own pure-function correctness is covered by
     // aggregation-storage-service.test.js), so these integration tests need
@@ -122,22 +123,65 @@ describe('AggregateMenuHandler', () => {
     );
   });
 
-  test('Save Location persists edited owner/repo/branch and refreshes the list', async () => {
+  test('editing the storage location auto-saves and reloads after a debounce', async () => {
     const ref = createRef();
     renderHandler(ref);
     await openModal(ref);
+    aggregationStorageService.saveStorageSettings.mockClear();
+    aggregationStorageService.listAggregationSets.mockClear();
 
     fireEvent.change(screen.getByLabelText('Repository'), { target: { value: 'other-repo' } });
-    await act(async () => {
-      fireEvent.click(screen.getByText('Save Location'));
-    });
+
+    // No manual save step -- the location auto-persists and auto-reloads a
+    // short while after the user stops typing.
+    await waitFor(
+      () =>
+        expect(aggregationStorageService.saveStorageSettings).toHaveBeenCalledWith({
+          owner: 'taljacob2',
+          repo: 'other-repo',
+          branch: 'aggregation-data-default',
+        }),
+      { timeout: 2000 }
+    );
+    await waitFor(() =>
+      expect(aggregationStorageService.listAggregationSets).toHaveBeenCalledWith(
+        { owner: 'taljacob2', repo: 'other-repo', branch: 'aggregation-data-default' },
+        CONNECTION_SETTINGS
+      )
+    );
+  });
+
+  test('closing the modal flushes an in-flight edit immediately, without waiting for the debounce', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    aggregationStorageService.saveStorageSettings.mockClear();
+
+    fireEvent.change(screen.getByLabelText('Repository'), { target: { value: 'other-repo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(aggregationStorageService.saveStorageSettings).toHaveBeenCalledWith({
       owner: 'taljacob2',
       repo: 'other-repo',
       branch: 'aggregation-data-default',
     });
-    expect(screen.getByText('Storage location saved.')).toBeInTheDocument();
+  });
+
+  test('shows whether the branch already exists or will be created', async () => {
+    aggregationStorageService.doesBranchExist.mockResolvedValue(false);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await waitFor(() => expect(screen.getByText(/doesn't exist yet/)).toBeInTheDocument());
+
+    aggregationStorageService.doesBranchExist.mockResolvedValue(true);
+    fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'shared' } });
+
+    await waitFor(() => expect(screen.getByText(/already exists/)).toBeInTheDocument(), {
+      timeout: 2000,
+    });
+    expect(screen.queryByText(/doesn't exist yet/)).not.toBeInTheDocument();
   });
 
   test('the Branch field shows the fixed prefix next to an editable suffix', async () => {
@@ -160,7 +204,6 @@ describe('AggregateMenuHandler', () => {
     });
 
     expect(document.querySelector('.swagger-editor__aggregate-alert--error')).toBeNull();
-    expect(screen.getByText('Save Location')).not.toBeDisabled();
   });
 
   test('still blocks an exact full-branch match as a safety net', async () => {
@@ -176,7 +219,6 @@ describe('AggregateMenuHandler', () => {
     expect(document.querySelector('.swagger-editor__aggregate-alert--error').textContent).toMatch(
       "is taljacob2/swagger-editor-github's default branch"
     );
-    expect(screen.getByText('Save Location')).toBeDisabled();
     expect(screen.queryByText('New Set')).not.toBeInTheDocument();
 
     await act(async () => {
@@ -184,7 +226,6 @@ describe('AggregateMenuHandler', () => {
     });
 
     expect(document.querySelector('.swagger-editor__aggregate-alert--error')).toBeNull();
-    expect(screen.getByText('Save Location')).not.toBeDisabled();
     expect(screen.getByText('New Set')).toBeInTheDocument();
   });
 
@@ -666,7 +707,7 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByText(/Read-only/)).toBeInTheDocument();
     });
 
-    test('Save Location and Aggregate stay available', async () => {
+    test('Aggregate stays available', async () => {
       aggregationMergeService.aggregateSet.mockResolvedValue({
         yaml: 'openapi: 3.0.0\n',
         conflicts: { paths: [], tags: [], components: [] },
@@ -677,8 +718,6 @@ describe('AggregateMenuHandler', () => {
       renderHandler(ref);
       await openModal(ref);
       await waitFor(() => screen.getByText('Aggregate'));
-
-      expect(screen.getByText('Save Location')).toBeInTheDocument();
 
       await act(async () => {
         fireEvent.click(screen.getByText('Aggregate'));

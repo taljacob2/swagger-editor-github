@@ -179,6 +179,23 @@ export async function ensureDataBranch(storage, connection) {
   });
 }
 
+// Whether the storage branch already exists on the repo -- used to tell the
+// user upfront whether this location has existing aggregation data or is
+// brand new (and will be created automatically on the first set save, see
+// ensureDataBranch above).
+export async function doesBranchExist(storage, connection) {
+  const { owner, repo, branch } = storage;
+  try {
+    const ref = await ghRequest(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+      connection,
+      allow404: true,
+    });
+    return Boolean(ref);
+  } catch {
+    return false;
+  }
+}
+
 // Whether the current connection's token has push (write) access to the
 // storage repo — used to decide whether to show set-editing controls at all,
 // rather than letting someone hit a 403 on save. GitHub only includes the
