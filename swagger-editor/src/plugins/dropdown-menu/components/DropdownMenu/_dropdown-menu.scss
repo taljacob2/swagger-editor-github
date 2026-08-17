@@ -399,6 +399,12 @@
 
   .dd-menu-items {
     margin: 1.1rem 0 0 0 !important;
+    // Defense in depth alongside DropdownMenu.jsx's left/right flip: even a
+    // correctly-flipped panel can't do much for a window narrower than the
+    // panel itself (most relevant for the 700px .long variant) -- this
+    // caps it at the viewport width instead of letting it push past either
+    // edge regardless of which side it's anchored from.
+    max-width: calc(100vw - 2rem) !important;
     ol,ul {
       border-radius:0 0 4px 4px;
 
