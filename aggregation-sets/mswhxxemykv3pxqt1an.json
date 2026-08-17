@@ -1,0 +1,15 @@
+{
+  "name": "Petstore Test",
+  "swaggerUrls": [
+    {
+      "name": "oai-example",
+      "url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/_archive_/schemas/v3.0/pass/petstore.yaml"
+    },
+    {
+      "name": "oas3",
+      "url": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ],
+  "createdAt": "2026-08-17T00:29:29.912Z",
+  "updatedAt": "2026-08-17T00:29:29.912Z"
+}
