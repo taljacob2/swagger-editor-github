@@ -16,5 +16,23 @@
       font-size: 1.0rem;
       font-weight: 500;
     }
+
+    // The unwrapped row of menu items (File/Edit/Aggregate/GitHub/About,
+    // plus content-type-specific Generate menus) is wider than a phone
+    // viewport with no wrap logic -- reuse the same overflow-x: auto
+    // pattern the workspace tab bar already uses for the identical
+    // "too many items" problem, rather than building a separate
+    // hamburger/overflow menu.
+    @include mobile {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+
+      & > * {
+        margin-left: 0.6rem;
+        margin-right: 0.6rem;
+        flex-shrink: 0;
+      }
+    }
   }
 }

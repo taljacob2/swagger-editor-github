@@ -414,3 +414,51 @@
     }
   }
 }
+
+// Mobile: every size variant above (dd-menu-sm/-md/-lg/-xl/.long) is a
+// fixed pixel width (150-700px) anchored via position: absolute to its
+// trigger, so on a narrow screen the panel renders partly or fully
+// off-screen regardless of which top-bar item opened it. Decouple it from
+// both the trigger's position and its size-variant width: pin it under the
+// fixed-height top bar and let it span the available viewport width
+// instead. !important matches this file's existing convention for
+// overriding the vendored width/margin rules above.
+@include mobile {
+  .dd-menu .dd-menu-items {
+    position: fixed !important;
+    top: calc(54px + 0.5rem) !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100vh - 54px - 1.5rem) !important;
+    overflow-y: auto !important;
+    transform: none !important;
+  }
+
+  .dd-menu.long {
+    max-width: none;
+
+    .dd-menu-items .dd-items-left {
+      flex-direction: column;
+      max-height: none;
+
+      li {
+        flex: 1 1 100%;
+      }
+    }
+  }
+
+  // Nested submenus (e.g. "Load Example") normally fly out to the side of
+  // their parent panel via absolute positioning -- against an already
+  // viewport-clamped parent, that would just push them off-screen again.
+  // Render them in normal flow, indented under their parent item, instead.
+  .dd-menu .dd-menu-items .nested-dd-menu > span {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    padding-left: 1rem !important;
+    padding-right: 0 !important;
+  }
+}

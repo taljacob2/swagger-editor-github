@@ -68,6 +68,10 @@
     padding: 0 0.5rem 0 0;
     width: 6rem;
 
+    @include mobile {
+      width: min(6rem, 22vw);
+    }
+
     &:focus {
       outline: none;
     }
@@ -82,6 +86,10 @@
     font-size: 0.9rem;
     line-height: 1;
     padding: 0.25rem;
+
+    @include mobile {
+      padding: 0.6rem;
+    }
 
     &:hover {
       opacity: 1;
