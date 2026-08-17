@@ -23,3 +23,18 @@ $mobile-breakpoint: 600px;
     @content;
   }
 }
+
+// A separate, wider breakpoint for just the top bar and the dropdown menus
+// it triggers (File/Edit/Generate*/Aggregate/GitHub/About). That row needs
+// real horizontal room -- 7+ discrete labels -- and overflows well above
+// $mobile-breakpoint on a "medium" window (a half-split desktop screen, a
+// smaller laptop, a tablet), while everything else (modals, the editor/
+// preview split) still has plenty of room there. Keep in sync with
+// TOPBAR_BREAKPOINT_PX in plugins/layout/hooks/useIsMobile.js.
+$topbar-breakpoint: 1100px;
+
+@mixin topbar-compact {
+  @media (max-width: #{$topbar-breakpoint}) {
+    @content;
+  }
+}

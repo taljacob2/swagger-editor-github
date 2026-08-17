@@ -415,18 +415,24 @@
   }
 }
 
-// Mobile: every size variant above (dd-menu-sm/-md/-lg/-xl/.long) is a
-// fixed pixel width (150-700px) anchored via position: absolute to its
-// trigger, so on a narrow screen the panel renders partly or fully
-// off-screen regardless of which top-bar item opened it. Decouple it from
-// both the trigger's position and its size-variant width: pin it under the
+// These are exclusively top-bar-triggered (File/Edit/Generate*/Aggregate/
+// GitHub/About), so they key off topbar-compact -- the same wider
+// breakpoint the top bar itself switches to a hamburger at -- rather than
+// the general (narrower) mobile one. Every size variant above (dd-menu-sm/
+// -md/-lg/-xl/.long) is a fixed pixel width (150-700px) anchored via
+// position: absolute to its trigger; below that breakpoint the row it's
+// anchored to may itself have scrolled or collapsed into the hamburger
+// panel, so the panel can render partly or fully off the visible page
+// (dragging the whole document into horizontal scroll along with it, most
+// visibly for the 700px .long variant). Decouple it from both the
+// trigger's position and its size-variant width: pin it under the
 // fixed-height top bar AND the tabs bar below it (54px + 40px, matching
 // _layout.scss's own SplitPane offset) and let it span the available
 // viewport width instead. !important matches this file's existing
 // convention for overriding the vendored width/margin rules above --
 // including the vendored 1.1rem top margin, which would otherwise push
 // the panel further down and back into the tabs bar it's meant to clear.
-@include mobile {
+@include topbar-compact {
   .dd-menu .dd-menu-items {
     position: fixed !important;
     top: calc(54px + 40px + 0.5rem) !important;

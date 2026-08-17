@@ -4,7 +4,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import TopBar from './TopBar.jsx';
 import useIsMobile from '../../../layout/hooks/useIsMobile.js';
 
-vi.mock('../../../layout/hooks/useIsMobile.js', () => ({ default: vi.fn() }));
+vi.mock('../../../layout/hooks/useIsMobile.js', () => ({
+  default: vi.fn(),
+  TOPBAR_BREAKPOINT_PX: 1100,
+}));
 
 const StubMenu = (label) => {
   const Component = () => <span>{label}</span>;

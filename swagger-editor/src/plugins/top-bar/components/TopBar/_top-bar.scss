@@ -3,14 +3,14 @@
     background-color: #173647;
     width: 100%;
     height: 54px;
-    // Anchors the mobile hamburger panel below (position: absolute; top:
-    // 100%) without hardcoding the 54px height a second time.
+    // Anchors the compact-mode hamburger panel below (position: absolute;
+    // top: 100%) without hardcoding the 54px height a second time.
     position: relative;
     // Lays -row and -wrapper (Logo+hamburger, and the menu items) side by
     // side on desktop, matching the single-row layout before the hamburger
     // existed -- -wrapper is only ever a flex sibling here when it isn't
-    // the absolutely-positioned --mobile panel (see below), so this has no
-    // effect on the mobile open/closed states.
+    // the absolutely-positioned --compact panel (see below), so this has
+    // no effect on the compact-mode open/closed states.
     display: flex;
     align-items: center;
   }
@@ -22,10 +22,11 @@
     height: 100%;
 
     // Only needs to stretch and space its children (Logo, hamburger) apart
-    // when it's the sole flex content of a full-width mobile top bar --
-    // on desktop it stays content-sized so -wrapper's menu items sit
-    // snug against the logo, exactly as before the hamburger existed.
-    @include mobile {
+    // when it's the sole flex content of a full-width compact-mode top bar
+    // -- above the breakpoint it stays content-sized so -wrapper's menu
+    // items sit snug against the logo, exactly as before the hamburger
+    // existed.
+    @include topbar-compact {
       flex: 1 1 auto;
     }
   }
@@ -52,7 +53,7 @@
       border-radius: 1px;
     }
 
-    @include mobile {
+    @include topbar-compact {
       display: flex;
     }
   }
@@ -71,8 +72,8 @@
 
     // Collapsed into the hamburger panel above, so this only ever renders
     // (see TopBar.jsx) while open -- laid out as a full-width dropdown
-    // list under the top bar instead of the desktop's horizontal row.
-    &--mobile {
+    // list under the top bar instead of the wide-screen horizontal row.
+    &--compact {
       position: absolute;
       top: 100%;
       left: 0;

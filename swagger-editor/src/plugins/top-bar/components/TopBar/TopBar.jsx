@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 
-import useIsMobile from '../../../layout/hooks/useIsMobile.js';
+import useIsMobile, { TOPBAR_BREAKPOINT_PX } from '../../../layout/hooks/useIsMobile.js';
 
 /* eslint-disable */
 
@@ -18,15 +18,18 @@ const TopBar = ({ getComponent }) => {
   const GitHubMenu = getComponent('TopBarGitHubMenu', true);
   const AboutMenu = getComponent('TopBarAboutMenu', true);
 
-  const isMobile = useIsMobile();
+  // Its own, wider breakpoint than the app's general "mobile" one -- this
+  // row needs real horizontal room for 7+ discrete menu labels, and
+  // overflows well above that threshold on a merely "medium" window.
+  const isCompact = useIsMobile(TOPBAR_BREAKPOINT_PX);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const rootRef = useRef(null);
 
-  // Crossing the breakpoint mid-session (e.g. rotating a tablet) shouldn't
+  // Crossing the breakpoint mid-session (e.g. resizing the window) shouldn't
   // leave a stale open/closed hamburger state behind.
   useEffect(() => {
     setIsMenuOpen(false);
-  }, [isMobile]);
+  }, [isCompact]);
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -45,7 +48,7 @@ const TopBar = ({ getComponent }) => {
     <div className="swagger-editor__top-bar" ref={rootRef}>
       <div className="swagger-editor__top-bar-row">
         <Logo />
-        {isMobile && (
+        {isCompact && (
           <button
             type="button"
             className="swagger-editor__top-bar-hamburger"
@@ -59,10 +62,10 @@ const TopBar = ({ getComponent }) => {
           </button>
         )}
       </div>
-      {(!isMobile || isMenuOpen) && (
+      {(!isCompact || isMenuOpen) && (
         <div
           className={classNames('swagger-editor__top-bar-wrapper', {
-            'swagger-editor__top-bar-wrapper--mobile': isMobile,
+            'swagger-editor__top-bar-wrapper--compact': isCompact,
           })}
         >
           <FileMenu />
