@@ -13,6 +13,56 @@
     // no effect on the compact-mode open/closed states.
     display: flex;
     align-items: center;
+
+    // Whether the row fits is measured (see useOverflowCompact.js), not
+    // guessed at a static breakpoint -- no fixed pixel width is right for
+    // every combination of Generate Server/Client variants a given spec
+    // version shows.
+    &--compact {
+      .swagger-editor__top-bar-row {
+        flex: 1 1 auto;
+      }
+    }
+  }
+
+  // Clips the always-mounted, invisible copy of the full row (see
+  // TopBar.jsx) to 0x0 so it can never widen the page: visibility: hidden
+  // alone doesn't stop a box from participating in scrollable overflow,
+  // and its unconstrained content can be far wider than the viewport
+  // (that's the whole point -- it's measuring what the full row *wants*).
+  &__top-bar-measure-clip {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  // The actual measured element (useOverflowCompact reads its scrollWidth).
+  // Also position: absolute, so its own size stays content-driven (shrink-
+  // to-fit) instead of being squashed to 0 by the clip above -- a
+  // permanently-0x0 box could never report a size change via
+  // ResizeObserver even when its content does (e.g. a web font finishing
+  // its async load after the very first, pre-font-load measurement).
+  &__top-bar-measure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+
+    // Reuses -row/-wrapper's exact classes (see TopBar.jsx) so it picks up
+    // the same per-item margins the real row renders with, but as a flex
+    // item of a box with no fixed width, those nested flex containers'
+    // children would still shrink to fit (the default flex-shrink: 1),
+    // measuring their post-shrink size instead of the natural width this
+    // exists to report.
+    * {
+      flex-shrink: 0;
+    }
   }
 
   &__top-bar-row {
@@ -20,19 +70,10 @@
     align-items: center;
     justify-content: space-between;
     height: 100%;
-
-    // Only needs to stretch and space its children (Logo, hamburger) apart
-    // when it's the sole flex content of a full-width compact-mode top bar
-    // -- above the breakpoint it stays content-sized so -wrapper's menu
-    // items sit snug against the logo, exactly as before the hamburger
-    // existed.
-    @include topbar-compact {
-      flex: 1 1 auto;
-    }
   }
 
   &__top-bar-hamburger {
-    display: none;
+    display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -51,10 +92,6 @@
       height: 2px;
       background-color: white;
       border-radius: 1px;
-    }
-
-    @include topbar-compact {
-      display: flex;
     }
   }
 

@@ -416,21 +416,22 @@
 }
 
 // These are exclusively top-bar-triggered (File/Edit/Generate*/Aggregate/
-// GitHub/About), so they key off topbar-compact -- the same wider
-// breakpoint the top bar itself switches to a hamburger at -- rather than
-// the general (narrower) mobile one. Every size variant above (dd-menu-sm/
-// -md/-lg/-xl/.long) is a fixed pixel width (150-700px) anchored via
-// position: absolute to its trigger; below that breakpoint the triggers
-// themselves are stacked vertically inside the hamburger panel (see
-// TopBar.jsx / _top-bar.scss's --compact), at very different heights, so a
-// panel anchored to the *viewport* instead of its own trigger (an earlier
-// version of this rule) always opened in the same spot near the top of the
-// screen regardless of which item -- File or About -- was actually tapped.
-// Stay position: absolute (i.e. don't touch it) so it keeps anchoring to
-// its trigger's actual position like the wide-screen behavior above, and
-// only override the parts that caused off-screen/overflowing panels: full
-// width instead of a fixed 150-700px, and no horizontal escape.
-@include topbar-compact {
+// GitHub/About), so they key off .swagger-editor__top-bar--compact -- the
+// same measured "does the row actually fit" state the top bar itself
+// switches to a hamburger under (see useOverflowCompact.js), rather than a
+// static breakpoint. Every size variant above (dd-menu-sm/-md/-lg/-xl/
+// .long) is a fixed pixel width (150-700px) anchored via position: absolute
+// to its trigger; in compact mode the triggers themselves are stacked
+// vertically inside the hamburger panel (see TopBar.jsx / _top-bar.scss's
+// --compact), at very different heights, so a panel anchored to the
+// *viewport* instead of its own trigger (an earlier version of this rule)
+// always opened in the same spot near the top of the screen regardless of
+// which item -- File or About -- was actually tapped. Stay position:
+// absolute (i.e. don't touch it) so it keeps anchoring to its trigger's
+// actual position like the wide-screen behavior above, and only override
+// the parts that caused off-screen/overflowing panels: full width instead
+// of a fixed 150-700px, and no horizontal escape.
+.swagger-editor__top-bar--compact {
   .dd-menu .dd-menu-items {
     left: 0 !important;
     right: 0 !important;

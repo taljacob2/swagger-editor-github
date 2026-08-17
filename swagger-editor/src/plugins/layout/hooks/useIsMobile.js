@@ -5,14 +5,8 @@ import { useState, useEffect } from 'react';
 // CSS, so it needs the same threshold available in JS.
 export const MOBILE_BREAKPOINT_PX = 600;
 
-// Keep in sync with $topbar-breakpoint in src/styles/_globals.scss -- the
-// top bar's hamburger-vs-full-row decision is also a React prop, driven by
-// its own wider breakpoint (see that file for why it differs from the one
-// above).
-export const TOPBAR_BREAKPOINT_PX = 1600;
-
-export default function useIsMobile(breakpointPx = MOBILE_BREAKPOINT_PX) {
-  const query = `(max-width: ${breakpointPx}px)`;
+export default function useIsMobile() {
+  const query = `(max-width: ${MOBILE_BREAKPOINT_PX}px)`;
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(query).matches);
 
   useEffect(() => {

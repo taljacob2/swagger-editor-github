@@ -1,13 +1,21 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import TopBar from './TopBar.jsx';
-import useIsMobile from '../../../layout/hooks/useIsMobile.js';
 
-vi.mock('../../../layout/hooks/useIsMobile.js', () => ({
-  default: vi.fn(),
-  TOPBAR_BREAKPOINT_PX: 1600,
-}));
+class MockResizeObserver {
+  constructor(callback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  observe() {}
+
+  // eslint-disable-next-line class-methods-use-this
+  disconnect() {}
+}
+MockResizeObserver.instances = [];
 
 const StubMenu = (label) => {
   const Component = () => <span>{label}</span>;
@@ -30,49 +38,74 @@ const stubComponents = {
 
 const getComponent = (name) => stubComponents[name];
 
+// Both the visible row/panel and the hidden measuring copy render each
+// menu's label, so assertions on the *visible* one need to filter it out.
+const isVisible = (text) =>
+  screen.queryAllByText(text).some((el) => !el.closest('.swagger-editor__top-bar-measure'));
+
+function makeItNotFit(container) {
+  const topBar = container.querySelector('.swagger-editor__top-bar');
+  const measure = container.querySelector('.swagger-editor__top-bar-measure');
+  Object.defineProperty(topBar, 'clientWidth', { value: 300, configurable: true });
+  Object.defineProperty(measure, 'scrollWidth', { value: 900, configurable: true });
+  act(() => {
+    MockResizeObserver.instances[0].callback();
+  });
+}
+
 describe('TopBar', () => {
-  test('desktop: renders every menu inline with no hamburger button', () => {
-    useIsMobile.mockReturnValue(false);
+  const originalResizeObserver = window.ResizeObserver;
+
+  beforeEach(() => {
+    MockResizeObserver.instances = [];
+    window.ResizeObserver = MockResizeObserver;
+  });
+
+  afterEach(() => {
+    window.ResizeObserver = originalResizeObserver;
+  });
+
+  test('renders every menu inline with no hamburger button when the row fits', () => {
     render(<TopBar getComponent={getComponent} />);
 
     expect(screen.queryByRole('button', { name: /open menu/i })).not.toBeInTheDocument();
-    expect(screen.getByText('File')).toBeInTheDocument();
-    expect(screen.getByText('GitHub')).toBeInTheDocument();
+    expect(isVisible('File')).toBe(true);
+    expect(isVisible('GitHub')).toBe(true);
   });
 
-  test('mobile: menus start collapsed behind a hamburger button', () => {
-    useIsMobile.mockReturnValue(true);
-    render(<TopBar getComponent={getComponent} />);
+  test('collapses behind a hamburger button once the row no longer fits', () => {
+    const { container } = render(<TopBar getComponent={getComponent} />);
+    makeItNotFit(container);
 
     expect(screen.getByRole('button', { name: /open menu/i })).toBeInTheDocument();
-    expect(screen.queryByText('File')).not.toBeInTheDocument();
+    expect(isVisible('File')).toBe(false);
   });
 
-  test('mobile: tapping the hamburger reveals the menus, tapping again hides them', () => {
-    useIsMobile.mockReturnValue(true);
-    render(<TopBar getComponent={getComponent} />);
+  test('tapping the hamburger reveals the menus, tapping again hides them', () => {
+    const { container } = render(<TopBar getComponent={getComponent} />);
+    makeItNotFit(container);
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
-    expect(screen.getByText('File')).toBeInTheDocument();
-    expect(screen.getByText('GitHub')).toBeInTheDocument();
+    expect(isVisible('File')).toBe(true);
+    expect(isVisible('GitHub')).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: /close menu/i }));
-    expect(screen.queryByText('File')).not.toBeInTheDocument();
+    expect(isVisible('File')).toBe(false);
   });
 
-  test('mobile: clicking outside the open menu closes it', () => {
-    useIsMobile.mockReturnValue(true);
-    render(
+  test('clicking outside the open menu closes it', () => {
+    const { container } = render(
       <div>
         <TopBar getComponent={getComponent} />
         <button type="button">Outside</button>
       </div>
     );
+    makeItNotFit(container);
 
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
-    expect(screen.getByText('File')).toBeInTheDocument();
+    expect(isVisible('File')).toBe(true);
 
     fireEvent.mouseDown(screen.getByText('Outside'));
-    expect(screen.queryByText('File')).not.toBeInTheDocument();
+    expect(isVisible('File')).toBe(false);
   });
 });
