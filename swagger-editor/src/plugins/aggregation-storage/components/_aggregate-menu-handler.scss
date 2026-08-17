@@ -18,15 +18,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     column-gap: 0.75rem;
-  }
-
-  &__aggregate-branch-status {
-    margin-top: 0.75rem;
-  }
-
-  &__aggregate-branch-status--new {
-    color: #00707d;
-    background-color: rgba(0, 160, 180, 0.08);
+    margin-bottom: 1rem;
   }
 
   &__aggregate-branch-field {
@@ -139,6 +131,11 @@
     font-size: 0.8rem;
     background-color: rgba(117, 132, 145, 0.06);
     border-radius: 4px;
+  }
+
+  &__aggregate-branch-status--new {
+    color: #00707d;
+    background-color: rgba(0, 160, 180, 0.08);
   }
 
   // Sets list --------------------------------------------------------------
