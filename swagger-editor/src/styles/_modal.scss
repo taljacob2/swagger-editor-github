@@ -39,9 +39,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 100%;
+  // min() instead of a hard min-width: scales down below ~532px viewport
+  // width instead of forcing horizontal overflow, unchanged above it.
+  width: min(500px, calc(100vw - 2rem));
   pointer-events: auto;
-  min-width: 500px;
 }
 
 .modal-header {
@@ -52,6 +53,10 @@
   border-top-left-radius: calc(.3rem - 1px);
   border-top-right-radius: calc(.3rem - 1px);
   padding: 1.0rem 2.0rem 0.25rem 2.0rem;
+
+  @include mobile {
+    padding: 1.0rem 1.0rem 0.25rem 1.0rem;
+  }
 }
 
 .modal-header .close {
@@ -59,6 +64,11 @@
   margin: -1rem -2rem -1rem auto;
   color: #758491;
   font-size: 1.0rem; // ref 15px
+
+  @include mobile {
+    padding: 1.3rem;
+    margin: -1rem -1rem -1rem auto;
+  }
 }
 
 // below .modal-close
@@ -74,6 +84,10 @@
   flex: 1 1 auto;
   padding: 0.75rem 2.0rem;
   font-size: 0.8rem;
+
+  @include mobile {
+    padding: 0.75rem 1.0rem;
+  }
 }
 
 .modal-footer {
@@ -84,6 +98,10 @@
   padding: 0.75rem 2.0rem 1.0rem 2.0rem;
   border-bottom-right-radius: calc(.3rem - 1px);
   border-bottom-left-radius: calc(.3rem - 1px);
+
+  @include mobile {
+    padding: 0.75rem 1.0rem 1.0rem 1.0rem;
+  }
 }
 
 .modal-footer > * {
@@ -107,6 +125,10 @@
   line-height: 1.5;
   border-radius: .25rem;
   cursor: pointer;
+
+  @include mobile {
+    padding: .7rem .95rem;
+  }
 
   &:disabled {
     cursor: not-allowed;

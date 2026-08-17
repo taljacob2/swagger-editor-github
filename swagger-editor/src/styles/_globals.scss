@@ -12,3 +12,14 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
   monospace;
 }
+
+// Keep in sync with MOBILE_BREAKPOINT_PX in plugins/layout/hooks/useIsMobile.js --
+// that hook needs the same threshold in JS for the one change (SplitPane orientation)
+// that CSS alone can't express.
+$mobile-breakpoint: 600px;
+
+@mixin mobile {
+  @media (max-width: #{$mobile-breakpoint}) {
+    @content;
+  }
+}
