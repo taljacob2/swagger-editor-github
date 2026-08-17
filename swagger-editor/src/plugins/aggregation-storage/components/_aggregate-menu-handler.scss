@@ -24,6 +24,25 @@
     margin-top: 0.75rem;
   }
 
+  &__aggregate-branch-field {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  &__aggregate-branch-prefix {
+    flex-shrink: 0;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: #758491;
+    white-space: nowrap;
+  }
+
+  &__aggregate-branch-suffix-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   &__aggregate-alert {
     padding: 0.5rem 0.75rem;
     margin: 0 0 1rem 0;

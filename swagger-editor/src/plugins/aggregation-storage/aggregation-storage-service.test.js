@@ -1,5 +1,8 @@
 import {
+  BRANCH_PREFIX,
   DEFAULT_BRANCH,
+  branchSuffixFromBranch,
+  buildBranchName,
   canWriteToStorage,
   deleteAggregationSet,
   ensureDataBranch,
@@ -90,6 +93,44 @@ describe('aggregation-storage-service', () => {
         branch: DEFAULT_BRANCH,
       });
     });
+
+    test('saveStorageSettings always keeps the branch prefixed, even given a bare suffix', () => {
+      saveStorageSettings({ owner: 'acme', repo: 'specs', branch: 'team-x' });
+      expect(getStorageSettings()).toEqual({
+        owner: 'acme',
+        repo: 'specs',
+        branch: 'aggregation-data-team-x',
+      });
+    });
+  });
+
+  describe('branch prefix helpers', () => {
+    test('branchSuffixFromBranch strips the fixed prefix', () => {
+      expect(branchSuffixFromBranch('aggregation-data-default')).toBe('default');
+      expect(branchSuffixFromBranch('aggregation-data-team-x')).toBe('team-x');
+    });
+
+    test('branchSuffixFromBranch falls back to the whole value when unprefixed', () => {
+      expect(branchSuffixFromBranch('main')).toBe('main');
+      expect(branchSuffixFromBranch('')).toBe('');
+      expect(branchSuffixFromBranch(null)).toBe('');
+    });
+
+    test('buildBranchName reattaches the prefix', () => {
+      expect(buildBranchName('team-x')).toBe('aggregation-data-team-x');
+      expect(buildBranchName('  team-x  ')).toBe('aggregation-data-team-x');
+    });
+
+    test('buildBranchName defaults to "default" for an empty suffix', () => {
+      expect(buildBranchName('')).toBe(DEFAULT_BRANCH);
+      expect(buildBranchName('   ')).toBe(DEFAULT_BRANCH);
+      expect(buildBranchName(null)).toBe(DEFAULT_BRANCH);
+    });
+
+    test('branchSuffixFromBranch and buildBranchName round-trip', () => {
+      expect(buildBranchName(branchSuffixFromBranch(DEFAULT_BRANCH))).toBe(DEFAULT_BRANCH);
+      expect(DEFAULT_BRANCH.startsWith(BRANCH_PREFIX)).toBe(true);
+    });
   });
 
   describe('anonymous reads (no PAT set)', () => {
@@ -165,7 +206,7 @@ describe('aggregation-storage-service', () => {
         tree: 'tree-sha',
         parents: [],
       });
-      expect(calls[4].body).toEqual({ ref: 'refs/heads/aggregation-data', sha: 'commit-sha' });
+      expect(calls[4].body).toEqual({ ref: `refs/heads/${DEFAULT_BRANCH}`, sha: 'commit-sha' });
     });
   });
 

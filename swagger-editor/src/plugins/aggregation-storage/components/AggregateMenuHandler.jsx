@@ -4,6 +4,9 @@ import PropTypes from 'prop-types';
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { aggregateSet } from '../aggregation-merge-service.js';
 import {
+  BRANCH_PREFIX,
+  branchSuffixFromBranch,
+  buildBranchName,
   canWriteToStorage,
   deleteAggregationSet,
   getRepoDefaultBranch,
@@ -24,7 +27,7 @@ const AggregateMenuHandler = forwardRef(
     const [isOpen, setIsOpen] = useState(false);
     const [owner, setOwner] = useState('');
     const [repo, setRepo] = useState('');
-    const [branch, setBranch] = useState('');
+    const [branchSuffix, setBranchSuffix] = useState('');
     const [sets, setSets] = useState([]);
     const [isLoadingSets, setIsLoadingSets] = useState(false);
     const [status, setStatus] = useState(null);
@@ -48,6 +51,10 @@ const AggregateMenuHandler = forwardRef(
     const ModalBody = getComponent('ModalBody');
     const ModalFooter = getComponent('ModalFooter');
     const ConfirmDialog = getComponent('ConfirmDialog', true);
+
+    // The stored branch is always the fixed prefix plus whatever the user
+    // typed after it -- see aggregation-storage-service.js's BRANCH_PREFIX.
+    const branch = buildBranchName(branchSuffix);
 
     const currentStorage = () => ({ owner, repo, branch });
 
@@ -87,7 +94,7 @@ const AggregateMenuHandler = forwardRef(
         const settings = getStorageSettings();
         setOwner(settings.owner);
         setRepo(settings.repo);
-        setBranch(settings.branch);
+        setBranchSuffix(branchSuffixFromBranch(settings.branch));
         setStatus(null);
         setShowForm(false);
         setIsOpen(true);
@@ -101,7 +108,7 @@ const AggregateMenuHandler = forwardRef(
       const settings = saveStorageSettings({ owner, repo, branch });
       setOwner(settings.owner);
       setRepo(settings.repo);
-      setBranch(settings.branch);
+      setBranchSuffix(branchSuffixFromBranch(settings.branch));
       setStatus({ ok: true, message: 'Storage location saved.' });
       refreshSets(settings);
     };
@@ -370,14 +377,17 @@ const AggregateMenuHandler = forwardRef(
                   >
                     Branch
                   </label>
-                  <input
-                    id="input-aggregation-branch"
-                    type="text"
-                    className="form-control"
-                    value={branch}
-                    aria-invalid={isBranchDefaultBranch}
-                    onChange={(e) => setBranch(e.target.value)}
-                  />
+                  <div className="swagger-editor__aggregate-branch-field">
+                    <span className="swagger-editor__aggregate-branch-prefix">{BRANCH_PREFIX}</span>
+                    <input
+                      id="input-aggregation-branch"
+                      type="text"
+                      className="form-control swagger-editor__aggregate-branch-suffix-input"
+                      value={branchSuffix}
+                      aria-invalid={isBranchDefaultBranch}
+                      onChange={(e) => setBranchSuffix(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
               {isBranchDefaultBranch && (

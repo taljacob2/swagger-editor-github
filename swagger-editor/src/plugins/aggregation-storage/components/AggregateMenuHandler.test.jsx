@@ -49,7 +49,7 @@ const getComponent = (name) => stubComponents[name];
 const STORAGE_SETTINGS = {
   owner: 'taljacob2',
   repo: 'swagger-editor-github',
-  branch: 'aggregation-data',
+  branch: 'aggregation-data-default',
 };
 const CONNECTION_SETTINGS = {
   apiBaseUrl: 'https://api.github.com',
@@ -86,6 +86,17 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.deleteAggregationSet.mockResolvedValue();
     aggregationStorageService.canWriteToStorage.mockResolvedValue(true);
     aggregationStorageService.getRepoDefaultBranch.mockResolvedValue(null);
+    // aggregation-storage-service.js is auto-mocked at the top of this file
+    // (its own pure-function correctness is covered by
+    // aggregation-storage-service.test.js), so these integration tests need
+    // real implementations of the branch-prefix helpers wired up.
+    const BRANCH_PREFIX = 'aggregation-data-';
+    aggregationStorageService.branchSuffixFromBranch.mockImplementation((branch) =>
+      branch && branch.startsWith(BRANCH_PREFIX) ? branch.slice(BRANCH_PREFIX.length) : branch || ''
+    );
+    aggregationStorageService.buildBranchName.mockImplementation(
+      (suffix) => `${BRANCH_PREFIX}${(suffix || '').trim() || 'default'}`
+    );
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -103,7 +114,7 @@ describe('AggregateMenuHandler', () => {
 
     expect(screen.getByLabelText('Owner')).toHaveValue('taljacob2');
     expect(screen.getByLabelText('Repository')).toHaveValue('swagger-editor-github');
-    expect(screen.getByLabelText('Branch')).toHaveValue('aggregation-data');
+    expect(screen.getByLabelText('Branch')).toHaveValue('default');
     await waitFor(() => expect(screen.getByText('Orders', { exact: false })).toBeInTheDocument());
     expect(aggregationStorageService.listAggregationSets).toHaveBeenCalledWith(
       STORAGE_SETTINGS,
@@ -124,12 +135,21 @@ describe('AggregateMenuHandler', () => {
     expect(aggregationStorageService.saveStorageSettings).toHaveBeenCalledWith({
       owner: 'taljacob2',
       repo: 'other-repo',
-      branch: 'aggregation-data',
+      branch: 'aggregation-data-default',
     });
     expect(screen.getByText('Storage location saved.')).toBeInTheDocument();
   });
 
-  test('blocks the default branch from being used as the storage branch', async () => {
+  test('the Branch field shows the fixed prefix next to an editable suffix', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    expect(screen.getByText('aggregation-data-')).toBeInTheDocument();
+    expect(screen.getByLabelText('Branch')).toHaveValue('default');
+  });
+
+  test('the fixed prefix keeps a plain default-branch name like "main" from ever colliding', async () => {
     aggregationStorageService.getRepoDefaultBranch.mockResolvedValue('main');
     const ref = createRef();
     renderHandler(ref);
@@ -139,6 +159,20 @@ describe('AggregateMenuHandler', () => {
       fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'main' } });
     });
 
+    expect(document.querySelector('.swagger-editor__aggregate-alert--error')).toBeNull();
+    expect(screen.getByText('Save Location')).not.toBeDisabled();
+  });
+
+  test('still blocks an exact full-branch match as a safety net', async () => {
+    aggregationStorageService.getRepoDefaultBranch.mockResolvedValue('aggregation-data-shared');
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'shared' } });
+    });
+
     expect(document.querySelector('.swagger-editor__aggregate-alert--error').textContent).toMatch(
       "is taljacob2/swagger-editor-github's default branch"
     );
@@ -146,7 +180,7 @@ describe('AggregateMenuHandler', () => {
     expect(screen.queryByText('New Set')).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'aggregation-data' } });
+      fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'default' } });
     });
 
     expect(document.querySelector('.swagger-editor__aggregate-alert--error')).toBeNull();

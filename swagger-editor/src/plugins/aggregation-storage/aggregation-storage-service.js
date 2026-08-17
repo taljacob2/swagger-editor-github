@@ -1,7 +1,31 @@
 const STORAGE_KEY = 'github-editor:aggregation-storage';
 const SETS_DIR = 'aggregation-sets';
 
-export const DEFAULT_BRANCH = 'aggregation-data';
+// The storage branch is always "aggregation-data-<something>" -- the fixed
+// prefix keeps it visually distinct from a repo's real branches (so it's
+// obvious at a glance it's app-managed data, not content), while the
+// editable suffix after it lets colleagues share a specific data branch
+// (e.g. "aggregation-data-team-x") instead of everyone colliding on one.
+export const BRANCH_PREFIX = 'aggregation-data-';
+const DEFAULT_BRANCH_SUFFIX = 'default';
+export const DEFAULT_BRANCH = `${BRANCH_PREFIX}${DEFAULT_BRANCH_SUFFIX}`;
+
+// The part of a stored branch name after the fixed prefix, for editing in
+// the Branch field's suffix input. Falls back to the whole value when it
+// doesn't have the prefix (e.g. a branch saved before this field existed).
+export function branchSuffixFromBranch(branch) {
+  if (branch && branch.startsWith(BRANCH_PREFIX)) {
+    return branch.slice(BRANCH_PREFIX.length);
+  }
+  return branch || '';
+}
+
+// Reattaches the fixed prefix to a user-typed suffix, defaulting to
+// DEFAULT_BRANCH_SUFFIX when empty.
+export function buildBranchName(suffix) {
+  const trimmed = (suffix || '').trim();
+  return `${BRANCH_PREFIX}${trimmed || DEFAULT_BRANCH_SUFFIX}`;
+}
 
 export const stripTrailingSlashes = (value) => value.replace(/\/+$/, '');
 
@@ -63,7 +87,7 @@ export function saveStorageSettings({ owner, repo, branch }) {
   const settings = {
     owner: (owner || '').trim(),
     repo: (repo || '').trim(),
-    branch: (branch || DEFAULT_BRANCH).trim() || DEFAULT_BRANCH,
+    branch: buildBranchName(branchSuffixFromBranch(branch)),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   return settings;
