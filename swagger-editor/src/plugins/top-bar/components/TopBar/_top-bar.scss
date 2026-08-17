@@ -81,10 +81,19 @@
       z-index: 10000;
       flex-direction: column;
       align-items: stretch;
+      // An explicit height (not just max-height) gives space-evenly actual
+      // room to distribute into -- with only max-height, the box shrinks to
+      // fit its content whenever that's shorter than the viewport, so items
+      // stayed packed at the top with dead space (or a scrollbar) below
+      // instead of spreading across the screen. Still caps at the viewport
+      // and scrolls (rather than clips) on a short enough screen with
+      // enough items that it genuinely can't all fit.
+      height: calc(100vh - 54px);
+      max-height: calc(100vh - 54px);
+      justify-content: space-evenly;
       padding: 0.5rem 0;
       background-color: #173647;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-      max-height: calc(100vh - 54px);
       overflow-y: auto;
       // Setting overflow-y alone makes the browser auto-promote overflow-x
       // from its default `visible` to `auto` too (CSS Overflow spec: an
