@@ -167,7 +167,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   });
 
   return (
-    <Modal isOpen={isOpen} contentLabel="GitHub Connection Settings">
+    <Modal isOpen={isOpen} contentLabel="GitHub Connection Settings" onRequestClose={handleClose}>
       <ModalHeader>
         <button type="button" className="close" onClick={handleClose}>
           <span aria-hidden="true">x</span>

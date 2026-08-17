@@ -25,7 +25,7 @@ const ConfirmDialog = ({
   };
 
   return (
-    <Modal isOpen={isOpen} contentLabel={title}>
+    <Modal isOpen={isOpen} contentLabel={title} onRequestClose={handleCloseClick}>
       <ModalHeader>
         <button type="button" className="close" onClick={handleCloseClick}>
           <span aria-hidden="true">x</span>

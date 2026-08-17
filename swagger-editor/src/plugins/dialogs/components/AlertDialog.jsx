@@ -15,7 +15,7 @@ const AlertDialog = ({
   const ModalFooter = getComponent('ModalFooter');
 
   return (
-    <Modal isOpen={isOpen} contentLabel={title}>
+    <Modal isOpen={isOpen} contentLabel={title} onRequestClose={onClose}>
       <ModalHeader>
         <button type="button" className="close" onClick={onClose}>
           <span aria-hidden="true">x</span>

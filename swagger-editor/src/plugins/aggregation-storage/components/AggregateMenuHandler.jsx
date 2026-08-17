@@ -360,7 +360,7 @@ const AggregateMenuHandler = forwardRef(
             here shares the same overlay z-index, so whichever portal is later
             in the DOM paints on top. Declaring this one second keeps it in
             front of "Manage Aggregation Sets" instead of hidden behind it. */}
-        <Modal isOpen={isOpen} contentLabel="Manage Aggregation Sets">
+        <Modal isOpen={isOpen} contentLabel="Manage Aggregation Sets" onRequestClose={handleClose}>
           <ModalHeader>
             <button type="button" className="close" onClick={handleClose}>
               <span aria-hidden="true">x</span>

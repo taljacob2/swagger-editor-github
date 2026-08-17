@@ -3,6 +3,58 @@
     background-color: #173647;
     width: 100%;
     height: 54px;
+    // Anchors the mobile hamburger panel below (position: absolute; top:
+    // 100%) without hardcoding the 54px height a second time.
+    position: relative;
+    // Lays -row and -wrapper (Logo+hamburger, and the menu items) side by
+    // side on desktop, matching the single-row layout before the hamburger
+    // existed -- -wrapper is only ever a flex sibling here when it isn't
+    // the absolutely-positioned --mobile panel (see below), so this has no
+    // effect on the mobile open/closed states.
+    display: flex;
+    align-items: center;
+  }
+
+  &__top-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+
+    // Only needs to stretch and space its children (Logo, hamburger) apart
+    // when it's the sole flex content of a full-width mobile top bar --
+    // on desktop it stays content-sized so -wrapper's menu items sit
+    // snug against the logo, exactly as before the hamburger existed.
+    @include mobile {
+      flex: 1 1 auto;
+    }
+  }
+
+  &__top-bar-hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-right: 0.5rem;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+
+    span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background-color: white;
+      border-radius: 1px;
+    }
+
+    @include mobile {
+      display: flex;
+    }
   }
 
   &__top-bar-wrapper {
@@ -17,21 +69,31 @@
       font-weight: 500;
     }
 
-    // The unwrapped row of menu items (File/Edit/Aggregate/GitHub/About,
-    // plus content-type-specific Generate menus) is wider than a phone
-    // viewport with no wrap logic -- reuse the same overflow-x: auto
-    // pattern the workspace tab bar already uses for the identical
-    // "too many items" problem, rather than building a separate
-    // hamburger/overflow menu.
-    @include mobile {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      -webkit-overflow-scrolling: touch;
+    // Collapsed into the hamburger panel above, so this only ever renders
+    // (see TopBar.jsx) while open -- laid out as a full-width dropdown
+    // list under the top bar instead of the desktop's horizontal row.
+    &--mobile {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 10000;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0.5rem 0;
+      background-color: #173647;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      max-height: calc(100vh - 54px);
+      overflow-y: auto;
 
       & > * {
-        margin-left: 0.6rem;
-        margin-right: 0.6rem;
-        flex-shrink: 0;
+        // Each child is a .dd-menu (display: inline-block upstream), which
+        // would otherwise only be as wide as its own label -- block + full
+        // width turns it into a proper full-row tap target in the list.
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 0.85rem 1.25rem;
       }
     }
   }
