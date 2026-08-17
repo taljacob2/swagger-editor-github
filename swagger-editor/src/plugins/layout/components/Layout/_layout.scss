@@ -3,6 +3,22 @@
 
     .SplitPane {
       height: #{"calc(100% - 54px - 40px)"} !important;
+      // react-collapse-pane's own styles set min-height: 100% for a
+      // horizontal split (used on mobile, see Layout.jsx) -- with .dropzone/
+      // .container unpositioned, that 100% resolves against the viewport,
+      // not this element's actual containing block, and (being a min-height)
+      // wins over the explicit height above unless neutralized here. Vertical
+      // split has no such min-height rule, so this is a no-op there.
+      min-height: 0 !important;
+      // Vertical split leaves top/bottom as 'auto', so the browser derives
+      // top from this element's normal-flow (static) position -- correctly
+      // below the top bar + tabs bar. Horizontal split instead hardcodes
+      // top: 0 (a library quirk), pinning it to the viewport's top and
+      // covering both bars. 'auto' restores the same static-position
+      // derivation vertical split already relies on; with bottom: 0 and the
+      // height above both specified, it resolves to exactly the top bar +
+      // tabs bar height with no number to duplicate/keep in sync.
+      top: auto !important;
     }
 
     .Pane {

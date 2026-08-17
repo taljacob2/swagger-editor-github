@@ -33,6 +33,14 @@
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
+
+    // No wrap here means the editor pane's top/bottom bars (theme
+    // selector, read-only indicator, and whatever else other plugins
+    // inject) overflow once the pane is full mobile width but still
+    // narrower than the icon row's natural width.
+    @include mobile {
+      flex-wrap: wrap;
+    }
   }
   &__toolbar-horizontal--justify-end {
     justify-content: flex-end;
