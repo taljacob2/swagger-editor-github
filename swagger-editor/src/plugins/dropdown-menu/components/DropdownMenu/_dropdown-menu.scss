@@ -420,20 +420,24 @@
 // trigger, so on a narrow screen the panel renders partly or fully
 // off-screen regardless of which top-bar item opened it. Decouple it from
 // both the trigger's position and its size-variant width: pin it under the
-// fixed-height top bar and let it span the available viewport width
-// instead. !important matches this file's existing convention for
-// overriding the vendored width/margin rules above.
+// fixed-height top bar AND the tabs bar below it (54px + 40px, matching
+// _layout.scss's own SplitPane offset) and let it span the available
+// viewport width instead. !important matches this file's existing
+// convention for overriding the vendored width/margin rules above --
+// including the vendored 1.1rem top margin, which would otherwise push
+// the panel further down and back into the tabs bar it's meant to clear.
 @include mobile {
   .dd-menu .dd-menu-items {
     position: fixed !important;
-    top: calc(54px + 0.5rem) !important;
+    top: calc(54px + 40px + 0.5rem) !important;
     left: 1rem !important;
     right: 1rem !important;
     width: auto !important;
     max-width: none !important;
-    max-height: calc(100vh - 54px - 1.5rem) !important;
+    max-height: calc(100vh - 54px - 40px - 1.5rem) !important;
     overflow-y: auto !important;
     transform: none !important;
+    margin: 0 !important;
   }
 
   .dd-menu.long {
