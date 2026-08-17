@@ -436,6 +436,11 @@
     max-width: none !important;
     max-height: calc(100vh - 54px - 40px - 1.5rem) !important;
     overflow-y: auto !important;
+    // Without an explicit overflow-x, the browser auto-promotes it from
+    // visible to auto too (CSS Overflow spec: an axis left visible next to
+    // a scrolling one becomes auto), showing a horizontal scrollbar for
+    // even a sliver of overflow. Pin it to hidden explicitly.
+    overflow-x: hidden !important;
     transform: none !important;
     margin: 0 !important;
   }

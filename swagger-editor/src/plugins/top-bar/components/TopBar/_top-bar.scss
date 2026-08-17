@@ -85,6 +85,13 @@
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       max-height: calc(100vh - 54px);
       overflow-y: auto;
+      // Setting overflow-y alone makes the browser auto-promote overflow-x
+      // from its default `visible` to `auto` too (CSS Overflow spec: an
+      // axis left `visible` next to a scrolling one becomes `auto` instead),
+      // which is what was showing a horizontal scrollbar here for even a
+      // sliver of overflow (e.g. the vertical scrollbar's own width nudging
+      // a full-width child past the edge). Pin it to hidden explicitly.
+      overflow-x: hidden;
 
       & > * {
         // Each child is a .dd-menu (display: inline-block upstream), which

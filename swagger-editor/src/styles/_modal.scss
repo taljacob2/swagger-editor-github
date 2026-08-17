@@ -115,6 +115,11 @@
   // whole box overflow instead of scrolling here.
   min-height: 0;
   overflow-y: auto;
+  // Without an explicit overflow-x, the browser auto-promotes it from
+  // visible to auto too (CSS Overflow spec), showing a horizontal
+  // scrollbar for even a sliver of overflow -- e.g. the vertical
+  // scrollbar's own width nudging a full-width row past the edge.
+  overflow-x: hidden;
   padding: 0.75rem 2.0rem;
   font-size: 0.8rem;
 
