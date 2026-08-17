@@ -200,6 +200,15 @@ button.close {
 .input-group {
   display: flex;
   flex-direction: column;
+  // Groups need to read as clearly separate from each other -- this is
+  // deliberately much larger than the gap between an input and its own
+  // help-block below, so proximity alone signals which text belongs to
+  // which field.
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .input-group label {
@@ -221,4 +230,26 @@ button.close {
   line-height: 1.5;
   padding: 0.375rem 0.75rem;
   opacity: 1;
+}
+
+// Pulled tight against the input above it (rather than a bare <p>'s default
+// margin, which put as much space above the hint as below it -- nothing
+// distinguished "belongs to this field" from "starts the next field") and
+// given a left border matching the input's own border color, so it reads
+// as an attached note rather than a floating paragraph.
+.help-block {
+  margin: 0.4rem 0 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid #B6BECB;
+  border-radius: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #8E99AB;
+
+  // When a field has more than one hint (e.g. a generic note plus an
+  // intent-specific one), stack them closer to each other than either
+  // sits from the input, so they read as one connected note.
+  & + .help-block {
+    margin-top: 0.3rem;
+  }
 }
