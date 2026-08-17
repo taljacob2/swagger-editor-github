@@ -687,6 +687,29 @@ describe('AggregateMenuHandler', () => {
     );
   });
 
+  test('the delete confirmation renders after (so it stacks in front of) the main modal', async () => {
+    // All modals here share one overlay z-index, so whichever one is later in
+    // the DOM is the one that visually wins -- this guards against the
+    // confirm dialog being declared before the main modal again, which left
+    // it opening behind "Manage Aggregation Sets" instead of in front of it.
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      { id: 'set-1', name: 'Orders', swaggerUrls: [] },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    await waitFor(() => screen.getByText('Delete'));
+
+    fireEvent.click(screen.getByText('Delete'));
+    await waitFor(() => screen.getByText('Confirm Delete'));
+
+    const modalTitlePosition = screen
+      .getByText('Manage Aggregation Sets')
+      .compareDocumentPosition(screen.getByText('Confirm Delete'));
+    // eslint-disable-next-line no-bitwise
+    expect(modalTitlePosition & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   describe('read-only tokens (no write access to the storage repo)', () => {
     beforeEach(() => {
       aggregationStorageService.canWriteToStorage.mockResolvedValue(false);

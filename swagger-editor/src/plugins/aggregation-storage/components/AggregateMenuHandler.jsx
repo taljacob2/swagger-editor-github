@@ -355,13 +355,11 @@ const AggregateMenuHandler = forwardRef(
 
     return (
       <>
-        <ConfirmDialog
-          isOpen={pendingDeleteId !== null}
-          title="Delete aggregation set"
-          onClose={handleDeleteConfirmClose}
-        >
-          Delete this aggregation set? This removes its file from the storage branch.
-        </ConfirmDialog>
+        {/* Rendered after the main Modal below, not before -- react-modal portals
+            each instance into document.body in mount order, and every modal
+            here shares the same overlay z-index, so whichever portal is later
+            in the DOM paints on top. Declaring this one second keeps it in
+            front of "Manage Aggregation Sets" instead of hidden behind it. */}
         <Modal isOpen={isOpen} contentLabel="Manage Aggregation Sets">
           <ModalHeader>
             <button type="button" className="close" onClick={handleClose}>
@@ -814,6 +812,13 @@ const AggregateMenuHandler = forwardRef(
             </button>
           </ModalFooter>
         </Modal>
+        <ConfirmDialog
+          isOpen={pendingDeleteId !== null}
+          title="Delete aggregation set"
+          onClose={handleDeleteConfirmClose}
+        >
+          Delete this aggregation set? This removes its file from the storage branch.
+        </ConfirmDialog>
       </>
     );
   }
