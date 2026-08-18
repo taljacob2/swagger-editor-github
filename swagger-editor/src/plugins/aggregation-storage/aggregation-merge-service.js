@@ -1,5 +1,6 @@
 import YAML from 'js-yaml';
 
+import { parseSsoAuthorizationUrl } from '../github-connection/github-connection-service.js';
 import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
 
 // Component sub-collections that can each independently collide by name
@@ -107,7 +108,14 @@ export async function fetchSpec(url, connection) {
 
   const response = await fetch(requestUrl, { headers });
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const ssoUrl = parseSsoAuthorizationUrl(response);
+    const error = new Error(
+      ssoUrl
+        ? "This token is valid, but hasn't been authorized for single sign-on on this organization."
+        : `HTTP ${response.status}: ${response.statusText}`
+    );
+    error.ssoUrl = ssoUrl;
+    throw error;
   }
 
   if (parsed) {
@@ -295,7 +303,11 @@ export async function aggregateSet(set, connection) {
     if (result.status === 'fulfilled') {
       specs.push(result.value);
     } else {
-      errors.push({ name: urls[index].name, message: result.reason.message });
+      errors.push({
+        name: urls[index].name,
+        message: result.reason.message,
+        ssoUrl: result.reason.ssoUrl,
+      });
     }
   });
 

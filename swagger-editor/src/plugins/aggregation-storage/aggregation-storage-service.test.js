@@ -45,6 +45,7 @@ function mockFetch(routes) {
         status,
         statusText: route.statusText || 'Error',
         text: async () => route.detail || '',
+        headers: { get: (name) => (name === 'X-GitHub-SSO' ? route.ssoHeader || null : null) },
       };
     }
     return {
@@ -240,6 +241,24 @@ describe('aggregation-storage-service', () => {
 
       await expect(getAggregationSet('set-1', STORAGE, CONNECTION)).rejects.toMatchObject({
         status: 403,
+      });
+    });
+
+    test('a 403 with an X-GitHub-SSO header carries the authorization url instead', async () => {
+      const ssoUrl = 'https://github.com/orgs/octo-org/sso?authorization_request=abc123';
+      mockFetch([
+        {
+          method: 'GET',
+          test: () => true,
+          status: 403,
+          statusText: 'Forbidden',
+          ssoHeader: `required; url=${ssoUrl}`,
+        },
+      ]);
+
+      await expect(getAggregationSet('set-1', STORAGE, CONNECTION)).rejects.toMatchObject({
+        status: 403,
+        ssoUrl,
       });
     });
   });

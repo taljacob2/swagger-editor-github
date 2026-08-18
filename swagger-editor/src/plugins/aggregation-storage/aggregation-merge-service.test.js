@@ -175,8 +175,27 @@ describe('fetchSpec', () => {
   });
 
   test('throws with the status on a non-OK response', async () => {
-    global.fetch.mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      headers: { get: () => null },
+    });
     await expect(fetchSpec('https://example.com/openapi.yaml', CONNECTION)).rejects.toThrow('404');
+  });
+
+  test('attaches the SSO authorization url on a 403 blocked by org SSO enforcement', async () => {
+    const ssoUrl = 'https://github.com/orgs/octo-org/sso?authorization_request=abc123';
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      headers: { get: (name) => (name === 'X-GitHub-SSO' ? `required; url=${ssoUrl}` : null) },
+    });
+
+    await expect(
+      fetchSpec('https://api.github.com/repos/x/y/contents/z', CONNECTION)
+    ).rejects.toMatchObject({ ssoUrl });
   });
 });
 
@@ -381,7 +400,9 @@ describe('aggregateSet', () => {
     );
 
     expect(result.specCount).toBe(1);
-    expect(result.errors).toEqual([{ name: 'Broken', message: 'HTTP 500: Server Error' }]);
+    expect(result.errors).toEqual([
+      { name: 'Broken', message: 'HTTP 500: Server Error', ssoUrl: null },
+    ]);
   });
 
   test('throws when every URL fails', async () => {

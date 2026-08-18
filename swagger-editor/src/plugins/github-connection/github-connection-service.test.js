@@ -3,6 +3,7 @@ import {
   buildTokenCreationUrl,
   deriveWebBaseUrl,
   getConnectionSettings,
+  parseSsoAuthorizationUrl,
   saveConnectionSettings,
   testConnection,
 } from './github-connection-service.js';
@@ -182,6 +183,52 @@ describe('github-connection-service', () => {
 
       expect(result.ok).toBe(false);
       expect(result.message).toContain('Failed to fetch');
+    });
+
+    test('surfaces an SSO authorization link instead of a generic 403 message', async () => {
+      const ssoUrl = 'https://github.com/orgs/octo-org/sso?authorization_request=abc123';
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        headers: { get: (name) => (name === 'X-GitHub-SSO' ? `required; url=${ssoUrl}` : null) },
+      });
+
+      const result = await testConnection({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'valid-but-unauthorized-token',
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.ssoUrl).toBe(ssoUrl);
+      expect(result.message).not.toContain('403');
+    });
+  });
+
+  describe('parseSsoAuthorizationUrl', () => {
+    test('extracts the url= value from a "required" X-GitHub-SSO header', () => {
+      const ssoUrl = 'https://github.com/orgs/octo-org/sso?authorization_request=abc123';
+      const response = {
+        headers: { get: (name) => (name === 'X-GitHub-SSO' ? `required; url=${ssoUrl}` : null) },
+      };
+
+      expect(parseSsoAuthorizationUrl(response)).toBe(ssoUrl);
+    });
+
+    test('returns null when the header is absent', () => {
+      const response = { headers: { get: () => null } };
+      expect(parseSsoAuthorizationUrl(response)).toBeNull();
+    });
+
+    test('returns null for a "partial-results" header with no url= (multi-org listing)', () => {
+      const response = {
+        headers: { get: () => 'partial-results; organizations=21955855,20582480' },
+      };
+      expect(parseSsoAuthorizationUrl(response)).toBeNull();
+    });
+
+    test('returns null when the response has no headers object at all', () => {
+      expect(parseSsoAuthorizationUrl({})).toBeNull();
     });
   });
 

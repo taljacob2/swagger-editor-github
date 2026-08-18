@@ -1,3 +1,5 @@
+import { parseSsoAuthorizationUrl } from '../github-connection/github-connection-service.js';
+
 const STORAGE_KEY = 'github-editor:aggregation-storage';
 const SETS_DIR = 'aggregation-sets';
 
@@ -129,12 +131,16 @@ async function ghRequest(path, { connection, method = 'GET', body, allow404 = fa
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
+    const ssoUrl = parseSsoAuthorizationUrl(response);
     const error = new Error(
-      `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
+      ssoUrl
+        ? "This token is valid, but hasn't been authorized for single sign-on on this organization."
+        : `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
     );
     // Attached so callers can tell "no permission" apart from other failures
     // without string-matching the message.
     error.status = response.status;
+    error.ssoUrl = ssoUrl;
     throw error;
   }
   if (response.status === 204) {

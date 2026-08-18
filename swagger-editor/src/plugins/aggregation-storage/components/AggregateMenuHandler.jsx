@@ -59,6 +59,7 @@ const AggregateMenuHandler = forwardRef(
     const ModalBody = getComponent('ModalBody');
     const ModalFooter = getComponent('ModalFooter');
     const ConfirmDialog = getComponent('ConfirmDialog', true);
+    const Link = getComponent('Link');
 
     // The stored branch is always the fixed prefix plus whatever the user
     // typed after it -- see aggregation-storage-service.js's BRANCH_PREFIX.
@@ -256,9 +257,12 @@ const AggregateMenuHandler = forwardRef(
         setShowForm(false);
         await refreshSets(currentStorage());
       } catch (error) {
-        const message =
-          error.status === 403 || error.status === 401 ? PERMISSION_DENIED_MESSAGE : error.message;
-        setStatus({ ok: false, message });
+        const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
+        setStatus({
+          ok: false,
+          message: isPermissionDenied ? PERMISSION_DENIED_MESSAGE : error.message,
+          ssoUrl: error.ssoUrl,
+        });
       } finally {
         setIsSaving(false);
       }
@@ -281,6 +285,10 @@ const AggregateMenuHandler = forwardRef(
               .map((e) => e.name)
               .join(', ')})`
           : '';
+        // If any of the failures was an SSO-authorization block, surface one
+        // link for it -- usually all failures from the same run share the
+        // same org, and re-running after authorizing picks up the rest too.
+        const ssoUrl = result.errors.find((e) => e.ssoUrl)?.ssoUrl;
         setStatus({
           ok: true,
           message: `Loaded "${set.name}" into the editor: ${result.specCount} spec(s) merged`,
@@ -289,6 +297,7 @@ const AggregateMenuHandler = forwardRef(
             : null,
           conflicts: conflictCount ? result.conflicts : null,
           suffix: `.${errorNote}`,
+          ssoUrl,
         });
       } catch (error) {
         setStatus({ ok: false, message: error.message });
@@ -312,9 +321,12 @@ const AggregateMenuHandler = forwardRef(
         setStatus({ ok: true, message: 'Deleted.' });
         await refreshSets(currentStorage());
       } catch (error) {
-        const message =
-          error.status === 403 || error.status === 401 ? PERMISSION_DENIED_MESSAGE : error.message;
-        setStatus({ ok: false, message });
+        const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
+        setStatus({
+          ok: false,
+          message: isPermissionDenied ? PERMISSION_DENIED_MESSAGE : error.message,
+          ssoUrl: error.ssoUrl,
+        });
       }
     };
 
@@ -478,6 +490,14 @@ const AggregateMenuHandler = forwardRef(
                   </>
                 )}
                 {status.suffix}
+                {status.ssoUrl && (
+                  <>
+                    {' '}
+                    <Link href={status.ssoUrl} target="_blank">
+                      Authorize this token →
+                    </Link>
+                  </>
+                )}
               </p>
             )}
 

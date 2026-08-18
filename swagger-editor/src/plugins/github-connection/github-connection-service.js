@@ -172,6 +172,21 @@ export function buildTokenCreationUrl({ apiBaseUrl, contents, targetName, name, 
   return `${webBaseUrl}/settings/personal-access-tokens/new?${params.toString()}`;
 }
 
+// On a 403 from an org that enforces SAML/SSO, GitHub sends this header
+// pointing at a one-click "authorize this token" page -- the token itself is
+// valid, it just hasn't been cleared for that specific org yet. Without this,
+// the app has no way to tell that failure apart from "wrong/expired token" or
+// "no access at all", both of which need a different token instead.
+// https://docs.github.com/en/authentication/authenticating-with-single-sign-on/authorizing-a-personal-access-token-for-use-with-single-sign-on
+export function parseSsoAuthorizationUrl(response) {
+  const header = response.headers?.get?.('X-GitHub-SSO');
+  if (!header) {
+    return null;
+  }
+  const match = header.match(/url=(\S+)/);
+  return match ? match[1] : null;
+}
+
 // GitHub's REST API sends permissive CORS headers and accepts a bearer token
 // directly from browser JS, so this is a plain authenticated fetch — no proxy.
 // See docs/Design.md "Why no backend is needed".
@@ -189,6 +204,15 @@ export async function testConnection({ apiBaseUrl, token }) {
     });
 
     if (!response.ok) {
+      const ssoUrl = parseSsoAuthorizationUrl(response);
+      if (ssoUrl) {
+        return {
+          ok: false,
+          message:
+            "This token is valid, but hasn't been authorized for an organization that requires single sign-on.",
+          ssoUrl,
+        };
+      }
       return {
         ok: false,
         message: `GitHub API returned ${response.status} ${response.statusText}`,

@@ -315,7 +315,19 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             </p>
           </div>
         )}
-        {status && <p className={status.ok ? 'text-success' : 'text-danger'}>{status.message}</p>}
+        {status && (
+          <p className={status.ok ? 'text-success' : 'text-danger'}>
+            {status.message}
+            {status.ssoUrl && (
+              <>
+                {' '}
+                <Link href={status.ssoUrl} target="_blank">
+                  Authorize this token →
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </ModalBody>
       <ModalFooter>
         <button
