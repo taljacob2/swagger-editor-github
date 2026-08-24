@@ -32,7 +32,19 @@ jobs:
 
       # Only the standalone app build is needed for the Pages site (not the
       # embeddable esm/umd bundles that `npm run build` also produces).
-      # --base matches this repo's Pages project-site path so asset URLs resolve.
+      # --base matches this repo's Pages site path so asset URLs resolve.
+      #
+      # The default below (/<repo-name>/) is correct for a normal, publicly
+      # published project-site URL like <org>.github.io/<repo-name>/. It is
+      # WRONG for a *privately* published Pages site on GitHub Enterprise
+      # Cloud: GHEC serves those from a unique subdomain (e.g.
+      # <org>-<repo>.pages.<hostname>) with the site at that subdomain's
+      # root, no /<repo-name>/ prefix. Building with the wrong base makes
+      # every asset request 404, which GitHub Pages answers with its HTML
+      # 404 page — surfacing in the browser as MIME-type/nosniff errors on
+      # every JS/CSS/media request. Set a repo variable named
+      # PAGES_BASE_PATH (Settings -> Secrets and variables -> Actions ->
+      # Variables) to "/" to override this for such deployments.
       #
       # VITE_GITHUB_API_BASE_URL is optional: set a repo variable named
       # GITHUB_API_BASE_URL (Settings -> Secrets and variables -> Actions ->
@@ -43,7 +55,7 @@ jobs:
         working-directory: swagger-editor
         env:
           VITE_GITHUB_API_BASE_URL: ${{ vars.GITHUB_API_BASE_URL }}
-        run: npm run build:app -- --base=/${{ github.event.repository.name }}/
+        run: npm run build:app -- --base="${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}"
 
       - uses: actions/configure-pages@v5
 
