@@ -528,10 +528,6 @@ In order to inform `swagger-editor@5` npm package that I require it to use my sp
 > [!NOTE]
 > The React and ReactDOM resolution cannot be defined as a reference to the dependency. Unfortunately *yarn* does not support aliasing like `$react` or `$react-dom` as *npm* does. You'll need to specify the exact versions.
 
-### GitHub Connection
-
-- [Why Personal Access Tokens instead of "Sign in with GitHub"](./docs/github-authentication.md)
-
 ### Customization
 
 - [Plug points](./docs/customization/plug-points/README.md)

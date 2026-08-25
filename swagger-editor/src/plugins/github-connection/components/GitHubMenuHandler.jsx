@@ -29,7 +29,7 @@ const SHOWS_REPO_TOKEN = new Set([
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
 const AUTH_DOC_LINK =
-  'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/github-authentication.md';
+  'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/GitHubAuthentication.md';
 
 // Phrasing is deliberately parallel across all four -- "<what> — <public/private>"
 // -- so the underlying 2x2 (browse/manage x public/private) reads directly off
@@ -182,10 +182,10 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           need less than they&apos;d expect, possibly no token at all. Pick what you&apos;re here to
           do and this will tell you exactly what (if anything) to paste below.
         </p>
-        <p className="help-block">
+        <p className="help-block swagger-editor__auth-doc-hint">
           Why a token instead of a &quot;Sign in with GitHub&quot; button?{' '}
           <Link href={AUTH_DOC_LINK} target="_blank">
-            docs/github-authentication.md
+            docs/GitHubAuthentication.md
           </Link>
           .
         </p>

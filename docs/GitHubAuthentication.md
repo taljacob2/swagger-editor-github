@@ -4,7 +4,7 @@ This app talks to the GitHub API directly from the browser — there is no serve
 and it's deployed as a static site (GitHub Pages). That single fact is the root cause of
 everything in this document: it rules out the OAuth flow most users expect ("Sign in with
 GitHub"), and it's why the app instead asks users to paste a Personal Access Token (PAT) in
-[`GitHubMenuHandler`](../src/plugins/github-connection/components/GitHubMenuHandler.jsx).
+[`GitHubMenuHandler`](../swagger-editor/src/plugins/github-connection/components/GitHubMenuHandler.jsx).
 
 This was investigated in depth (see history around 2026-08) after a request to replace PATs
 with SSO/browser-based auth "for enterprise domains." This document records what was found,
@@ -16,8 +16,8 @@ what we shipped as a stopgap, and what would need to change upstream before we c
   read-only token) into the GitHub Connection Settings modal.
 - Tokens are stored in the browser's `localStorage` only, and sent only to the configured API
   base URL (`https://api.github.com`, or a GitHub Enterprise Cloud custom domain).
-- See [`github-connection-service.js`](../src/plugins/github-connection/github-connection-service.js)
-  and [`aggregation-storage-service.js`](../src/plugins/aggregation-storage/aggregation-storage-service.js)
+- See [`github-connection-service.js`](../swagger-editor/src/plugins/github-connection/github-connection-service.js)
+  and [`aggregation-storage-service.js`](../swagger-editor/src/plugins/aggregation-storage/aggregation-storage-service.js)
   for where tokens are read and attached to requests.
 
 This works, but it's a rougher UX than "click a button, approve on GitHub" — especially for
@@ -109,14 +109,14 @@ containing `required; url=<authorization-url>`.
 
 Previously this just looked like a generic permission-denied error. Now:
 
-- [`parseSsoAuthorizationUrl`](../src/plugins/github-connection/github-connection-service.js)
+- [`parseSsoAuthorizationUrl`](../swagger-editor/src/plugins/github-connection/github-connection-service.js)
   extracts that URL from the response header.
-- [`aggregation-storage-service.js`](../src/plugins/aggregation-storage/aggregation-storage-service.js)
-  and [`aggregation-merge-service.js`](../src/plugins/aggregation-storage/aggregation-merge-service.js)
+- [`aggregation-storage-service.js`](../swagger-editor/src/plugins/aggregation-storage/aggregation-storage-service.js)
+  and [`aggregation-merge-service.js`](../swagger-editor/src/plugins/aggregation-storage/aggregation-merge-service.js)
   attach it (`error.ssoUrl`) to thrown errors instead of just the generic status message.
-- [`GitHubMenuHandler.jsx`](../src/plugins/github-connection/components/GitHubMenuHandler.jsx)
+- [`GitHubMenuHandler.jsx`](../swagger-editor/src/plugins/github-connection/components/GitHubMenuHandler.jsx)
   and
-  [`AggregateMenuHandler.jsx`](../src/plugins/aggregation-storage/components/AggregateMenuHandler.jsx)
+  [`AggregateMenuHandler.jsx`](../swagger-editor/src/plugins/aggregation-storage/components/AggregateMenuHandler.jsx)
   render an "Authorize this token →" link straight to that URL whenever it's present, instead of
   a dead-end "permission denied."
 

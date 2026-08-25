@@ -1,4 +1,12 @@
 .swagger-editor {
+  // .help-block only carries a top margin (it normally trails an input
+  // inside .input-group, which supplies the bottom gap itself) -- this one
+  // sits loose in the intro area instead, so it needs its own bottom margin
+  // to keep it from running straight into the fieldset legend below it.
+  &__auth-doc-hint {
+    margin-bottom: 1rem;
+  }
+
   &__intent-picker {
     border: none;
     padding: 0;

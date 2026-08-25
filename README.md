@@ -32,6 +32,13 @@ This app has no backend — every user brings their own GitHub token(s). See
 [docs/Permissions.md](docs/Permissions.md) for how to create them and what that means for teams
 where not everyone has access to the same repos.
 
+## Why tokens, not "Sign in with GitHub"
+
+A static, backend-free SPA can't safely do a real OAuth login (it would need to embed a secret
+anyone could extract), and GitHub's own SPA-friendly OAuth flow is still Preview and blocked on
+CORS. See [docs/GitHubAuthentication.md](docs/GitHubAuthentication.md) for the full research,
+what we shipped instead for enterprise SSO users, and what would need to change to revisit this.
+
 ## Keyboard shortcuts
 
 The editor supports a multi-tab workspace with keyboard shortcuts for switching, managing, and
