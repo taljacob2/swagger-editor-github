@@ -167,7 +167,7 @@ for this app specifically.
 OAuth App — Apps get PKCE, fine-grained repo permissions, and short-lived tokens with refresh, all
 of which classic OAuth Apps lack. Point its callback URL at the fork's own Pages URL, enable
 user-to-server auth, and pick the permissions it needs (repo contents, at minimum). The output is
-a `client_id` — public, safe to bake into the build the same way `GITHUB_API_BASE_URL` already is
+a `client_id` — public, safe to bake into the build the same way `GH_API_BASE_URL` already is
 (see [GettingStarted.md](GettingStarted.md#deploying-your-fork-with-github-pages)). No secret to
 protect, since PKCE removes that requirement.
 
@@ -206,7 +206,7 @@ secret than a GitHub OAuth client secret would have been.
 [GettingStarted.md](GettingStarted.md) steps: register a GitHub App (a few clicks, needs org
 admin), get a free Cloudflare account and API token, and set two new repo variables (the App's
 `client_id`, the Cloudflare deploy token). Everything else can be pre-wired CI, in the same spirit
-as the existing `GITHUB_API_BASE_URL`/`PAGES_BASE_PATH` variables.
+as the existing `GH_API_BASE_URL`/`PAGES_BASE_PATH` variables.
 
 **Rough sizing:** relay + its CI, about half a day. Frontend PKCE + refresh flow, 1-2 days (the
 real cost center — genuinely new state management, not a swap of one field for another). Docs for

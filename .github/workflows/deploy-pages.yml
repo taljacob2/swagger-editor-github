@@ -47,14 +47,22 @@ jobs:
       # Variables) to "/" to override this for such deployments.
       #
       # VITE_GITHUB_API_BASE_URL is optional: set a repo variable named
-      # GITHUB_API_BASE_URL (Settings -> Secrets and variables -> Actions ->
+      # GH_API_BASE_URL (Settings -> Secrets and variables -> Actions ->
       # Variables) to bake in the right default for a GHEC custom domain, so
       # visitors don't have to type it in via Connection Settings. Left unset,
       # it falls back to https://api.github.com at runtime.
+      #
+      # Named GH_ rather than GITHUB_: GitHub Actions rejects any repo
+      # variable name starting with the reserved GITHUB_ prefix (Settings
+      # silently refuses to save it), so GITHUB_API_BASE_URL itself can't
+      # exist as a variable name here even though the built app's own env
+      # var (VITE_GITHUB_API_BASE_URL, set from this variable's value) isn't
+      # affected -- that restriction only applies to vars./secrets. names,
+      # not to arbitrary keys inside a workflow's own env: block.
       - name: Build app
         working-directory: swagger-editor
         env:
-          VITE_GITHUB_API_BASE_URL: ${{ vars.GITHUB_API_BASE_URL }}
+          VITE_GITHUB_API_BASE_URL: ${{ vars.GH_API_BASE_URL }}
         run: npm run build:app -- --base="${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}"
 
       - uses: actions/configure-pages@v5
