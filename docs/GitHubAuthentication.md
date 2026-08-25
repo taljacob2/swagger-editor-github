@@ -99,6 +99,25 @@ This is the same trade-off we're making: PAT-by-default keeps the app deployable
 site with zero required infrastructure; a real OAuth login would require someone to opt into
 running a small backend piece, same as Sveltia's model.
 
+## No existing free public relay fits either
+
+Before concluding a relay has to be self-hosted, we checked whether an existing free, public one
+could be borrowed instead:
+
+- **Netlify hosts a real, trustworthy OAuth relay** for Decap CMS — production-grade, not a hack.
+  But it only targets `github.com`; it has no way to point at an org's GHEC custom domain, which is
+  this app's actual deployment target.
+- **Generic public CORS proxies** (`cors-anywhere` and similar) are the wrong tool for anything
+  auth-related, not just an imperfect one — `cors-anywhere` has real CVEs for exactly this failure
+  mode (an open proxy abused for SSRF and credential theft). Whoever operates one can trivially log
+  every token that passes through it.
+- Even a reputable hosted option means a third party outside the org sees live, `repo`-scoped
+  tokens for private enterprise repos — which cuts against the whole reason this app can be
+  self-hosted per org in the first place (see [Design.md's Security notes](Design.md#security-notes)).
+
+So: nothing free and public is both trustworthy with enterprise tokens and able to target a GHEC
+custom domain. If a relay gets built, it has to be one each deploying org runs and controls.
+
 ## What we shipped instead: surfacing the SSO-authorization link
 
 Since we can't replace PATs with OAuth login today, we improved the PAT flow for the enterprise
@@ -139,4 +158,58 @@ This is worth re-examining if any of the following changes:
 
 If you pick this up, `sveltia-cms-auth`'s source is a good reference for the minimal shape of
 that exchange, and the two GitHub threads linked above are the fastest way to check whether the
-CORS/client-secret situation has moved.
+CORS/client-secret situation has moved. Below is a more concrete sketch of what that would take
+for this app specifically.
+
+### Sketch: what building the relay would take
+
+**1. GitHub App registration (per fork/org, one-time).** Register a **GitHub App**, not a classic
+OAuth App — Apps get PKCE, fine-grained repo permissions, and short-lived tokens with refresh, all
+of which classic OAuth Apps lack. Point its callback URL at the fork's own Pages URL, enable
+user-to-server auth, and pick the permissions it needs (repo contents, at minimum). The output is
+a `client_id` — public, safe to bake into the build the same way `GITHUB_API_BASE_URL` already is
+(see [GettingStarted.md](GettingStarted.md#deploying-your-fork-with-github-pages)). No secret to
+protect, since PKCE removes that requirement.
+
+**2. The relay: two small, stateless endpoints.**
+- `POST /exchange` — body `{code, code_verifier, client_id}`. Forwards to
+  `https://<github-host>/login/oauth/access_token` server-side (where CORS doesn't apply), and
+  relays the JSON response back with CORS headers scoped to the fork's own Pages origin.
+- `POST /refresh` — same shape, with `grant_type=refresh_token`. GitHub App user tokens expire
+  (roughly every 8 hours) and need silent renewal — a PAT never needed this, so it's genuinely new
+  complexity, not just a rename of the token field.
+
+`github-host` should **not** be caller-supplied — accepting an arbitrary host turns the relay into
+an open proxy (the same SSRF shape flagged against generic CORS proxies above). Bake in the
+specific host(s) a given deployment cares about at relay-deploy time instead. No database, no
+server-side session — every round trip is self-contained, so the relay can be a single function
+with no state to manage. Cloudflare Workers' free tier (100k requests/day) is a natural fit:
+deploys via `wrangler deploy`, could live in this repo (e.g. a sibling `relay/` directory) with its
+own step in a GitHub Actions workflow, mirroring the existing "push to main, everything redeploys"
+story. The one secret this whole system needs is a Cloudflare deploy token — a much lower-stakes
+secret than a GitHub OAuth client secret would have been.
+
+**3. Frontend changes.**
+- Add "Sign in with GitHub" in **Connection Settings**, alongside the existing PAT fields — not
+  replacing them.
+- On click: generate a PKCE `code_verifier`/`code_challenge` client-side (Web Crypto,
+  `crypto.subtle.digest('SHA-256', ...)`), stash the verifier in `sessionStorage`, redirect to
+  `https://<host>/login/oauth/authorize?client_id=...&redirect_uri=...&code_challenge=...&code_challenge_method=S256`.
+- On the redirect back (`?code=...`): read the stored verifier, `POST` both to the relay's
+  `/exchange`, store the resulting token the same way a pasted PAT is stored today (the encrypted-
+  `localStorage` approach in `github-connection-service.js`).
+- Add a background refresh cycle ahead of the ~8-hour expiry, calling `/refresh`. This is the
+  biggest net-new piece of frontend complexity — it touches Connection Settings UI, every place a
+  token is currently read, and adds an expiry/refresh lifecycle a flat PAT string never had.
+
+**4. What a forking org has to additionally do.** On top of today's
+[GettingStarted.md](GettingStarted.md) steps: register a GitHub App (a few clicks, needs org
+admin), get a free Cloudflare account and API token, and set two new repo variables (the App's
+`client_id`, the Cloudflare deploy token). Everything else can be pre-wired CI, in the same spirit
+as the existing `GITHUB_API_BASE_URL`/`PAGES_BASE_PATH` variables.
+
+**Rough sizing:** relay + its CI, about half a day. Frontend PKCE + refresh flow, 1-2 days (the
+real cost center — genuinely new state management, not a swap of one field for another). Docs for
+the extra setup, half a day. Call it **2-3 focused days**, plus the GitHub App and relay becoming
+new ongoing operational surface this project doesn't currently have — worth weighing against how
+much PAT setup is actually costing adoption before picking this up.
