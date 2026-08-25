@@ -21,8 +21,8 @@ const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
 const GITHUB_COM_RAW_HOST = 'raw.githubusercontent.com';
 const GITHUB_COM_WEB_HOST = 'github.com';
 
-const RAW_PATH_RE = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
-const BLOB_PATH_RE = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
+const RAW_PATH_RE = /^\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
+const BLOB_PATH_RE = /^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
 
 // A GHEC/GHE.com custom domain's web/raw hosts aren't fixed strings the way
 // github.com's are -- they're derived from whatever apiBaseUrl the user has
@@ -50,8 +50,9 @@ function webHostFromApiBaseUrl(apiBaseUrl) {
 // rest of this app's GitHub access) does support authenticated CORS.
 function parseGitHubFileUrl(url, apiBaseUrl) {
   let hostname;
+  let pathname;
   try {
-    hostname = new URL(url).hostname;
+    ({ hostname, pathname } = new URL(url));
   } catch {
     return null;
   }
@@ -72,7 +73,17 @@ function parseGitHubFileUrl(url, apiBaseUrl) {
   if (!candidate) {
     return null;
   }
-  const match = url.match(candidate.pattern);
+  // Matched against pathname, not the raw url string -- a raw-file URL
+  // copied from GitHub's own "view raw" link on a private repo carries a
+  // short-lived `?token=...` query parameter (GitHub's own signed-URL
+  // mechanism, unrelated to a PAT). Matching the full URL let that greedy
+  // `(.+)$` swallow "?token=..." into what it thought was the file path,
+  // producing a malformed, double-"?" Contents API request that 404s.
+  // pathname never includes the query string (or a fragment), so this
+  // rewrite works the same whether or not the pasted URL carries one --
+  // and it should, since fetchSpec always uses the user's own persistent
+  // PAT via the Contents API instead of relying on that expiring token.
+  const match = pathname.match(candidate.pattern);
   if (!match) {
     return null;
   }

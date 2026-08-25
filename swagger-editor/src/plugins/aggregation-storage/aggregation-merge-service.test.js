@@ -137,6 +137,30 @@ describe('fetchSpec', () => {
       );
     });
 
+    // Copying GitHub's own "view raw" link on a private file (e.g. from
+    // browsing raw.<domain> in a browser tab) carries a short-lived
+    // `?token=...` query parameter -- GitHub's own signed-URL mechanism,
+    // unrelated to a PAT. That token isn't needed (or usable) here: this
+    // rewrite always authenticates via the user's own persistent PAT
+    // through the Contents API instead, so the pasted URL should work
+    // exactly the same whether or not it carries one.
+    test('rewrites a raw URL that carries GitHub’s own "?token=" query string, ignoring it', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'ghec-token' };
+
+      await fetchSpec(
+        'https://raw.mycompany.ghe.com/owner/repo/main/openapi.yaml?token=GHSAT0AAAAAA',
+        ghecConnection
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.mycompany.ghe.com/repos/owner/repo/contents/openapi.yaml?ref=main',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer ghec-token' }),
+        })
+      );
+    });
+
     test('does not treat an unrelated third-party host as a GitHub file URL just because it has a similar shape', async () => {
       // Unparsed fallback path reads response.text(), not .json() -- reuse
       // the plain text-based mock from the outer beforeEach, not contentsFetch.
