@@ -28,6 +28,8 @@ const SHOWS_REPO_TOKEN = new Set([
 
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
+const AUTH_DOC_LINK =
+  'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/github-authentication.md';
 
 // Phrasing is deliberately parallel across all four -- "<what> — <public/private>"
 // -- so the underlying 2x2 (browse/manage x public/private) reads directly off
@@ -179,6 +181,13 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           This app talks to GitHub directly from your browser — no server in between. Most people
           need less than they&apos;d expect, possibly no token at all. Pick what you&apos;re here to
           do and this will tell you exactly what (if anything) to paste below.
+        </p>
+        <p className="help-block">
+          Why a token instead of a &quot;Sign in with GitHub&quot; button?{' '}
+          <Link href={AUTH_DOC_LINK} target="_blank">
+            docs/github-authentication.md
+          </Link>
+          .
         </p>
         <fieldset className="input-group swagger-editor__intent-picker">
           <legend className="swagger-editor__intent-picker-title">What do you want to do?</legend>
