@@ -81,3 +81,4 @@ Develop against this personal github.com repo, then point the API base URL and s
 
 - UI/UX details for surfacing the storage-repo settings to the user.
 - Whether GHEC's Contents/Git Data/Actions API semantics need any adjustment versus github.com's (expected: none, but unverified against a real GHEC org).
+- Replacing pasted-PAT auth with a "Sign in with GitHub" OAuth flow — sketched out but not started, and would need each deploying org to run a small relay of their own; see [docs/OAuthRelay.md](OAuthRelay.md) for why a relay is unavoidable and what building one would take.
