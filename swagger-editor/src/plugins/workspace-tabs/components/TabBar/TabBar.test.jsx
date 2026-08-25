@@ -1,5 +1,5 @@
 import React from 'react';
-import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 
 import TabBar from './TabBar.jsx';
 import * as workspaceTabsService from '../../workspace-tabs-service.js';
@@ -13,7 +13,6 @@ vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
     getTabContent: vi.fn(),
     setTabContent: vi.fn(),
     removeTabContent: vi.fn(),
-    copyTabContentToClipboard: vi.fn(),
   };
 });
 
@@ -48,7 +47,6 @@ describe('TabBar', () => {
     workspaceTabsService.removeTabContent.mockImplementation((id) => {
       delete contentStore[id];
     });
-    workspaceTabsService.copyTabContentToClipboard.mockResolvedValue(undefined);
   });
 
   test('renders every tab, highlighting the active one', () => {
@@ -145,17 +143,6 @@ describe('TabBar', () => {
     expect(screen.queryByTitle('Close tab')).not.toBeInTheDocument();
   });
 
-  test('copy button copies the tab content to the clipboard and shows feedback', async () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
-
-    fireEvent.click(screen.getAllByTitle('Copy tab content to clipboard')[0]);
-
-    expect(workspaceTabsService.copyTabContentToClipboard).toHaveBeenCalledWith('a-content');
-    await waitFor(() => {
-      expect(screen.getAllByTitle('Copy tab content to clipboard')[0]).toHaveTextContent('✓');
-    });
-  });
-
   test('Alt+2 switches directly to the second tab', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
@@ -234,14 +221,6 @@ describe('TabBar', () => {
       'a-content'
     );
     expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
-  });
-
-  test('Alt+A copies the active tab content to the clipboard', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
-
-    fireEvent.keyDown(window, { key: 'a', altKey: true });
-
-    expect(workspaceTabsService.copyTabContentToClipboard).toHaveBeenCalledWith('a-content');
   });
 
   test('Alt+X enters rename mode for the active tab', () => {

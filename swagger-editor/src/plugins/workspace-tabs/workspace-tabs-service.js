@@ -158,7 +158,3 @@ export function renameTab(meta, tabId, name) {
     tabs: meta.tabs.map((tab) => (tab.id === tabId ? { ...tab, name: trimmed } : tab)),
   };
 }
-
-export async function copyTabContentToClipboard(content) {
-  await navigator.clipboard.writeText(content);
-}

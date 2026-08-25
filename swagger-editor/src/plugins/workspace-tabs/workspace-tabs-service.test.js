@@ -1,7 +1,6 @@
 import {
   addTab,
   closeTab,
-  copyTabContentToClipboard,
   duplicateTab,
   getActiveTab,
   getTabContent,
@@ -328,17 +327,6 @@ describe('workspace-tabs-service', () => {
       const meta = threeTabMeta();
 
       expect(reorderTab(meta, 'a', 'missing', 'before')).toBe(meta);
-    });
-  });
-
-  describe('copyTabContentToClipboard', () => {
-    test('writes the content via navigator.clipboard.writeText', async () => {
-      const writeText = vi.fn().mockResolvedValue(undefined);
-      Object.assign(navigator, { clipboard: { writeText } });
-
-      await copyTabContentToClipboard('openapi: 3.0.0\n');
-
-      expect(writeText).toHaveBeenCalledWith('openapi: 3.0.0\n');
     });
   });
 });

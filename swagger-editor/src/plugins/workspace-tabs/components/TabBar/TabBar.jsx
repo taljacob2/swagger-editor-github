@@ -4,7 +4,6 @@ import PropTypes from 'prop-types';
 import {
   addTab,
   closeTab,
-  copyTabContentToClipboard,
   duplicateTab,
   getTabContent,
   getWorkspaceMeta,
@@ -16,11 +15,8 @@ import {
   setTabContent,
 } from '../../workspace-tabs-service.js';
 
-const COPIED_FEEDBACK_DURATION_MS = 1500;
-
 const TabBar = ({ editorActions, EditorContentOrigin }) => {
   const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
-  const [copiedTabId, setCopiedTabId] = useState(null);
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [draggedTabId, setDraggedTabId] = useState(null);
@@ -113,18 +109,6 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
     }
   }, [renamingTabId]);
 
-  const handleCopy = async (tab) => {
-    try {
-      await copyTabContentToClipboard(getTabContent(tab.id));
-      setCopiedTabId(tab.id);
-      setTimeout(() => {
-        setCopiedTabId((current) => (current === tab.id ? null : current));
-      }, COPIED_FEEDBACK_DURATION_MS);
-    } catch (error) {
-      console.error('Failed to copy tab content to clipboard:', error); // eslint-disable-line no-console
-    }
-  };
-
   const dropPositionFor = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return event.clientX - rect.left > rect.width / 2 ? 'after' : 'before';
@@ -206,9 +190,6 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
       } else if (key === 's') {
         event.preventDefault();
         if (activeTab) handleDuplicate(activeTab.id);
-      } else if (key === 'a') {
-        event.preventDefault();
-        if (activeTab) handleCopy(activeTab);
       } else if (key === 'x') {
         event.preventDefault();
         if (activeTab) handleStartRename(activeTab);
@@ -273,14 +254,6 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
             onClick={() => handleDuplicate(tab.id)}
           >
             ⧉
-          </button>
-          <button
-            type="button"
-            className="swagger-editor__tab-action"
-            title="Copy tab content to clipboard"
-            onClick={() => handleCopy(tab)}
-          >
-            {copiedTabId === tab.id ? '✓' : '⎘'}
           </button>
           {workspace.tabs.length > 1 && (
             <button

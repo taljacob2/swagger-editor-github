@@ -16,7 +16,6 @@ page. Undo/redo use **Ctrl** (**Cmd** on macOS) and are scoped to the Monaco edi
 | `Alt+T` | Open a new blank tab and activate it |
 | `Alt+Q` | Close the active tab (no-op if it's the only tab remaining) |
 | `Alt+S` | Duplicate the active tab and activate the copy |
-| `Alt+A` | Copy the active tab's content to the clipboard |
 | `Alt+X` | Rename the active tab (same inline edit field as double-clicking its name) |
 
 Tabs can also be **dragged** by their name to reorder them — drop on the left or right half of a
@@ -49,7 +48,7 @@ fully resolved spec.
 
 ## Notes for contributors
 
-- The tab shortcuts are letter-based (`T`/`Q`/`S`/`A`/`X`) rather than following a strict mnemonic
+- The tab shortcuts are letter-based (`T`/`Q`/`S`/`X`) rather than following a strict mnemonic
   (e.g. `R` for rename), because `Alt+<letter>` combos can be silently claimed by the OS, browser
   chrome, or Monaco's own keybinding service before ever reaching the page — `Alt+R` in particular
   turned out to be unreachable for some users even after moving the listener to the capture phase,
