@@ -67,20 +67,38 @@ configuration, not code:
 1. **Repo visibility.** On a free personal github.com account, Pages requires a **public** repo.
    On GitHub Team/Enterprise (including GHEC), Pages works for private repos too — check your
    plan's Pages settings if you want to keep the fork private.
-2. **Enable Pages.** In your fork, go to **Settings → Pages**, and under **Build and deployment →
-   Source**, choose **GitHub Actions**.
+2. **Allow Pages to deploy from GitHub Actions.** This is a prerequisite, not just a preference —
+   on some organizations/enterprises, an org or enterprise admin must first allow GitHub Pages
+   sites (and specifically the **GitHub Actions** build source) at the org/enterprise policy level
+   before an individual repo can use it at all. Once that's allowed, go to your fork's own
+   **Settings → Pages**, and under **Build and deployment → Source**, choose **GitHub Actions**. If
+   that option isn't available, ask your GHEC admin to enable it rather than assuming the repo is
+   misconfigured.
 3. *(GHEC only, optional but recommended)* **Set your org's API host.** Go to **Settings → Secrets
    and variables → Actions → Variables**, and add a repository variable named
    `GITHUB_API_BASE_URL` set to your GHEC API host (e.g. `https://api.your-ghec-domain.com`). This
    gets baked into the build as the default API base URL, so your visitors don't have to type it
    into Connection Settings by hand. Left unset, it defaults to `https://api.github.com` — correct
    for plain github.com forks, so skip this step there.
-4. **Push to `main`.** The workflow triggers automatically on every push to `main` (it's also
+4. *(GHEC only, and only if you publish the site **privately**)* **Set the Pages base path to
+   `/`.** By default the workflow builds the app with `--base=/<your-repo-name>/`, which matches
+   how a normal, publicly published Pages project site is served: `https://<org>.github.io/<repo>/`.
+   A **privately** published Pages site on GHEC instead gets its own unique per-repo subdomain and
+   is served at that subdomain's *root* — no `/<repo-name>/` prefix. If you build with the wrong
+   base for your deployment, every JS/CSS/media request 404s, which GitHub Pages answers with its
+   HTML 404 page — showing up in the browser console as MIME-type/`nosniff` errors on every static
+   asset (`"blocked due to MIME type ('text/html') mismatch"`). To fix it, add a repository
+   variable named `PAGES_BASE_PATH` (same **Settings → Secrets and variables → Actions →
+   Variables** page as above) set to `/`. Leave it unset for a publicly published project site.
+5. **Push to `main`.** The workflow triggers automatically on every push to `main` (it's also
    available as a manual `workflow_dispatch` run from the **Actions** tab). It builds the app with
-   `--base=/<your-repo-name>/` — derived automatically from the repo name, so this works
-   unmodified whatever you rename your fork to — and deploys the result to Pages.
-5. **Find your URL.** Once the `deploy` job finishes, the **Actions** run summary and **Settings →
-   Pages** both show the live URL — normally `https://<your-account-or-org>.github.io/<repo-name>/`.
+   `--base` set to `PAGES_BASE_PATH` if you set one, otherwise `/<your-repo-name>/` — derived
+   automatically from the repo name, so this works unmodified whatever you rename your fork to —
+   and deploys the result to Pages.
+6. **Find your URL.** Once the `deploy` job finishes, the **Actions** run summary and **Settings →
+   Pages** both show the live URL — normally `https://<your-account-or-org>.github.io/<repo-name>/`
+   for a public project site, or your unique `https://<subdomain>.pages.<your-ghec-host>/` for a
+   privately published GHEC site.
 
 From there, aggregation-set storage defaults to your fork's own `aggregation-data` branch — nothing
 else to configure. See [Design.md](Design.md) for the full architecture if you want to go deeper.
