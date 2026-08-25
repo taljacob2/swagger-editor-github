@@ -1,12 +1,19 @@
-.swagger-editor {
-  // .help-block only carries a top margin (it normally trails an input
-  // inside .input-group, which supplies the bottom gap itself) -- this one
-  // sits loose in the intro area instead, so it needs its own bottom margin
-  // to keep it from running straight into the fieldset legend below it.
-  &__auth-doc-hint {
-    margin-bottom: 1rem;
-  }
+// .help-block only carries a top margin (it normally trails an input inside
+// .input-group, which supplies the bottom gap itself) -- this one sits loose
+// in the intro area instead, so it needs its own bottom margin to keep it
+// from running straight into the fieldset legend below it. _modal.scss's
+// `.help-block` rule actually compiles to `.ReactModalPortal .help-block`
+// (main.scss wraps that whole file's import in a `.ReactModalPortal {}`
+// block) -- 2-class specificity with a shorthand `margin: 0.4rem 0 0` that
+// zeroes out the bottom. Matching `.ReactModalPortal` here too gets this to
+// 3-class specificity, which reliably wins regardless of import order
+// (equal specificity would otherwise fall back to source order, and this
+// file is imported before _modal.scss).
+.ReactModalPortal .help-block.swagger-editor__auth-doc-hint {
+  margin-bottom: 1rem;
+}
 
+.swagger-editor {
   &__intent-picker {
     border: none;
     padding: 0;
