@@ -76,10 +76,12 @@ configuration, not code:
    misconfigured.
 3. *(GHEC only, optional but recommended)* **Set your org's API host.** Go to **Settings → Secrets
    and variables → Actions → Variables**, and add a repository variable named
-   `GITHUB_API_BASE_URL` set to your GHEC API host (e.g. `https://api.your-ghec-domain.com`). This
-   gets baked into the build as the default API base URL, so your visitors don't have to type it
-   into Connection Settings by hand. Left unset, it defaults to `https://api.github.com` — correct
-   for plain github.com forks, so skip this step there.
+   `GH_API_BASE_URL` set to your GHEC API host (e.g. `https://api.your-ghec-domain.com`) — GitHub
+   Actions rejects any variable name starting with `GITHUB_`, which is why this one isn't named
+   `GITHUB_API_BASE_URL` even though the app's own build-time env var is. This gets baked into the
+   build as the default API base URL, so your visitors don't have to type it into Connection
+   Settings by hand. Left unset, it defaults to `https://api.github.com` — correct for plain
+   github.com forks, so skip this step there.
 4. *(GHEC only, and only if you publish the site **privately**)* **Set the Pages base path to
    `/`.** By default the workflow builds the app with `--base=/<your-repo-name>/`, which matches
    how a normal, publicly published Pages project site is served: `https://<org>.github.io/<repo>/`.
