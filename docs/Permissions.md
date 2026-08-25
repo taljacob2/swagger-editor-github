@@ -13,9 +13,9 @@ handing it your real GitHub password. It's a long string you generate on GitHub 
 this app once (**GitHub** menu → **Connection Settings**). From then on, the app uses it to prove
 "this request is authorized on behalf of this user" for anything it needs to do on GitHub.
 
-(A "Sign in with GitHub" button instead of pasting a token has been considered and sketched out,
-but isn't built — see [docs/OAuthRelay.md](OAuthRelay.md) for why it needs more than this app's
-current zero-backend design, and what it would take.)
+(A "Sign in with GitHub" button instead of pasting a token has been investigated, but isn't built
+— see [docs/GitHubAuthentication.md](GitHubAuthentication.md) for why it needs more than this
+app's current zero-backend design, and what it would take.)
 
 Two things this app might need a token for — and, importantly, it might need *no* token at all:
 - **Saving an aggregation set** — writing a file into this repo's `aggregation-data` branch. Always
