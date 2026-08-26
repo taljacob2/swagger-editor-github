@@ -10,6 +10,10 @@ import LayoutPlugin from 'plugins/layout/index.js';
 import SplashScreenPlugin from 'plugins/splash-screen/index.js';
 import TopBarPlugin from 'plugins/top-bar/index.js';
 import GitHubConnectionPlugin from 'plugins/github-connection/index.js';
+import {
+  githubRequestInterceptor,
+  githubResponseInterceptor,
+} from 'plugins/github-connection/github-fetch-interceptors.js';
 import AggregationStoragePlugin from 'plugins/aggregation-storage/index.js';
 import ModalsPlugin from 'plugins/modals/index.js';
 import DialogsPlugin from 'plugins/dialogs/index.js';
@@ -93,14 +97,38 @@ const SwaggerEditor: SwaggerEditorType = React.memo(
       getSystem()?.editorActions?.propChanged('url', newValue, oldValue);
     });
 
+    // Chains the GitHub-awareness swagger-client's own resolver otherwise
+    // lacks (see github-fetch-interceptors.js) ahead of whatever the caller
+    // passed in, rather than replacing it -- a consumer of the <SwaggerEditor>
+    // component's own requestInterceptor/responseInterceptor props still runs,
+    // it just sees an already-rewritten GitHub request/response.
+    const combinedRequestInterceptor = useMemo(
+      () => async (request) => {
+        const afterGitHub = (await githubRequestInterceptor(request)) || request;
+        return typeof requestInterceptor === 'function'
+          ? (await requestInterceptor(afterGitHub)) || afterGitHub
+          : afterGitHub;
+      },
+      [requestInterceptor]
+    );
+    const combinedResponseInterceptor = useMemo(
+      () => async (response) => {
+        const afterGitHub = (await githubResponseInterceptor(response)) || response;
+        return typeof responseInterceptor === 'function'
+          ? (await responseInterceptor(afterGitHub)) || afterGitHub
+          : afterGitHub;
+      },
+      [responseInterceptor]
+    );
+
     return (
       <div className="swagger-editor">
         <SwaggerUI
           spec={specStr}
           url={url}
           layout={layout}
-          requestInterceptor={requestInterceptor}
-          responseInterceptor={responseInterceptor}
+          requestInterceptor={combinedRequestInterceptor}
+          responseInterceptor={combinedResponseInterceptor}
           supportedSubmitMethods={supportedSubmitMethods}
           queryConfigEnabled={queryConfigEnabled}
           plugins={[propsChangeWatcherPlugin, ...plugins]}
