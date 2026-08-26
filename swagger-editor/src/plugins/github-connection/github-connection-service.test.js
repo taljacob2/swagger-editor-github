@@ -2,9 +2,11 @@ import {
   DEFAULT_API_BASE_URL,
   buildTokenCreationUrl,
   deriveWebBaseUrl,
+  getCachedConnectionSettingsForWorkers,
   getConnectionSettings,
   parseSsoAuthorizationUrl,
   saveConnectionSettings,
+  setCachedConnectionSettingsForWorkers,
   testConnection,
 } from './github-connection-service.js';
 
@@ -12,6 +14,7 @@ describe('github-connection-service', () => {
   beforeEach(() => {
     localStorage.clear();
     global.fetch = vi.fn();
+    setCachedConnectionSettingsForWorkers(null);
   });
 
   afterEach(() => {
@@ -136,6 +139,34 @@ describe('github-connection-service', () => {
         token: 'second-token',
         fetchToken: 'first-fetch-token',
       });
+    });
+  });
+
+  // apidom-mode.js's worker() reads this on essentially every keystroke to
+  // decide whether the ApiDOM worker needs fresh GitHub credentials pushed
+  // in -- see github-resolver.js and the CORS note in
+  // aggregation-merge-service.js for why the worker needs them at all. This
+  // exists purely so that path doesn't pay a decrypt (getConnectionSettings)
+  // on every single call.
+  describe('getCachedConnectionSettingsForWorkers / setCachedConnectionSettingsForWorkers', () => {
+    test('starts empty until something populates it', () => {
+      expect(getCachedConnectionSettingsForWorkers()).toBeNull();
+    });
+
+    test('saveConnectionSettings populates the cache with the plaintext (not encrypted) settings', async () => {
+      await saveConnectionSettings({ apiBaseUrl: DEFAULT_API_BASE_URL, token: 'plain-token' });
+
+      expect(getCachedConnectionSettingsForWorkers()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'plain-token',
+        fetchToken: '',
+      });
+    });
+
+    test('can be set directly, for a caller that already fetched settings itself', () => {
+      const settings = { apiBaseUrl: DEFAULT_API_BASE_URL, token: 'x', fetchToken: '' };
+      setCachedConnectionSettingsForWorkers(settings);
+      expect(getCachedConnectionSettingsForWorkers()).toBe(settings);
     });
   });
 

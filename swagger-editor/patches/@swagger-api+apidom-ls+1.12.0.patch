@@ -1,0 +1,90 @@
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.cjs b/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.cjs
+index 6d4e064..c29fe34 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.cjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.cjs
+@@ -62,8 +62,10 @@ class DefaultDefinitionService {
+               }
+             },
+             resolve: {
++              ...(this.settings?.referenceOptions?.resolve ?? {}),
+               baseURI: textDocument.uri,
+               resolverOpts: {
++                ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+                 fileAllowList: ['*']
+               }
+             }
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.mjs b/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.mjs
+index d204c82..0b6c017 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.mjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/definition/definition-service.mjs
+@@ -58,8 +58,10 @@ export class DefaultDefinitionService {
+               }
+             },
+             resolve: {
++              ...(this.settings?.referenceOptions?.resolve ?? {}),
+               baseURI: textDocument.uri,
+               resolverOpts: {
++                ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+                 fileAllowList: ['*']
+               }
+             }
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.cjs b/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.cjs
+index 1f8f50a..d5ce5cd 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.cjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.cjs
+@@ -53,8 +53,10 @@ class DefaultDerefService {
+     // dereference
+     const dereferenced = await (0, _apidomReference.dereferenceApiDOM)(api, {
+       resolve: {
++        ...(this.settings?.referenceOptions?.resolve ?? {}),
+         baseURI,
+         resolverOpts: {
++          ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+           fileAllowList: ['*']
+         }
+       }
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.mjs b/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.mjs
+index ba1891e..ecb9edb 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.mjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/deref/deref-service.mjs
+@@ -49,8 +49,10 @@ export class DefaultDerefService {
+     // dereference
+     const dereferenced = await dereferenceApiDOM(api, {
+       resolve: {
++        ...(this.settings?.referenceOptions?.resolve ?? {}),
+         baseURI,
+         resolverOpts: {
++          ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+           fileAllowList: ['*']
+         }
+       }
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.cjs b/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.cjs
+index fd592d9..d091fea 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.cjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.cjs
+@@ -144,8 +144,10 @@ class DefaultHoverService {
+                   }
+                 },
+                 resolve: {
++                  ...(this.settings?.referenceOptions?.resolve ?? {}),
+                   baseURI: textDocument.uri,
+                   resolverOpts: {
++                    ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+                     fileAllowList: ['*']
+                   }
+                 }
+diff --git a/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.mjs b/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.mjs
+index 7f63867..a80612a 100644
+--- a/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.mjs
++++ b/node_modules/@swagger-api/apidom-ls/src/services/hover/hover-service.mjs
+@@ -140,8 +140,10 @@ export class DefaultHoverService {
+                   }
+                 },
+                 resolve: {
++                  ...(this.settings?.referenceOptions?.resolve ?? {}),
+                   baseURI: textDocument.uri,
+                   resolverOpts: {
++                    ...(this.settings?.referenceOptions?.resolve?.resolverOpts ?? {}),
+                     fileAllowList: ['*']
+                   }
+                 }

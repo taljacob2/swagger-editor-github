@@ -2,6 +2,11 @@ import { languages as vscodeLanguages } from 'vscode';
 import { createConverter as createCodeConverter } from 'vscode-languageclient/lib/common/codeConverter.js';
 import { createConverter as createProtocolConverter } from 'vscode-languageclient/lib/common/protocolConverter.js';
 
+import {
+  getCachedConnectionSettingsForWorkers,
+  getConnectionSettings,
+  setCachedConnectionSettingsForWorkers,
+} from '../../github-connection/github-connection-service.js';
 import WorkerManager from './WorkerManager.js';
 import DiagnosticsProvider from './providers/DiagnosticsProvider.js';
 import HoverProvider from './providers/HoverProvider.js';
@@ -98,7 +103,35 @@ export function setupMode(defaults, { useApiDOMSyntaxHighlighting } = {}) {
 
   // setup ApiDOM worker
   const client = new WorkerManager(defaults);
-  const worker = async (...uris) => client.getLanguageServiceWorker(...uris);
+
+  // Every caller of the worker (dereference, validation, hover, go-to-
+  // definition, ...) goes through this one function, so it's the single
+  // place to keep the worker's GitHub credentials current -- see
+  // ApiDOMWorker#setConnectionSettings and github-resolver.js for why a
+  // $ref to a private repo needs this at all. Reference-equality against
+  // the last-pushed settings keeps this a no-op on every keystroke once
+  // nothing has changed, instead of re-pushing (and re-configuring the
+  // language service) on every single validation pass.
+  let lastPushedConnectionSettings;
+  const worker = async (...uris) => {
+    const workerService = await client.getLanguageServiceWorker(...uris);
+
+    let settings = getCachedConnectionSettingsForWorkers();
+    if (!settings) {
+      settings = await getConnectionSettings();
+      setCachedConnectionSettingsForWorkers(settings);
+    }
+
+    if (settings !== lastPushedConnectionSettings) {
+      lastPushedConnectionSettings = settings;
+      const token = settings.fetchToken || settings.token;
+      // Best-effort: a failure here shouldn't block returning the worker
+      // for whatever the actual call (doHover, doValidation, ...) needs.
+      workerService.setConnectionSettings(settings.apiBaseUrl, token).catch(() => {});
+    }
+
+    return workerService;
+  };
   apidomWorker = worker;
   disposables.push({
     dispose() {
