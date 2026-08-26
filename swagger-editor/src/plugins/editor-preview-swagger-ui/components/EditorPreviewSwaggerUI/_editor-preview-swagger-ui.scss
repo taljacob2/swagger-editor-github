@@ -148,6 +148,20 @@
     border-radius: 4px;
   }
 
+  // The "Schemas" panel's own outer border and its header divider --
+  // swagger-ui-react hardcodes both as rgba(59,65,81,.3) (its light-mode
+  // text color at low opacity), which blends into an already-dark page
+  // instead of reading as a border at all. Both already carry a real
+  // width/style from swagger-ui's own CSS, so only the color needs
+  // overriding here.
+  section.models {
+    border-color: var(--se-color-border);
+
+    &.is-open h4 {
+      border-bottom-color: var(--se-color-border);
+    }
+  }
+
   .btn {
     color: var(--se-color-text);
     background: var(--se-color-surface-muted);
