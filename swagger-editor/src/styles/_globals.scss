@@ -16,17 +16,26 @@
 }
 
 @mixin se-dark-theme-vars {
-  --se-color-surface: #282c34;
+  // Matches swagger-ui-react's own dark-mode palette (its `html.dark-mode
+  // .swagger-ui { background:#1c2022; color:#e4e6e6 }` and friends) so the
+  // app chrome (modals, dropdown menus, editor pane bar, validation table)
+  // and the preview pane read as one palette instead of two similar but
+  // distinct dark grays. Deliberately not applied to the top bar/tab bar
+  // (brand navy, unrelated to swagger-ui-react) or to Monaco's own theme
+  // (see themes/se-vs-dark.js -- a separately-tuned syntax-highlighting
+  // palette, not just a background color).
+  --se-color-surface: #1c2022;
   // Lighter than --se-color-surface, not darker: on a light page a subtle
   // *darker* tint reads as a sunken panel, but the same trick barely
   // registers against an already-dark page -- an elevated card needs to
   // go the other way (lighter than what it sits on) to actually be
-  // visible, same as Material Design's dark-theme elevation convention.
-  --se-color-surface-muted: #343a46;
-  --se-color-border: #565e70;
-  --se-color-text: #abb2bf;
-  --se-color-text-muted: #838a99;
-  --se-color-hover: #454c5a;
+  // visible, same as Material Design's dark-theme elevation convention
+  // (and what swagger-ui-react's own section.models .model-container does).
+  --se-color-surface-muted: #2a2e30;
+  --se-color-border: #545d61;
+  --se-color-text: #e4e6e6;
+  --se-color-text-muted: #b7bcbf;
+  --se-color-hover: #33383b;
 }
 
 .swagger-editor__theme-root[data-theme='dark'],
