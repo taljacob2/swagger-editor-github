@@ -17,6 +17,7 @@ const TopBar = ({ getComponent }) => {
   const AggregateMenu = getComponent('TopBarAggregateMenu', true);
   const GitHubMenu = getComponent('TopBarGitHubMenu', true);
   const AboutMenu = getComponent('TopBarAboutMenu', true);
+  const ThemeToggle = getComponent('ThemeToggle', true);
 
   // Whether the full row of menus fits is content-dependent (how many
   // Generate Server/Client variants are showing for the current spec
@@ -90,19 +91,22 @@ const TopBar = ({ getComponent }) => {
       </div>
       <div className="swagger-editor__top-bar-row">
         <Logo />
-        {isCompact && (
-          <button
-            type="button"
-            className="swagger-editor__top-bar-hamburger"
-            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={isMenuOpen}
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-        )}
+        <div className="swagger-editor__top-bar-row-end">
+          <ThemeToggle />
+          {isCompact && (
+            <button
+              type="button"
+              className="swagger-editor__top-bar-hamburger"
+              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMenuOpen}
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          )}
+        </div>
       </div>
       {(!isCompact || isMenuOpen) && (
         <div

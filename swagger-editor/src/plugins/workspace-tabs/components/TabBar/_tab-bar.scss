@@ -20,18 +20,18 @@
     box-shadow: 2px 0 0 0 transparent, -2px 0 0 0 transparent;
 
     &--active {
-      background-color: #ffffff;
+      background-color: var(--se-color-surface);
 
       .swagger-editor__tab-name {
-        color: #3b4151;
+        color: var(--se-color-text);
       }
 
       .swagger-editor__tab-action {
-        color: #3b4151;
+        color: var(--se-color-text);
       }
 
       .swagger-editor__tab-name-input {
-        color: #3b4151;
+        color: var(--se-color-text);
       }
     }
 

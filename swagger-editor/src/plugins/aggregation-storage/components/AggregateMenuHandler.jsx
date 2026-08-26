@@ -53,7 +53,7 @@ const AggregateMenuHandler = forwardRef(
     const [branchExists, setBranchExists] = useState(null);
     const lastRefreshedStorageKeyRef = useRef('');
 
-    const Modal = getComponent('Modal');
+    const Modal = getComponent('Modal', true);
     const ModalHeader = getComponent('ModalHeader');
     const ModalTitle = getComponent('ModalTitle');
     const ModalBody = getComponent('ModalBody');

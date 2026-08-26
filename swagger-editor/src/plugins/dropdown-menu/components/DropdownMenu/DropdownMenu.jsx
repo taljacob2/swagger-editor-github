@@ -6,7 +6,8 @@ import classNames from 'classnames';
 
 const VIEWPORT_MARGIN_PX = 16;
 
-const DropdownMenu = ({ children = [], label, isLong = false }) => {
+const DropdownMenu = ({ children = [], label, isLong = false, editorSelectors = null }) => {
+  const isDark = editorSelectors?.selectResolvedTheme?.() === 'dark';
   const ref = useRef(null);
   const itemsRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -60,7 +61,10 @@ const DropdownMenu = ({ children = [], label, isLong = false }) => {
   }, [isOpen]);
 
   return (
-    <div className={classNames('dd-menu dd-menu-left', { long: isLong })} ref={ref}>
+    <div
+      className={classNames('dd-menu dd-menu-left', { long: isLong, 'dd-menu-inverse': isDark })}
+      ref={ref}
+    >
       <span
         className="menu-item"
         role="button"
@@ -92,6 +96,9 @@ DropdownMenu.propTypes = {
   label: PropTypes.string.isRequired,
   children: PropTypes.oneOfType([PropTypes.array, PropTypes.element]),
   isLong: PropTypes.bool,
+  editorSelectors: PropTypes.shape({
+    selectResolvedTheme: PropTypes.func,
+  }),
 };
 
 export default DropdownMenu;

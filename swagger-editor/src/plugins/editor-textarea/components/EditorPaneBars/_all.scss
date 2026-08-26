@@ -1,31 +1,33 @@
 .swagger-editor {
   &__editor-pane-bar {
-    background-color: #F5F5F5;
+    background-color: var(--se-color-surface-muted);
+    color: var(--se-color-text);
     display: flex;
     flex-direction: column;
-    
+
     &--top {
-      border-bottom: 1px solid #E0E0E0;
+      border-bottom: 1px solid var(--se-color-border);
     }
     &--right {
-      border-left: 1px solid #E0E0E0;
+      border-left: 1px solid var(--se-color-border);
     }
     &--bottom  {
-      border-top: 1px solid #E0E0E0;
+      border-top: 1px solid var(--se-color-border);
     }
     &--left {
-      border-right: 1px solid #E0E0E0;
+      border-right: 1px solid var(--se-color-border);
     }
   }
 
   &__editor-pane-bar-control {
     border: 0;
     background-color: transparent;
+    color: var(--se-color-text);
     border-radius: 2px;
     align-self: center;
     text-align: center;
     &:hover {
-      background-color: #E0E0E0;
+      background-color: var(--se-color-hover);
     }
   }
 

@@ -24,9 +24,11 @@ import SplashScreenPlugin from 'plugins/splash-screen/index.js';
 import LayoutPlugin from 'plugins/layout/index.js';
 import EditorSafeRenderPlugin from 'plugins/editor-safe-render/index.js';
 import UtilPlugin from 'plugins/util/index.js';
+import ThemePlugin from 'plugins/theme/index.js';
 
 const MonacoPreset = () => [
   UtilPlugin,
+  ThemePlugin,
   ModalsPlugin,
   DialogsPlugin,
   DropdownMenuPlugin,

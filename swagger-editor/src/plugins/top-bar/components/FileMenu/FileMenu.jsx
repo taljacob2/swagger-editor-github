@@ -6,7 +6,7 @@ import FileMenuHandler from './FileMenuHandler.jsx';
 const FileMenu = (props) => {
   const { getComponent } = props;
   const fileMenuHandler = useRef(null);
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const DropdownMenuItemDivider = getComponent('DropdownMenuItemDivider');
   const ImportUrlMenuItem = getComponent('TopBarFileMenuImportUrlMenuItem', true);
   const ImportFileMenuItem = getComponent('TopBarFileMenuImportFileMenuItem', true);

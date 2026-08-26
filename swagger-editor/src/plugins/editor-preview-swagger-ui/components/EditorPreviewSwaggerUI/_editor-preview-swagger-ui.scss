@@ -2,3 +2,146 @@
   &__editor-preview-swagger-ui {
   }
 }
+
+// swagger-ui-react ships no dark theme of its own -- these overrides sit on
+// top of its stylesheet (swagger-ui-react/swagger-ui.css, imported in
+// App.tsx) rather than replacing it, only touching what actually reads as
+// broken against a dark page background: text colors it hardcodes for a
+// light background, and a handful of panels/controls it gives an explicit
+// (opaque or near-opaque) light background. Most of swagger-ui's own
+// surfaces (.opblock, .opblock-body, .model-box, etc.) are transparent by
+// default and already pick up the dark .Pane background for free.
+//
+// Scoped to .swagger-ui generally (not .swagger-editor__editor-preview-
+// swagger-ui specifically) because the API Design Systems preview
+// (editor-preview-api-design-systems) deliberately reuses these same
+// swagger-ui-react classes for its own markup -- see its Main.jsx -- and
+// benefits from the same overrides.
+.swagger-editor__theme-root[data-theme='dark'] .swagger-ui {
+  // swagger-ui-react hardcodes #3b4151 as the text color on a handful of
+  // top-level containers (.info, .opblock-tag, table cells, etc.) rather
+  // than relying on inheritance from .swagger-ui itself -- setting it here
+  // too, and on those specific containers below, is what actually fixes
+  // the low-contrast dark-gray-on-dark text this produces if left alone.
+  color: var(--se-color-text);
+
+  a {
+    color: var(--se-color-text);
+  }
+
+  .info,
+  .info .title,
+  .info li,
+  .info p,
+  .info table,
+  .opblock-tag,
+  .opblock-tag small,
+  .opblock .opblock-summary-description,
+  .opblock .opblock-summary-operation-id,
+  .opblock-description-wrapper,
+  .opblock-description-wrapper p,
+  .opblock-external-docs-wrapper,
+  .opblock-external-docs-wrapper p,
+  .opblock-title_normal,
+  .parameter__name,
+  .parameter__type,
+  .parameter__in,
+  .parameter__deprecated,
+  .parameter__extension,
+  .response-col_status,
+  .response-col_links,
+  .responses-inner h4,
+  .responses-inner h5,
+  .model-title,
+  .model,
+  .model .property,
+  .model .prop-type,
+  .prop-format,
+  table.model thead tr td,
+  .renderedMarkdown,
+  .markdown p,
+  .filter .operation-filter-input {
+    color: var(--se-color-text);
+  }
+
+  .opblock-tag {
+    border-bottom-color: var(--se-color-border);
+
+    &:hover {
+      background: var(--se-color-surface-muted);
+    }
+  }
+
+  // The row inside an expanded operation holding the Parameters/Try it out
+  // tabs and, further down, the response content-type tabs -- swagger-ui
+  // gives it a near-opaque *white* background (`rgba(255,255,255,.8)`),
+  // which washes out badly over a dark surface if left as-is.
+  .opblock-section-header {
+    background: var(--se-color-surface-muted);
+    box-shadow: none;
+  }
+
+  .scheme-container,
+  .opblock .opblock-section-header {
+    background: var(--se-color-surface-muted);
+  }
+
+  .scheme-container {
+    box-shadow: none;
+    border-bottom: 1px solid var(--se-color-border);
+  }
+
+  .servers > label,
+  .opblock-summary-path,
+  .opblock-summary-path__deprecated {
+    color: var(--se-color-text);
+  }
+
+  select,
+  input[type='text'],
+  input[type='password'],
+  input[type='search'],
+  input[type='email'],
+  input[type='file'],
+  textarea {
+    background: var(--se-color-surface);
+    color: var(--se-color-text);
+    border-color: var(--se-color-border);
+  }
+
+  .tab li button.tablinks {
+    color: var(--se-color-text);
+  }
+
+  table thead tr td,
+  table thead tr th {
+    color: var(--se-color-text-muted);
+    border-bottom-color: var(--se-color-border);
+  }
+
+  .model-box,
+  .model-box-control,
+  .body-param__example,
+  .highlight-code {
+    color: var(--se-color-text);
+  }
+
+  .btn {
+    color: var(--se-color-text);
+    background: var(--se-color-surface-muted);
+  }
+
+  .btn.authorize,
+  .btn.execute {
+    background: transparent;
+  }
+
+  .download-contents {
+    background: var(--se-color-surface);
+    color: var(--se-color-text);
+  }
+
+  .loading-container .loading::after {
+    color: var(--se-color-text);
+  }
+}

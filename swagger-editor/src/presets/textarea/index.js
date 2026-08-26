@@ -19,9 +19,11 @@ import EditorContentFixturesPlugin from 'plugins/editor-content-fixtures/index.j
 import EditorContentFromFilePlugin from 'plugins/editor-content-from-file/index.js';
 import EditorSafeRenderPlugin from 'plugins/editor-safe-render/index.js';
 import UtilPlugin from 'plugins/util/index.js';
+import ThemePlugin from 'plugins/theme/index.js';
 
 const TextareaPreset = () => [
   UtilPlugin,
+  ThemePlugin,
   ModalsPlugin,
   DialogsPlugin,
   DropdownMenuPlugin,

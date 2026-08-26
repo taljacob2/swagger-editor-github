@@ -65,7 +65,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [intent, setIntent] = useState(INTENTS.PUBLIC_ONLY);
   const [storage, setStorage] = useState({ owner: '', repo: '' });
 
-  const Modal = getComponent('Modal');
+  const Modal = getComponent('Modal', true);
   const ModalHeader = getComponent('ModalHeader');
   const ModalTitle = getComponent('ModalTitle');
   const ModalBody = getComponent('ModalBody');

@@ -1,8 +1,6 @@
 import MonacoEditorContainer from './components/MonacoEditor/MonacoEditorContainer.jsx';
 import ValidationPane from './components/ValidationPane/ValidationPane.jsx';
 import ValidationTable from './components/ValidationTable/ValidationTable.jsx';
-import ThemeSelectionIcon from './components/ThemeSelectionIcon.jsx';
-import EditorPaneBarTopWrapper from './extensions/editor-textarea/wrap-components/EditorPaneBarTopWrapper.jsx';
 import EditorPaneBarBottomWrapper from './extensions/editor-textarea/wrap-components/EditorPaneBarBottomWrapper.jsx';
 import {
   editorSetup as editorSetupWrap,
@@ -56,10 +54,8 @@ const EditorMonacoPlugin = () => ({
     MonacoEditor: MonacoEditorContainer,
     ValidationPane,
     ValidationTable,
-    ThemeSelection: ThemeSelectionIcon,
   },
   wrapComponents: {
-    EditorPaneBarTop: EditorPaneBarTopWrapper,
     EditorPaneBarBottom: EditorPaneBarBottomWrapper,
   },
   statePlugins: {

@@ -8,7 +8,7 @@ const ConfirmDialog = ({
   children = null,
   onClose = () => {},
 }) => {
-  const Modal = getComponent('Modal');
+  const Modal = getComponent('Modal', true);
   const ModalHeader = getComponent('ModalHeader');
   const ModalTitle = getComponent('ModalTitle');
   const ModalBody = getComponent('ModalBody');

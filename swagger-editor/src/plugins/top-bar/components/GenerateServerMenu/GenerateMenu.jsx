@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 
 const GenerateMenu = ({ getComponent, items, label, onMenuItemClick }) => {
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const DropdownMenuItem = getComponent('DropdownMenuItem');
 
   const handleMenuClick = (item) => (event) => {

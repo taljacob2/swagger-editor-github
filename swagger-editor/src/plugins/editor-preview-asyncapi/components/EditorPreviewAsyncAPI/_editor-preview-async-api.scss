@@ -9,3 +9,51 @@
     }
   }
 }
+
+// @asyncapi/react-component ships no dark theme and no dark: Tailwind
+// variants (its compiled stylesheet -- @asyncapi/react-component/styles/
+// default.min.css, imported above -- has neither), so its surfaces need
+// the same kind of override as swagger-ui-react's, just aimed at Tailwind
+// utility classes instead of semantic ones. This only overrides the
+// specific utility classes the component actually renders (confirmed by
+// inspecting a loaded AsyncAPI 3.0 example) rather than the whole Tailwind
+// gray/white palette -- deliberately not touching bg-gray-800/text-gray-200
+// (the "Examples" panel), which the component already renders dark-on-dark
+// and reads fine over either page background.
+.swagger-editor__theme-root[data-theme='dark'] .aui-root {
+  .bg-white {
+    background-color: var(--se-color-surface);
+  }
+
+  .bg-gray-100,
+  .bg-gray-200,
+  .bg-gray-400,
+  .bg-blue-100,
+  .bg-orange-50 {
+    background-color: var(--se-color-surface-muted);
+  }
+
+  .text-gray-500,
+  .text-gray-600,
+  .text-gray-700,
+  .text-gray-900 {
+    color: var(--se-color-text-muted);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  span,
+  li {
+    color: var(--se-color-text);
+  }
+
+  .border,
+  .border-b {
+    border-color: var(--se-color-border);
+  }
+}

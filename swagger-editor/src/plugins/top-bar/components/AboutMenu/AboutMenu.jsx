@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 
 const AboutMenu = ({ getComponent }) => {
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const Link = getComponent('Link');
 
   return (
