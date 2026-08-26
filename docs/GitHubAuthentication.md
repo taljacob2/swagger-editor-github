@@ -23,6 +23,43 @@ what we shipped as a stopgap, and what would need to change upstream before we c
 This works, but it's a rougher UX than "click a button, approve on GitHub" — especially for
 enterprise users who also have to deal with SAML/SSO enforcement on top of the token itself.
 
+## Classic PATs only, for now — fine-grained tokens have a sharp edge
+
+Connection Settings currently only offers a **classic** personal access token (`repo` scope), not
+a fine-grained one, even though fine-grained tokens are GitHub's newer, more precisely-scoped
+option and were what this app originally guided users toward. This was a deliberate downgrade
+after a real debugging session (2026-08) traced a wall of `404`s on every private-repo `$ref` and
+aggregation-set URL — for an organization owner, with a token whose **Repository access** was set
+to "All repositories" — back to a single easy-to-miss setting.
+
+**The gotcha**: a fine-grained token has a **Resource owner** field, chosen at creation time,
+completely separate from "Repository access." It picks whose repositories the token can even see
+at all — your personal account, or one specific organization you belong to. "All repositories"
+only ever means *all repositories under whichever resource owner you picked* — so a token created
+with your personal account as the resource owner can have "All repositories" checked and still see
+**zero** organization repos, no matter how much access your own GitHub account has in that org
+(including being its owner). And because GitHub's API returns a `404` — not a `403` — for a repo a
+token simply can't see (the same response a nonexistent repo would get, to avoid confirming private
+repos exist to tokens without access), this is genuinely indistinguishable from "wrong branch,"
+"wrong path," or "repo doesn't exist" from inside the app. There's no header or error code to catch
+and translate into a better message the way `parseSsoAuthorizationUrl` does for SSO below — the
+request just looks identical to any other 404.
+
+A **classic** PAT doesn't have this axis at all: it authenticates as *you*, full stop, and can touch
+anything your account can already reach (subject to the `repo` scope and, for an SSO-enforcing org,
+the same one-click "Authorize" step described below) — no separate resource-owner selection to get
+wrong. The real cost of that simplicity: a classic token can't be scoped to read-only, or to a
+specific list of repos, the way a fine-grained one can — `repo` is all-or-nothing, full read+write,
+every repo your account can reach. See [docs/Permissions.md](Permissions.md) for what that means
+for the token-creation walkthrough and the app's permission tiers.
+
+`buildTokenCreationUrl` (the fine-grained pre-filled-link helper) and its tests are still in
+[`github-connection-service.js`](../swagger-editor/src/plugins/github-connection/github-connection-service.js) —
+unused by the UI now, kept in case fine-grained tokens are worth revisiting later (e.g. if this
+resource-owner confusion gets a clearer in-app error, or a future contributor decides the tighter
+scoping is worth the UX cost). `buildClassicTokenCreationUrl`, alongside it, is what Connection
+Settings actually links to today.
+
 ## Why not "Sign in with GitHub" (OAuth)?
 
 ### The classic flow needs a secret we can't keep

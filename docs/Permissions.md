@@ -1,9 +1,9 @@
 # Permissions
 
 This app talks to GitHub directly from your browser — there's no server sitting in the middle,
-which means **every user brings their own GitHub token(s)**, and most people need less than they'd
+which means **every user brings their own GitHub token**, and most people need less than they'd
 expect (possibly none at all). This page walks through what a token is, which of four permission
-tiers you're actually in, how to create the token(s) that tier needs, and what that means if you're
+tiers you're actually in, how to create the token that tier needs, and what that means if you're
 on a team where not everyone has access to the same repos.
 
 ## What a token is, and why the app needs one
@@ -16,6 +16,16 @@ this app once (**GitHub** menu → **Connection Settings**). From then on, the a
 (A "Sign in with GitHub" button instead of pasting a token has been investigated, but isn't built
 — see [docs/GitHubAuthentication.md](GitHubAuthentication.md) for why it needs more than this
 app's current zero-backend design, and what it would take.)
+
+**Use a classic token, not a fine-grained one.** Connection Settings only links to classic
+personal access token creation now — fine-grained tokens have a sharp, easy-to-miss edge (their
+"Resource owner" setting, separate from repository access, can silently leave an organization's
+repos completely unreachable even with "All repositories" checked and full org-owner access on
+your account) that produced confusing, unexplainable `404`s in practice. See
+[docs/GitHubAuthentication.md](GitHubAuthentication.md#classic-pats-only-for-now--fine-grained-tokens-have-a-sharp-edge)
+for the full story. The trade-off: a classic token can't be scoped to read-only or to specific
+repos the way a fine-grained one can — every tier below now uses the same kind of token, just
+possibly more than one of them.
 
 Two things this app might need a token for — and, importantly, it might need *no* token at all:
 - **Saving an aggregation set** — writing a file into this repo's `aggregation-data` branch. Always
@@ -30,53 +40,45 @@ Most people fall into one of these, roughly in order of "most common, least setu
 | Tier | What you're doing | What you need |
 |---|---|---|
 | **0 — zero config** | Just browsing/aggregating, and everything involved (this repo, every spec you aggregate) is public | Nothing. Open the site and go — no token, no Connection Settings visit needed. |
-| **1 — read-only** | Browsing/aggregating, but this repo or a spec you're aggregating is private | One **read-only** token, pasted into the **Repo token** field (leave **Fetch token** blank — it falls back to the repo token, which is already read-only). |
-| **2 — maintainer, public specs** | You'll create/edit/delete sets, and everything you aggregate is public | One **read-and-write** token, scoped to `swagger-editor-github` only, in the **Repo token** field. |
-| **3 — maintainer, private specs** | You'll create/edit/delete sets *and* aggregate private specs | Two tokens: the write-scoped **Repo token** (still `swagger-editor-github` only) plus a read-only **Fetch token** for the private repo(s). |
+| **1 — read-only** | Browsing/aggregating, but this repo or a spec you're aggregating is private | One classic personal access token (`repo` scope), pasted into the **GitHub token** field. |
+| **2 — maintainer, public specs** | You'll create/edit/delete sets, and everything you aggregate is public | Same — one classic personal access token (`repo` scope), in the **GitHub token** field. |
+| **3 — maintainer, private specs** | You'll create/edit/delete sets *and* aggregate private specs | Same again — one classic personal access token (`repo` scope). |
 
-The app reflects this in the UI: **Manage Sets** only shows New Set/Edit/Delete when your Repo
-token actually has write access to `swagger-editor-github` (checked automatically) — otherwise
-you'll just see the list and an "Aggregate" button, with a note explaining why the editing controls
-aren't there. Nothing to configure for that; it just works based on whatever token you've entered
-(or haven't).
+Tiers 1–3 all need the identical kind of token now — see the classic-vs-fine-grained note above for
+why. What still makes them worth telling apart is the picker's guidance on *whether* you need a
+token at all, and (for Tiers 2/3) that **Manage Sets** only shows New Set/Edit/Delete once your
+token actually has write access to this repo (checked automatically) — otherwise you'll just see
+the list and an "Aggregate" button, with a note explaining why the editing controls aren't there.
+Nothing to configure for that; it just works based on whatever token you've entered (or haven't).
 
 Don't want to work out which tier you're in by hand? **Connection Settings** has a "What do you
-want to do?" picker that maps straight onto these four options and hands you a pre-filled
-"Create a token →" link for whichever one you need — the walkthrough below is for anyone who wants
-the full manual steps instead.
+want to do?" picker that maps onto these four options and hands you a pre-filled "Create a
+token →" link — the walkthrough below is for anyone who wants the full manual steps instead.
 
 ## Step-by-step: creating a token
 
-Both a read-only token (Tiers 1 and 3's Fetch token) and a write token (Tiers 2 and 3's Repo token)
-start the same way:
-
 1. On github.com, click your profile picture (top right) → **Settings**.
 2. Scroll to the bottom of the left sidebar → **Developer settings**.
-3. **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+3. **Personal access tokens** → **Tokens (classic)** → **Generate new token** → **Generate new
+   token (classic)**.
+4. Give it a name, e.g. `swagger-editor-github token`.
+5. Under **Select scopes**, check **repo** (the top-level box — this pulls in its sub-scopes too).
+6. **Generate token**, copy it, and paste it into **Connection Settings → GitHub token**.
 
-Then they diverge:
+That's it — the same token works for every tier above; which tier you're in only changes whether
+you need to paste one at all. If your organization enforces SAML/SSO, there's one extra one-time
+step: **Settings → Developer settings → your token → Configure SSO → Authorize** for that
+organization. A token that needs this shows up in the app as a rejected request with an
+"Authorize this token →" link — [docs/GitHubAuthentication.md](GitHubAuthentication.md) has the
+details.
 
-### Read-only token (Tier 1, or Tier 3's Fetch token)
-
-4. Give it a name, e.g. `swagger-editor-github read-only token`.
-5. Under **Repository access**, choose **Only select repositories** → select whichever repo(s) you
-   need to read (this repo itself for Tier 1, or the private spec repo(s) for Tier 3).
-6. Under **Permissions** → **Repository permissions**, find **Contents** → set it to **Read-only**.
-7. **Generate token**, copy it, and paste it into **Connection Settings** — the **Repo token** field
-   for Tier 1, or **Fetch token** for Tier 3.
-
-### Write token (Tiers 2 and 3's Repo token)
-
-4. Give it a name, e.g. `swagger-editor-github repo token`.
-5. Under **Repository access**, choose **Only select repositories** → select `swagger-editor-github`
-   only.
-6. Under **Permissions** → **Repository permissions**, find **Contents** → set it to **Read and write**.
-7. **Generate token**, copy it, and paste it into **Connection Settings → Repo token**.
-
-**Why can't one token cover write-here-read-there (Tier 3)?** A fine-grained token applies one
-permission level uniformly to every repo you select in it — there's no way to say "write here,
-read-only there" within a single token. Splitting write-access-to-this-app's-repo from
-read-access-to-everything-else is the only way to keep both scoped to what they actually need.
+**Why not scope it down to read-only, or to just this repo, the way the old walkthrough did?**
+That's exactly the fine-grained-token feature this app has moved away from for now — see the note
+under "What a token is" above. The trade-off is real: this token can read and write everywhere
+your account can, not just what a given tier strictly needs. If tighter scoping matters more to
+you than avoiding the resource-owner gotcha, a fine-grained token still works with this app — the
+Contents API doesn't care which kind of token it gets — you'd just need to create and paste it in
+by hand, since Connection Settings no longer builds a pre-filled link for one.
 
 ## What happens on a team where not everyone has access to the same repos
 

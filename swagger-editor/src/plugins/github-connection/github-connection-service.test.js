@@ -1,5 +1,6 @@
 import {
   DEFAULT_API_BASE_URL,
+  buildClassicTokenCreationUrl,
   buildTokenCreationUrl,
   deriveWebBaseUrl,
   getCachedConnectionSettingsForWorkers,
@@ -312,6 +313,36 @@ describe('github-connection-service', () => {
           name: 'n',
           description: 'd',
         })
+      ).toBeNull();
+    });
+  });
+
+  describe('buildClassicTokenCreationUrl', () => {
+    test('links to the classic token page with the repo scope and a description', () => {
+      const url = buildClassicTokenCreationUrl({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        description: 'my description',
+      });
+
+      expect(url).toBe(
+        'https://github.com/settings/tokens/new?scopes=repo&description=my+description'
+      );
+    });
+
+    test('points at a GHEC custom domain’s own token page', () => {
+      const url = buildClassicTokenCreationUrl({
+        apiBaseUrl: 'https://api.mycompany.ghe.com',
+        description: 'my description',
+      });
+
+      expect(url).toBe(
+        'https://mycompany.ghe.com/settings/tokens/new?scopes=repo&description=my+description'
+      );
+    });
+
+    test('returns null when the base URL cannot be parsed', () => {
+      expect(
+        buildClassicTokenCreationUrl({ apiBaseUrl: 'not a url', description: 'd' })
       ).toBeNull();
     });
   });
