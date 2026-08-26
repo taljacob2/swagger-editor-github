@@ -108,6 +108,25 @@ async function decryptToken(value) {
   }
 }
 
+// A cheap, synchronous, in-memory cache of the last-known connection
+// settings, separate from getConnectionSettings() below (which always
+// re-reads and re-decrypts from localStorage on every call, and stays that
+// way -- callers like Connection Settings' own modal rely on always getting
+// the current on-disk value). This cache exists purely so the ApiDOM worker
+// can be handed fresh credentials on every validation/hover/etc. pass
+// (apidom-mode.js) without paying a decrypt on every keystroke: it's
+// populated for free by saveConnectionSettings below, and lazily by
+// whichever worker call is first to ask, via getConnectionSettings.
+let cachedConnectionSettingsForWorkers = null;
+
+export function getCachedConnectionSettingsForWorkers() {
+  return cachedConnectionSettingsForWorkers;
+}
+
+export function setCachedConnectionSettingsForWorkers(settings) {
+  cachedConnectionSettingsForWorkers = settings;
+}
+
 export async function getConnectionSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -139,6 +158,7 @@ export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) 
       fetchToken: await encryptToken(settings.fetchToken),
     })
   );
+  setCachedConnectionSettingsForWorkers(settings);
   return settings;
 }
 

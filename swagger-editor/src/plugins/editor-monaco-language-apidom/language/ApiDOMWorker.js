@@ -5,6 +5,8 @@ import * as apidomLS from '@swagger-api/apidom-ls';
 import * as apidomNSOpenAPI2 from '@swagger-api/apidom-ns-openapi-2';
 import * as apidomNSOpenAPI30 from '@swagger-api/apidom-ns-openapi-3-0';
 
+import { buildResolvers } from './github-resolver.js';
+
 export class ApiDOMWorker {
   static defaultApiDOMContext = {
     validatorProviders: [],
@@ -32,16 +34,40 @@ export class ApiDOMWorker {
 
   #previousDiagnostics = [];
 
+  // GitHub connection settings (apiBaseUrl/token) pushed in by
+  // setConnectionSettings below -- {} until the first push, which is fine:
+  // buildResolvers() with no apiBaseUrl falls back to apidom-reference's
+  // plain default resolvers, same behavior as before this existed.
+  #connectionSettings = {};
+
   constructor(ctx, createData) {
     this._ctx = ctx;
     this._createData = createData;
     this._languageService = this.createLanguageService();
   }
 
-  createLanguageService() {
-    return apidomLS.getLanguageService(
-      deepExtend({}, this.constructor.defaultApiDOMContext, this._createData.apiDOMContext)
+  buildContext() {
+    const context = deepExtend(
+      {},
+      this.constructor.defaultApiDOMContext,
+      this._createData.apiDOMContext
     );
+    context.referenceOptions.resolve.resolvers = buildResolvers(this.#connectionSettings);
+    return context;
+  }
+
+  createLanguageService() {
+    return apidomLS.getLanguageService(this.buildContext());
+  }
+
+  // Called by apidom-mode.js's worker() wrapper on (essentially) every
+  // validation/hover/deref pass, so the resolver chain always reflects
+  // whatever's currently saved in Connection Settings -- a PAT saved after
+  // this worker started, or rotated later, takes effect on the very next
+  // call rather than needing the editor reloaded.
+  async setConnectionSettings(apiBaseUrl, token) {
+    this.#connectionSettings = { apiBaseUrl, token };
+    this._languageService.configure(this.buildContext());
   }
 
   async doValidation(uri) {

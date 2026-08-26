@@ -1,6 +1,7 @@
 import YAML from 'js-yaml';
 
 import { parseSsoAuthorizationUrl } from '../github-connection/github-connection-service.js';
+import parseGitHubFileUrl from '../github-connection/github-file-url.js';
 import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
 
 // Component sub-collections that can each independently collide by name
@@ -16,80 +17,6 @@ const COMPONENT_TYPES = [
   'links',
   'callbacks',
 ];
-
-const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
-const GITHUB_COM_RAW_HOST = 'raw.githubusercontent.com';
-const GITHUB_COM_WEB_HOST = 'github.com';
-
-const RAW_PATH_RE = /^\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
-const BLOB_PATH_RE = /^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
-
-// A GHEC/GHE.com custom domain's web/raw hosts aren't fixed strings the way
-// github.com's are -- they're derived from whatever apiBaseUrl the user has
-// configured: api.<domain> -> <domain> for the file-viewer (blob) host,
-// raw.<domain> for the raw-content host, by analogy with how github.com
-// itself splits api.github.com from github.com and raw.githubusercontent.com.
-// The blob-URL pattern is high-confidence -- same product, same route, just
-// a different domain. The raw-content pattern is a best-effort guess,
-// unverified against a real GHEC/GHE.com org -- see docs/Design.md.
-function webHostFromApiBaseUrl(apiBaseUrl) {
-  try {
-    const { hostname } = new URL(apiBaseUrl);
-    return hostname.startsWith('api.') ? hostname.slice('api.'.length) : hostname;
-  } catch {
-    return null;
-  }
-}
-
-// raw.githubusercontent.com does not support authenticated CORS requests at
-// all -- any fetch to it carrying an Authorization header gets blocked at
-// the preflight, for public *and* private repos alike, regardless of token
-// validity (confirmed against the live service). So a raw/blob URL that
-// belongs to a recognized GitHub web/raw host is rewritten into a Contents
-// API call instead: same content, but served from a host that (like the
-// rest of this app's GitHub access) does support authenticated CORS.
-function parseGitHubFileUrl(url, apiBaseUrl) {
-  let hostname;
-  let pathname;
-  try {
-    ({ hostname, pathname } = new URL(url));
-  } catch {
-    return null;
-  }
-
-  const webHost = webHostFromApiBaseUrl(apiBaseUrl);
-  const candidates = [
-    { host: GITHUB_COM_RAW_HOST, apiBase: GITHUB_COM_API_BASE_URL, pattern: RAW_PATH_RE },
-    { host: GITHUB_COM_WEB_HOST, apiBase: GITHUB_COM_API_BASE_URL, pattern: BLOB_PATH_RE },
-    ...(webHost && webHost !== GITHUB_COM_WEB_HOST
-      ? [
-          { host: `raw.${webHost}`, apiBase: apiBaseUrl, pattern: RAW_PATH_RE },
-          { host: webHost, apiBase: apiBaseUrl, pattern: BLOB_PATH_RE },
-        ]
-      : []),
-  ];
-
-  const candidate = candidates.find((c) => c.host === hostname);
-  if (!candidate) {
-    return null;
-  }
-  // Matched against pathname, not the raw url string -- a raw-file URL
-  // copied from GitHub's own "view raw" link on a private repo carries a
-  // short-lived `?token=...` query parameter (GitHub's own signed-URL
-  // mechanism, unrelated to a PAT). Matching the full URL let that greedy
-  // `(.+)$` swallow "?token=..." into what it thought was the file path,
-  // producing a malformed, double-"?" Contents API request that 404s.
-  // pathname never includes the query string (or a fragment), so this
-  // rewrite works the same whether or not the pasted URL carries one --
-  // and it should, since fetchSpec always uses the user's own persistent
-  // PAT via the Contents API instead of relying on that expiring token.
-  const match = pathname.match(candidate.pattern);
-  if (!match) {
-    return null;
-  }
-  const [, owner, repo, ref, path] = match;
-  return { owner, repo, ref, path, apiBase: candidate.apiBase };
-}
 
 // Only attach the PAT to requests that are actually going to GitHub — never
 // to an arbitrary third-party URL a set happens to reference, which would
