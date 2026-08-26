@@ -144,4 +144,42 @@
   .loading-container .loading::after {
     color: var(--se-color-text);
   }
+
+  // The "Available authorizations" popup (Authorize button in the Servers
+  // row) -- a separate overlay swagger-ui-react renders with its own
+  // opaque white card (.modal-ux), not covered by anything above.
+  .dialog-ux .modal-ux {
+    background: var(--se-color-surface);
+    color: var(--se-color-text);
+    border-color: var(--se-color-border);
+  }
+
+  .modal-ux-header {
+    border-bottom-color: var(--se-color-border);
+
+    h3 {
+      color: var(--se-color-text);
+    }
+
+    .close-modal svg {
+      fill: var(--se-color-text);
+    }
+  }
+
+  .auth-container {
+    border-bottom-color: var(--se-color-border);
+
+    h4,
+    h2,
+    p,
+    label,
+    .flow,
+    .errors-wrapper {
+      color: var(--se-color-text);
+    }
+
+    .scopes .description {
+      color: var(--se-color-text-muted);
+    }
+  }
 }
