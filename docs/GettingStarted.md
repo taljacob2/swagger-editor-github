@@ -103,7 +103,12 @@ configuration, not code:
    privately published GHEC site.
 
 From there, aggregation-set storage defaults to your fork's own `aggregation-data` branch — nothing
-else to configure. See [Design.md](Design.md) for the full architecture if you want to go deeper.
+else to configure, on either a public `github.io` project site or a private GHEC subdomain: the
+workflow bakes the exact owner/repo into the build automatically (`VITE_GITHUB_STORAGE_OWNER` /
+`VITE_GITHUB_STORAGE_REPO`, no repo variable to set), since a GHEC subdomain like
+`<org>-<repo>.pages.<your-ghec-host>` folds owner and repo into one hyphenated label the app can't
+reliably split back apart on its own. See [Design.md](Design.md) for the full architecture if you
+want to go deeper.
 
 ## Keeping your fork up to date
 

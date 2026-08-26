@@ -62,6 +62,10 @@ describe('aggregation-storage-service', () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   describe('storage settings', () => {
     test('defaults to a github.io-derived owner/repo when hosted on Pages', () => {
       const originalLocation = window.location;
@@ -83,6 +87,45 @@ describe('aggregation-storage-service', () => {
       window.location = { hostname: 'localhost', pathname: '/' };
 
       expect(getStorageSettings()).toEqual({ owner: '', repo: '', branch: DEFAULT_BRANCH });
+
+      window.location = originalLocation;
+    });
+
+    // A privately published GHEC Pages site is served from a
+    // <owner>-<repo>.pages.<hostname> subdomain, not <owner>.github.io/<repo>/
+    // -- unparseable by hostname alone, since both owner and repo can contain
+    // hyphens. deploy-pages.yml bakes the real values in at build time instead.
+    test('defaults to the build-time VITE_GITHUB_STORAGE_OWNER/REPO when set', () => {
+      const originalLocation = window.location;
+      delete window.location;
+      window.location = {
+        hostname: 'octo-org-swagger-editor-github.pages.octo-ghec-host.ghe.com',
+        pathname: '/',
+      };
+      vi.stubEnv('VITE_GITHUB_STORAGE_OWNER', 'octo-org');
+      vi.stubEnv('VITE_GITHUB_STORAGE_REPO', 'swagger-editor-github');
+
+      expect(getStorageSettings()).toEqual({
+        owner: 'octo-org',
+        repo: 'swagger-editor-github',
+        branch: DEFAULT_BRANCH,
+      });
+
+      window.location = originalLocation;
+    });
+
+    test('prefers VITE_GITHUB_STORAGE_OWNER/REPO over github.io hostname parsing', () => {
+      const originalLocation = window.location;
+      delete window.location;
+      window.location = { hostname: 'taljacob2.github.io', pathname: '/swagger-editor-github/' };
+      vi.stubEnv('VITE_GITHUB_STORAGE_OWNER', 'acme');
+      vi.stubEnv('VITE_GITHUB_STORAGE_REPO', 'specs');
+
+      expect(getStorageSettings()).toEqual({
+        owner: 'acme',
+        repo: 'specs',
+        branch: DEFAULT_BRANCH,
+      });
 
       window.location = originalLocation;
     });

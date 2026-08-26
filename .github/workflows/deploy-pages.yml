@@ -59,10 +59,23 @@ jobs:
       # var (VITE_GITHUB_API_BASE_URL, set from this variable's value) isn't
       # affected -- that restriction only applies to vars./secrets. names,
       # not to arbitrary keys inside a workflow's own env: block.
+      #
+      # VITE_GITHUB_STORAGE_OWNER / VITE_GITHUB_STORAGE_REPO need no repo
+      # variable at all -- github.repository_owner and
+      # github.event.repository.name are always correct, straight from the
+      # Actions context. The app uses these to default "Manage Aggregation
+      # Sets" -> Storage location to this repo. Without them it falls back
+      # to parsing the deployed hostname, which only works for a
+      # <owner>.github.io/<repo>/ Pages URL -- a privately published GHEC
+      # Pages site is served from a <owner>-<repo>.pages.<hostname>
+      # subdomain instead, which can't be split back into owner/repo (see
+      # detectDefaultOwnerRepo's doc comment in aggregation-storage-service.js).
       - name: Build app
         working-directory: swagger-editor
         env:
           VITE_GITHUB_API_BASE_URL: ${{ vars.GH_API_BASE_URL }}
+          VITE_GITHUB_STORAGE_OWNER: ${{ github.repository_owner }}
+          VITE_GITHUB_STORAGE_REPO: ${{ github.event.repository.name }}
         run: npm run build:app -- --base="${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}"
 
       - uses: actions/configure-pages@v5
