@@ -180,6 +180,19 @@ export function deriveWebBaseUrl(apiBaseUrl) {
 // -- https://github.blog/changelog/2025-08-26-template-urls-for-fine-grained-pats-and-updated-permissions-ui/
 // There's no parameter to pre-select specific repositories, so "Only select
 // repositories" is still a manual step; this just removes the rest of it.
+//
+// NOT currently wired into the Connection Settings UI -- kept for a possible
+// future return to fine-grained tokens (still covered by its own tests
+// below/in github-connection-service.test.js). A fine-grained PAT's
+// "Resource owner" is chosen at creation time and is a separate axis from
+// "Repository access": picking your personal account there means "All
+// repositories" only ever covers your own repos, never an organization's,
+// even if you're that org's owner -- and there's no in-app way to detect or
+// warn about the mismatch, since the token still authenticates fine and
+// simply 404s (indistinguishable from "repo doesn't exist") on every org
+// repo it can't see. That's confusing enough in practice that
+// docs/Permissions.md now recommends a classic PAT instead -- see
+// buildClassicTokenCreationUrl below and docs/GitHubAuthentication.md.
 export function buildTokenCreationUrl({ apiBaseUrl, contents, targetName, name, description }) {
   const webBaseUrl = deriveWebBaseUrl(apiBaseUrl);
   if (!webBaseUrl) {
@@ -190,6 +203,22 @@ export function buildTokenCreationUrl({ apiBaseUrl, contents, targetName, name, 
     params.set('target_name', targetName);
   }
   return `${webBaseUrl}/settings/personal-access-tokens/new?${params.toString()}`;
+}
+
+// Builds a link to GitHub's classic PAT creation page, pre-filled with the
+// `repo` scope via its own (much smaller) query-parameter convention --
+// classic tokens don't have fine-grained's per-repository or read/write
+// pre-fill options, because a classic token's `repo` scope is inherently
+// all-or-nothing (every repo the user can access, full read+write) -- there's
+// nothing narrower to pre-select. See the resource-owner note above for why
+// this is what Connection Settings actually links to right now.
+export function buildClassicTokenCreationUrl({ apiBaseUrl, description }) {
+  const webBaseUrl = deriveWebBaseUrl(apiBaseUrl);
+  if (!webBaseUrl) {
+    return null;
+  }
+  const params = new URLSearchParams({ scopes: 'repo', description });
+  return `${webBaseUrl}/settings/tokens/new?${params.toString()}`;
 }
 
 // On a 403 from an org that enforces SAML/SSO, GitHub sends this header

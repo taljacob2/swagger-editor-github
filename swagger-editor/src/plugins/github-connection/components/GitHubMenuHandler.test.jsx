@@ -40,18 +40,15 @@ describe('GitHubMenuHandler', () => {
     githubConnectionService.getConnectionSettings.mockResolvedValue({
       apiBaseUrl: 'https://api.github.com',
       token: 'stored-token',
-      fetchToken: 'stored-fetch-token',
+      fetchToken: '',
     });
     githubConnectionService.saveConnectionSettings.mockImplementation(async (settings) => settings);
     githubConnectionService.testConnection.mockResolvedValue({
       ok: true,
       message: 'Connected as taljacob2',
     });
-    githubConnectionService.buildTokenCreationUrl.mockImplementation(
-      ({ contents, targetName }) =>
-        `https://github.com/settings/personal-access-tokens/new?contents=${contents}${
-          targetName ? `&target_name=${targetName}` : ''
-        }`
+    githubConnectionService.buildClassicTokenCreationUrl.mockImplementation(
+      () => 'https://github.com/settings/tokens/new?scopes=repo'
     );
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: '',
@@ -71,10 +68,7 @@ describe('GitHubMenuHandler', () => {
 
     expect(githubConnectionService.getConnectionSettings).toHaveBeenCalled();
     expect(screen.getByLabelText('API base URL')).toHaveValue('https://api.github.com');
-    expect(screen.getByLabelText('Repo token')).toHaveValue('stored-token');
-    expect(screen.getByLabelText('Fetch token (optional — read-only, private repos)')).toHaveValue(
-      'stored-fetch-token'
-    );
+    expect(screen.getByLabelText('GitHub token')).toHaveValue('stored-token');
   });
 
   test('Save persists edited fields via saveConnectionSettings', async () => {
@@ -86,11 +80,8 @@ describe('GitHubMenuHandler', () => {
     fireEvent.change(screen.getByLabelText('API base URL'), {
       target: { value: 'https://api.mycompany.ghe.com' },
     });
-    fireEvent.change(screen.getByLabelText('Repo token'), {
+    fireEvent.change(screen.getByLabelText('GitHub token'), {
       target: { value: 'new-token' },
-    });
-    fireEvent.change(screen.getByLabelText('Fetch token (optional — read-only, private repos)'), {
-      target: { value: 'new-fetch-token' },
     });
     await act(async () => {
       fireEvent.click(screen.getByText('Save'));
@@ -99,7 +90,6 @@ describe('GitHubMenuHandler', () => {
     expect(githubConnectionService.saveConnectionSettings).toHaveBeenCalledWith({
       apiBaseUrl: 'https://api.mycompany.ghe.com',
       token: 'new-token',
-      fetchToken: 'new-fetch-token',
     });
     expect(screen.getByText('Saved.')).toBeInTheDocument();
   });
@@ -133,7 +123,7 @@ describe('GitHubMenuHandler', () => {
     expect(screen.queryByLabelText('API base URL')).not.toBeInTheDocument();
   });
 
-  test('with nothing saved, defaults to "browse public" and hides both token fields', async () => {
+  test('with nothing saved, defaults to "browse public" and hides the token field', async () => {
     githubConnectionService.getConnectionSettings.mockResolvedValue({
       apiBaseUrl: 'https://api.github.com',
       token: '',
@@ -148,18 +138,10 @@ describe('GitHubMenuHandler', () => {
       screen.getByRole('radio', { name: /Browse or aggregate — public specs only/ })
     ).toBeChecked();
     expect(screen.getByText('Nothing to configure — works anonymously.')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Repo token')).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('GitHub token')).not.toBeInTheDocument();
   });
 
-  test('with only a repo token saved, defaults to "manage sets, public"', async () => {
-    githubConnectionService.getConnectionSettings.mockResolvedValue({
-      apiBaseUrl: 'https://api.github.com',
-      token: 'stored-token',
-      fetchToken: '',
-    });
+  test('with a token saved, defaults to "manage sets, public"', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
@@ -170,54 +152,43 @@ describe('GitHubMenuHandler', () => {
     ).toBeChecked();
   });
 
-  test('"browse private" shows only the Repo token field, with a read-only create-token link', async () => {
-    const ref = createRef();
-    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+  // All three non-zero-config intents need the exact same thing -- one
+  // classic PAT with the repo scope -- since a classic token can't be split
+  // into read-only vs. write or scoped to specific repos the way a
+  // fine-grained one can. Each one still shows the single token field and
+  // its create-token link.
+  test.each([
+    [
+      'Browse or aggregate — includes private specs',
+      /Browse or aggregate — includes private specs/,
+    ],
+    [
+      'Create, edit, or delete sets — public specs only',
+      /Create, edit, or delete sets — public specs only/,
+    ],
+    [
+      'Create, edit, or delete sets — includes private specs',
+      /Create, edit, or delete sets — includes private specs/,
+    ],
+  ])(
+    '"%s" shows the GitHub token field with a classic-token create link',
+    async (_label, radioName) => {
+      const ref = createRef();
+      render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
-    await openModal(ref);
-    fireEvent.click(
-      screen.getByRole('radio', { name: /Browse or aggregate — includes private specs/ })
-    );
+      await openModal(ref);
+      fireEvent.click(screen.getByRole('radio', { name: radioName }));
 
-    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
-    ).not.toBeInTheDocument();
+      expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
+      const link = screen.getByText('Create a token →');
+      expect(link.closest('a')).toHaveAttribute(
+        'href',
+        'https://github.com/settings/tokens/new?scopes=repo'
+      );
+    }
+  );
 
-    const link = screen.getByText('Create a read-only token →');
-    expect(link.closest('a')).toHaveAttribute(
-      'href',
-      'https://github.com/settings/personal-access-tokens/new?contents=read'
-    );
-  });
-
-  test('"manage sets, public" shows only the Repo token field, with a write create-token link scoped to the storage owner', async () => {
-    aggregationStorageService.getStorageSettings.mockReturnValue({
-      owner: 'taljacob2',
-      repo: 'swagger-editor-github',
-      branch: 'aggregation-data',
-    });
-    const ref = createRef();
-    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
-
-    await openModal(ref);
-    fireEvent.click(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
-    );
-
-    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText('Fetch token (optional — read-only, private repos)')
-    ).not.toBeInTheDocument();
-
-    const link = screen.getByText('Create a write token →');
-    expect(link.closest('a')).toHaveAttribute(
-      'href',
-      'https://github.com/settings/personal-access-tokens/new?contents=write&target_name=taljacob2'
-    );
-  });
-
-  test('token name/description reflect the actual configured storage repo, not a hardcoded name (fork/rename safe)', async () => {
+  test('token description reflects the actual configured storage repo, not a hardcoded name (fork/rename safe)', async () => {
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: 'someoneelse',
       repo: 'my-forked-editor',
@@ -231,36 +202,11 @@ describe('GitHubMenuHandler', () => {
       screen.getByRole('radio', { name: /Create, edit, or delete sets — includes private specs/ })
     );
 
-    expect(githubConnectionService.buildTokenCreationUrl).toHaveBeenCalledWith(
+    expect(githubConnectionService.buildClassicTokenCreationUrl).toHaveBeenCalledWith(
       expect.objectContaining({
-        contents: 'write',
-        name: 'my-forked-editor (repo token)',
-        description: 'Write access for saving aggregation sets in someoneelse/my-forked-editor',
+        description: 'Used by my-forked-editor to read/write on your behalf',
       })
     );
-    expect(githubConnectionService.buildTokenCreationUrl).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contents: 'read',
-        name: 'my-forked-editor (read-only)',
-      })
-    );
-  });
-
-  test('"manage sets, private specs" shows both token fields, each with its own create-token link', async () => {
-    const ref = createRef();
-    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
-
-    await openModal(ref);
-    fireEvent.click(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — includes private specs/ })
-    );
-
-    expect(screen.getByLabelText('Repo token')).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('Fetch token (optional — read-only, private repos)')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Create a write token →')).toBeInTheDocument();
-    expect(screen.getByText('Create a read-only token →')).toBeInTheDocument();
   });
 
   test('Connection appends a write-access note when the picker needs write and the token has it', async () => {

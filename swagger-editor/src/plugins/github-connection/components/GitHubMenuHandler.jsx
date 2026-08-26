@@ -2,7 +2,7 @@ import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import PropTypes from 'prop-types';
 
 import {
-  buildTokenCreationUrl,
+  buildClassicTokenCreationUrl,
   getConnectionSettings,
   saveConnectionSettings,
   testConnection,
@@ -20,11 +20,6 @@ const INTENTS = {
 };
 
 const NEEDS_WRITE = new Set([INTENTS.MANAGE_PUBLIC, INTENTS.MANAGE_PRIVATE]);
-const SHOWS_REPO_TOKEN = new Set([
-  INTENTS.BROWSE_PRIVATE,
-  INTENTS.MANAGE_PUBLIC,
-  INTENTS.MANAGE_PRIVATE,
-]);
 
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
@@ -34,6 +29,13 @@ const AUTH_DOC_LINK =
 // Phrasing is deliberately parallel across all four -- "<what> — <public/private>"
 // -- so the underlying 2x2 (browse/manage x public/private) reads directly off
 // the labels instead of needing four independently-worded sentences.
+//
+// All three non-zero-config options need the exact same thing (one classic
+// PAT with the repo scope) -- a classic token can't be split into read-only
+// vs. write, or scoped to specific repos, the way a fine-grained one can (see
+// buildClassicTokenCreationUrl's doc comment). These options still exist
+// separately because they're useful framing for *whether* you need a token
+// at all and *why*, even though the mechanical step below is now identical.
 const INTENT_GROUPS = [
   {
     label: 'Browsing',
@@ -46,7 +48,7 @@ const INTENT_GROUPS = [
       {
         value: INTENTS.BROWSE_PRIVATE,
         title: 'Browse or aggregate — includes private specs',
-        description: 'Needs one read-only token.',
+        description: 'Needs a classic personal access token.',
       },
     ],
   },
@@ -56,26 +58,22 @@ const INTENT_GROUPS = [
       {
         value: INTENTS.MANAGE_PUBLIC,
         title: 'Create, edit, or delete sets — public specs only',
-        description: 'Needs one write token, scoped to this repo.',
+        description: 'Needs a classic personal access token.',
       },
       {
         value: INTENTS.MANAGE_PRIVATE,
         title: 'Create, edit, or delete sets — includes private specs',
-        description:
-          'Needs a write token for this repo, plus a read-only token for the private specs.',
+        description: 'Needs a classic personal access token — same one as the other options.',
       },
     ],
   },
 ];
 
 // Guesses which picker option to open with from whatever's already saved, so
-// a returning user's existing token(s) aren't hidden behind the wrong
-// selection -- a first-time user with nothing saved starts at "browse public"
-// (both token fields hidden), matching the zero-config case.
-function inferInitialIntent({ token, fetchToken }) {
-  if (fetchToken) {
-    return INTENTS.MANAGE_PRIVATE;
-  }
+// a returning user's existing token isn't hidden behind the wrong selection
+// -- a first-time user with nothing saved starts at "browse public" (token
+// field hidden), matching the zero-config case.
+function inferInitialIntent({ token }) {
   if (token) {
     return INTENTS.MANAGE_PUBLIC;
   }
@@ -86,7 +84,6 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [token, setToken] = useState('');
-  const [fetchToken, setFetchToken] = useState('');
   const [status, setStatus] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
   const [intent, setIntent] = useState(INTENTS.BROWSE_PUBLIC);
@@ -104,7 +101,6 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
       const settings = await getConnectionSettings();
       setApiBaseUrl(settings.apiBaseUrl);
       setToken(settings.token);
-      setFetchToken(settings.fetchToken);
       setIntent(inferInitialIntent(settings));
       setStorage(getStorageSettings());
       setStatus(null);
@@ -116,11 +112,10 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
 
   const handleApiBaseUrlChange = (event) => setApiBaseUrl(event.target.value);
   const handleTokenChange = (event) => setToken(event.target.value);
-  const handleFetchTokenChange = (event) => setFetchToken(event.target.value);
   const handleIntentChange = (event) => setIntent(event.target.value);
 
   const handleSaveClick = async () => {
-    await saveConnectionSettings({ apiBaseUrl, token, fetchToken });
+    await saveConnectionSettings({ apiBaseUrl, token });
     setStatus({ ok: true, message: 'Saved.' });
   };
 
@@ -150,22 +145,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   // "swagger-editor-github" -- this app may be forked or the repo renamed,
   // and storage.repo (defaulted from the deployed Pages URL, or explicitly
   // set under Aggregate -> Manage Sets -> Storage location) reflects that.
-  const repoLabel =
-    storage.owner && storage.repo ? `${storage.owner}/${storage.repo}` : 'this repo';
   const tokenName = storage.repo || 'swagger-editor-github';
 
-  const readOnlyTokenUrl = buildTokenCreationUrl({
+  const classicTokenUrl = buildClassicTokenCreationUrl({
     apiBaseUrl,
-    contents: 'read',
-    name: `${tokenName} (read-only)`,
-    description: `Read-only access for browsing/aggregating private specs (for use with ${tokenName})`,
-  });
-  const writeTokenUrl = buildTokenCreationUrl({
-    apiBaseUrl,
-    contents: 'write',
-    targetName: storage.owner || undefined,
-    name: `${tokenName} (repo token)`,
-    description: `Write access for saving aggregation sets in ${repoLabel}`,
+    description: `Used by ${tokenName} to read/write on your behalf`,
   });
 
   return (
@@ -251,11 +235,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             Enterprise Cloud custom domain.
           </p>
         </div>
-        {SHOWS_REPO_TOKEN.has(intent) && (
+        {intent !== INTENTS.BROWSE_PUBLIC && (
           <div className="input-group">
             {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label htmlFor="input-github-token" aria-labelledby="input-github-token">
-              Repo token
+              GitHub token
             </label>
             <input
               id="input-github-token"
@@ -269,58 +253,19 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
               Stored in this browser&apos;s local storage only, and sent only to the API base URL
               above.
             </p>
-            {intent === INTENTS.BROWSE_PRIVATE && (
-              <p className="help-block">
-                Paste a <strong>read-only</strong> token here.{' '}
-                {readOnlyTokenUrl && (
-                  <Link href={readOnlyTokenUrl} target="_blank">
-                    Create a read-only token →
-                  </Link>
-                )}{' '}
-                On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
-                <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
-                reading.
-              </p>
-            )}
-            {(intent === INTENTS.MANAGE_PUBLIC || intent === INTENTS.MANAGE_PRIVATE) && (
-              <p className="help-block">
-                Paste a <strong>write</strong> token here.{' '}
-                {writeTokenUrl && (
-                  <Link href={writeTokenUrl} target="_blank">
-                    Create a write token →
-                  </Link>
-                )}{' '}
-                On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
-                <strong>Only select repositories</strong> and pick <code>{repoLabel}</code>.
-              </p>
-            )}
-          </div>
-        )}
-        {intent === INTENTS.MANAGE_PRIVATE && (
-          <div className="input-group">
-            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-            <label htmlFor="input-github-fetch-token" aria-labelledby="input-github-fetch-token">
-              Fetch token (optional — read-only, private repos)
-            </label>
-            <input
-              id="input-github-fetch-token"
-              type="password"
-              className="form-control"
-              placeholder="Leave blank to reuse the repo token above"
-              value={fetchToken}
-              onChange={handleFetchTokenChange}
-            />
             <p className="help-block">
-              Paste a <strong>read-only</strong> token here — used instead of widening the
-              write-scoped Repo token above.{' '}
-              {readOnlyTokenUrl && (
-                <Link href={readOnlyTokenUrl} target="_blank">
-                  Create a read-only token →
+              Paste a <strong>classic</strong> personal access token with the <code>repo</code>{' '}
+              scope.{' '}
+              {classicTokenUrl && (
+                <Link href={classicTokenUrl} target="_blank">
+                  Create a token →
                 </Link>
               )}{' '}
-              On GitHub&apos;s page, switch <strong>Repository access</strong> to{' '}
-              <strong>Only select repositories</strong> and pick whichever repo(s) you&apos;re
-              reading.
+              Fine-grained tokens aren&apos;t recommended here — see{' '}
+              <Link href={PERMISSIONS_DOC_LINK} target="_blank">
+                docs/Permissions.md
+              </Link>{' '}
+              for why.
             </p>
           </div>
         )}
