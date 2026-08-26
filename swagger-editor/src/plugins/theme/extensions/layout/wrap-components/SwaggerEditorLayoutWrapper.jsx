@@ -20,6 +20,18 @@ const SwaggerEditorLayoutWrapper = (Original, system) => {
       editorActions.setTheme?.(resolvedTheme === 'dark' ? 'se-vs-dark' : 'se-vs-light');
     }, [resolvedTheme, editorActions]);
 
+    // swagger-ui-react ships its own complete dark theme (see swagger-ui.css's
+    // `html.dark-mode .swagger-ui { ... }` rules) gated on this class on
+    // <html> -- not just an ancestor of .swagger-ui, the selector requires it
+    // specifically on the root element, so there's no lower-DOM way to scope
+    // it. Safe to toggle globally regardless: every one of those rules also
+    // requires a .swagger-ui descendant, so it's a no-op anywhere else on a
+    // host page this component is embedded into.
+    useEffect(() => {
+      document.documentElement.classList.toggle('dark-mode', resolvedTheme === 'dark');
+      return () => document.documentElement.classList.remove('dark-mode');
+    }, [resolvedTheme]);
+
     return (
       <div className="swagger-editor__theme-root" data-theme={resolvedTheme}>
         <Original {...props} />
