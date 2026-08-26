@@ -125,10 +125,23 @@
     color: var(--se-color-text);
   }
 
+  // swagger-ui-react's tables (Responses, the schema property tree) have
+  // no row borders at all by default -- rows are separated by padding
+  // alone, which reads fine against a plain white page but gives the eye
+  // nothing to key off against a uniform dark one, so rows visually blur
+  // together. Setting only border-bottom-color here (as an earlier pass
+  // of this file did) is a no-op if the element's border-width is 0 to
+  // begin with, which it is -- these need the full shorthand to actually
+  // draw a line, not just recolor one that was never there.
   table thead tr td,
   table thead tr th {
     color: var(--se-color-text-muted);
-    border-bottom-color: var(--se-color-border);
+    border-bottom: 1px solid var(--se-color-border);
+  }
+
+  .responses-table tbody tr td,
+  table.model tr.property-row td {
+    border-bottom: 1px solid var(--se-color-border);
   }
 
   .model-box,
