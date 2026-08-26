@@ -161,6 +161,57 @@ describe('fetchSpec', () => {
       );
     });
 
+    // GitHub's own "copy raw link"/"view raw" now generates URLs using this
+    // explicit `refs/heads/<branch>` (or `refs/tags/<tag>`) form by default,
+    // not the older bare `<branch>/<path>` shape. Before this was handled,
+    // "refs" itself was captured as the ref and "heads/<branch>/<path>" was
+    // captured as the path, producing a malformed, 404ing Contents API
+    // request (confirmed against a live deployment).
+    test('rewrites a raw URL using the explicit refs/heads/<branch> form', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+
+      await fetchSpec(
+        'https://raw.githubusercontent.com/owner/repo/refs/heads/migrate-swagger-to-graphql/openapi.yaml',
+        CONNECTION
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/owner/repo/contents/openapi.yaml?ref=migrate-swagger-to-graphql',
+        expect.anything()
+      );
+    });
+
+    test('rewrites a blob URL using the explicit refs/tags/<tag> form', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+
+      await fetchSpec(
+        'https://github.com/owner/repo/blob/refs/tags/v1.2.3/specs/openapi.yaml',
+        CONNECTION
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/owner/repo/contents/specs/openapi.yaml?ref=v1.2.3',
+        expect.anything()
+      );
+    });
+
+    test('rewrites a GHEC raw URL using the explicit refs/heads/<branch> form', async () => {
+      global.fetch = contentsFetch(btoa('openapi: 3.0.0\n'));
+      const ghecConnection = { apiBaseUrl: 'https://api.mycompany.ghe.com', token: 'ghec-token' };
+
+      await fetchSpec(
+        'https://raw.mycompany.ghe.com/owner/repo/refs/heads/migrate-swagger-to-graphql/openapi.yaml',
+        ghecConnection
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.mycompany.ghe.com/repos/owner/repo/contents/openapi.yaml?ref=migrate-swagger-to-graphql',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer ghec-token' }),
+        })
+      );
+    });
+
     test('does not treat an unrelated third-party host as a GitHub file URL just because it has a similar shape', async () => {
       // Unparsed fallback path reads response.text(), not .json() -- reuse
       // the plain text-based mock from the outer beforeEach, not contentsFetch.

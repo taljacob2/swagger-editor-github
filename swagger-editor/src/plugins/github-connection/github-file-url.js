@@ -9,8 +9,16 @@ const GITHUB_COM_API_BASE_URL = 'https://api.github.com';
 const GITHUB_COM_RAW_HOST = 'raw.githubusercontent.com';
 const GITHUB_COM_WEB_HOST = 'github.com';
 
-const RAW_PATH_RE = /^\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/;
-const BLOB_PATH_RE = /^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
+// GitHub now generates raw/blob links using this explicit `refs/heads/<name>`
+// (or `refs/tags/<name>`) form by default, rather than the older bare
+// `<branch>/<path>` shape -- disambiguates a branch/tag from the first path
+// segment even when the name itself couldn't be confused with one. The
+// `refs/(heads|tags)/` prefix is optional here so both URL shapes still
+// match. This doesn't (and can't, from the URL text alone) handle a
+// branch/tag name that itself contains a slash -- same best-effort caveat as
+// the GHEC host derivation below.
+const RAW_PATH_RE = /^\/([^/]+)\/([^/]+)\/(?:refs\/(?:heads|tags)\/)?([^/]+)\/(.+)$/;
+const BLOB_PATH_RE = /^\/([^/]+)\/([^/]+)\/blob\/(?:refs\/(?:heads|tags)\/)?([^/]+)\/(.+)$/;
 
 // A GHEC/GHE.com custom domain's web/raw hosts aren't fixed strings the way
 // github.com's are -- they're derived from whatever apiBaseUrl the user has
