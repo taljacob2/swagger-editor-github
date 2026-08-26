@@ -104,9 +104,21 @@
   input[type='email'],
   input[type='file'],
   textarea {
-    background: var(--se-color-surface);
+    // background-color, not the `background` shorthand -- swagger-ui-react
+    // draws <select>'s own dropdown arrow as a background-image (see
+    // below), which the shorthand would silently reset to none.
+    background-color: var(--se-color-surface);
     color: var(--se-color-text);
     border-color: var(--se-color-border);
+  }
+
+  // swagger-ui-react's <select> arrow is a background-image SVG with no
+  // explicit fill (SVG defaults to black), not native browser chrome --
+  // invisible once the box behind it goes dark. Same glyph, recolored to
+  // match --se-color-text; CSS custom properties can't be interpolated
+  // into a url() data URI, so the color is inlined directly.
+  select {
+    background-image: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%23abb2bf' d='M13.418 7.859a.695.695 0 0 1 .978 0 .68.68 0 0 1 0 .969l-3.908 3.83a.697.697 0 0 1-.979 0l-3.908-3.83a.68.68 0 0 1 0-.969.695.695 0 0 1 .978 0L10 11z'/></svg>");
   }
 
   .tab li button.tablinks {
@@ -124,6 +136,16 @@
   .body-param__example,
   .highlight-code {
     color: var(--se-color-text);
+  }
+
+  // Each schema card in the "Schemas" section (Order, Category, Pet, ...).
+  // swagger-ui-react gives these a `background: rgba(0,0,0,.05)` tint,
+  // which reads as a light-gray card against a white page but is nearly
+  // imperceptible against an already-dark one -- replaced with an actual
+  // elevated surface color instead of a black overlay.
+  .model-container {
+    background: var(--se-color-surface-muted);
+    border-radius: 4px;
   }
 
   .btn {

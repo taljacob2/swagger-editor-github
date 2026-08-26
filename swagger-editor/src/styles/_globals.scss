@@ -17,16 +17,26 @@
 
 @mixin se-dark-theme-vars {
   --se-color-surface: #282c34;
-  --se-color-surface-muted: #21252b;
-  --se-color-border: #3a3f4b;
+  // Lighter than --se-color-surface, not darker: on a light page a subtle
+  // *darker* tint reads as a sunken panel, but the same trick barely
+  // registers against an already-dark page -- an elevated card needs to
+  // go the other way (lighter than what it sits on) to actually be
+  // visible, same as Material Design's dark-theme elevation convention.
+  --se-color-surface-muted: #343a46;
+  --se-color-border: #3f4551;
   --se-color-text: #abb2bf;
   --se-color-text-muted: #838a99;
-  --se-color-hover: #3a3f4b;
+  --se-color-hover: #454c5a;
 }
 
 .swagger-editor__theme-root[data-theme='dark'],
 .ReactModalPortal.swagger-editor__theme-dark {
   @include se-dark-theme-vars;
+  // Tells the browser to draw its own native form-control chrome (select
+  // dropdown arrows, checkbox/radio ticks, scrollbars) in dark-appropriate
+  // colors -- without this, a <select> recolored via CSS keeps its
+  // light-mode arrow glyph, which renders dark-on-dark and disappears.
+  color-scheme: dark;
 }
 
 body {
