@@ -56,7 +56,14 @@ function generateId() {
 // so on a deployed site the storage target can default to "this repo" with
 // zero configuration. Elsewhere (local dev, a custom domain) it's blank until
 // the user sets it explicitly.
-function detectDefaultOwnerRepo() {
+//
+// This hostname/path parsing only covers github.com-style Pages. A privately
+// published Pages site on GitHub Enterprise Cloud is served from a subdomain
+// shaped like <owner>-<repo>.pages.<hostname>/ instead (see the base-path
+// comment in .github/workflows/deploy-pages.yml) — owner and repo are folded
+// into one hyphenated label with no reliable place to split it back apart
+// (both halves can contain hyphens themselves), so it can't be parsed here.
+function detectDefaultOwnerRepoFromHostname() {
   const hostMatch = window.location.hostname.match(/^([^.]+)\.github\.io$/);
   if (!hostMatch) {
     return { owner: '', repo: '' };
@@ -64,6 +71,24 @@ function detectDefaultOwnerRepo() {
   const [, owner] = hostMatch;
   const [repo = ''] = window.location.pathname.split('/').filter(Boolean);
   return { owner, repo };
+}
+
+// For deployments where hostname parsing doesn't apply (GHEC's
+// <owner>-<repo>.pages.<hostname> subdomain shape, or any other Pages URL
+// this app doesn't recognize), .github/workflows/deploy-pages.yml bakes the
+// repo's actual owner/name in at build time via VITE_GITHUB_STORAGE_OWNER /
+// VITE_GITHUB_STORAGE_REPO -- values GitHub Actions already knows exactly,
+// with nothing for whoever deploys to configure by hand (unlike
+// VITE_GITHUB_API_BASE_URL, which needs a real choice: a GHEC deployment's
+// API host isn't derivable from repository metadata). Takes priority over
+// hostname parsing since it's unambiguous wherever it's present.
+function detectDefaultOwnerRepo() {
+  const owner = import.meta.env.VITE_GITHUB_STORAGE_OWNER;
+  const repo = import.meta.env.VITE_GITHUB_STORAGE_REPO;
+  if (owner && repo) {
+    return { owner, repo };
+  }
+  return detectDefaultOwnerRepoFromHostname();
 }
 
 export function getStorageSettings() {
