@@ -123,7 +123,7 @@ describe('GitHubMenuHandler', () => {
     expect(screen.queryByLabelText('API base URL')).not.toBeInTheDocument();
   });
 
-  test('with nothing saved, defaults to "browse public" and hides the token field', async () => {
+  test('with nothing saved, defaults to "public only" and hides the token field', async () => {
     githubConnectionService.getConnectionSettings.mockResolvedValue({
       apiBaseUrl: 'https://api.github.com',
       token: '',
@@ -141,52 +141,44 @@ describe('GitHubMenuHandler', () => {
     expect(screen.queryByLabelText('GitHub token')).not.toBeInTheDocument();
   });
 
-  test('with a token saved, defaults to "manage sets, public"', async () => {
+  test('with a token saved, defaults to "needs a token"', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
 
     expect(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
+      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
     ).toBeChecked();
+    expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
   });
 
-  // All three non-zero-config intents need the exact same thing -- one
-  // classic PAT with the repo scope -- since a classic token can't be split
-  // into read-only vs. write or scoped to specific repos the way a
-  // fine-grained one can. Each one still shows the single token field and
-  // its create-token link.
-  test.each([
-    [
-      'Browse or aggregate — includes private specs',
-      /Browse or aggregate — includes private specs/,
-    ],
-    [
-      'Create, edit, or delete sets — public specs only',
-      /Create, edit, or delete sets — public specs only/,
-    ],
-    [
-      'Create, edit, or delete sets — includes private specs',
-      /Create, edit, or delete sets — includes private specs/,
-    ],
-  ])(
-    '"%s" shows the GitHub token field with a classic-token create link',
-    async (_label, radioName) => {
-      const ref = createRef();
-      render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+  test('picking "public only" hides the GitHub token field', async () => {
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
-      await openModal(ref);
-      fireEvent.click(screen.getByRole('radio', { name: radioName }));
+    await openModal(ref);
+    fireEvent.click(screen.getByRole('radio', { name: /Browse or aggregate — public specs only/ }));
 
-      expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
-      const link = screen.getByText('Create a token →');
-      expect(link.closest('a')).toHaveAttribute(
-        'href',
-        'https://github.com/settings/tokens/new?scopes=repo'
-      );
-    }
-  );
+    expect(screen.queryByLabelText('GitHub token')).not.toBeInTheDocument();
+  });
+
+  test('picking "needs a token" shows the GitHub token field with a classic-token create link', async () => {
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+    await openModal(ref);
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+    );
+
+    expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
+    const link = screen.getByText('Create a token →');
+    expect(link.closest('a')).toHaveAttribute(
+      'href',
+      'https://github.com/settings/tokens/new?scopes=repo'
+    );
+  });
 
   test('token description reflects the actual configured storage repo, not a hardcoded name (fork/rename safe)', async () => {
     aggregationStorageService.getStorageSettings.mockReturnValue({
@@ -199,7 +191,7 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
     fireEvent.click(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — includes private specs/ })
+      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
     );
 
     expect(githubConnectionService.buildClassicTokenCreationUrl).toHaveBeenCalledWith(
@@ -209,7 +201,10 @@ describe('GitHubMenuHandler', () => {
     );
   });
 
-  test('Connection appends a write-access note when the picker needs write and the token has it', async () => {
+  // Test Connection now checks write access whenever a token and a storage
+  // location are both present -- there's no longer a "browsing" vs. "managing
+  // sets" choice to gate it on, since both options need the identical token.
+  test('Connection appends a write-access note whenever a token and storage location are present', async () => {
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: 'taljacob2',
       repo: 'swagger-editor-github',
@@ -220,9 +215,6 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.click(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
-    );
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {
@@ -234,7 +226,7 @@ describe('GitHubMenuHandler', () => {
     });
   });
 
-  test('Connection warns when the picker needs write but the token lacks it', async () => {
+  test('Connection warns when the token lacks write access', async () => {
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: 'taljacob2',
       repo: 'swagger-editor-github',
@@ -245,9 +237,6 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.click(
-      screen.getByRole('radio', { name: /Create, edit, or delete sets — public specs only/ })
-    );
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {
@@ -259,7 +248,12 @@ describe('GitHubMenuHandler', () => {
     });
   });
 
-  test('Connection does not check write access when the picker is on a browse-only option', async () => {
+  test('Connection does not check write access when there is no token', async () => {
+    githubConnectionService.getConnectionSettings.mockResolvedValue({
+      apiBaseUrl: 'https://api.github.com',
+      token: '',
+      fetchToken: '',
+    });
     aggregationStorageService.getStorageSettings.mockReturnValue({
       owner: 'taljacob2',
       repo: 'swagger-editor-github',
@@ -269,7 +263,24 @@ describe('GitHubMenuHandler', () => {
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
 
     await openModal(ref);
-    fireEvent.click(screen.getByRole('radio', { name: /Browse or aggregate — public specs only/ }));
+    fireEvent.click(screen.getByText('Test Connection'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Connected as taljacob2')).toBeInTheDocument();
+    });
+    expect(aggregationStorageService.canWriteToStorage).not.toHaveBeenCalled();
+  });
+
+  test('Connection does not check write access when the storage location is unknown', async () => {
+    aggregationStorageService.getStorageSettings.mockReturnValue({
+      owner: '',
+      repo: '',
+      branch: 'aggregation-data',
+    });
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+    await openModal(ref);
     fireEvent.click(screen.getByText('Test Connection'));
 
     await waitFor(() => {

@@ -45,15 +45,18 @@ Most people fall into one of these, roughly in order of "most common, least setu
 | **3 — maintainer, private specs** | You'll create/edit/delete sets *and* aggregate private specs | Same again — one classic personal access token (`repo` scope). |
 
 Tiers 1–3 all need the identical kind of token now — see the classic-vs-fine-grained note above for
-why. What still makes them worth telling apart is the picker's guidance on *whether* you need a
-token at all, and (for Tiers 2/3) that **Manage Sets** only shows New Set/Edit/Delete once your
-token actually has write access to this repo (checked automatically) — otherwise you'll just see
-the list and an "Aggregate" button, with a note explaining why the editing controls aren't there.
-Nothing to configure for that; it just works based on whatever token you've entered (or haven't).
+why. What still makes them worth telling apart is simply *whether* you need a token at all (Tier 0
+vs. everything else) — Connection Settings' picker only has those two options now. Whether you can
+actually manage sets isn't a picker choice either: **Manage Sets** shows New Set/Edit/Delete
+whenever your token has write access to this repo, checked automatically the moment you paste one
+— otherwise you'll just see the list and an "Aggregate" button, with a note explaining why the
+editing controls aren't there. Nothing to configure for that; it just works based on whatever
+token you've entered (or haven't).
 
 Don't want to work out which tier you're in by hand? **Connection Settings** has a "What do you
-want to do?" picker that maps onto these four options and hands you a pre-filled "Create a
-token →" link — the walkthrough below is for anyone who wants the full manual steps instead.
+want to do?" picker — "public specs only" (no token) or "private specs, or creating/editing sets"
+(needs one) — with a pre-filled "Create a token →" link for the second option. The walkthrough
+below is for anyone who wants the full manual steps instead.
 
 ## Step-by-step: creating a token
 

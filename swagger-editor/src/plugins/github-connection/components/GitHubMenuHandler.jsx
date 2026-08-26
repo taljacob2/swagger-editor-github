@@ -13,71 +13,47 @@ import {
 } from '../../aggregation-storage/aggregation-storage-service.js';
 
 const INTENTS = {
-  BROWSE_PUBLIC: 'browse-public',
-  BROWSE_PRIVATE: 'browse-private',
-  MANAGE_PUBLIC: 'manage-public',
-  MANAGE_PRIVATE: 'manage-private',
+  PUBLIC_ONLY: 'public-only',
+  NEEDS_TOKEN: 'needs-token',
 };
-
-const NEEDS_WRITE = new Set([INTENTS.MANAGE_PUBLIC, INTENTS.MANAGE_PRIVATE]);
 
 const PERMISSIONS_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/Permissions.md';
 const AUTH_DOC_LINK =
   'https://github.com/taljacob2/swagger-editor-github/blob/main/docs/GitHubAuthentication.md';
 
-// Phrasing is deliberately parallel across all four -- "<what> — <public/private>"
-// -- so the underlying 2x2 (browse/manage x public/private) reads directly off
-// the labels instead of needing four independently-worded sentences.
-//
-// All three non-zero-config options need the exact same thing (one classic
-// PAT with the repo scope) -- a classic token can't be split into read-only
-// vs. write, or scoped to specific repos, the way a fine-grained one can (see
-// buildClassicTokenCreationUrl's doc comment). These options still exist
-// separately because they're useful framing for *whether* you need a token
-// at all and *why*, even though the mechanical step below is now identical.
-const INTENT_GROUPS = [
+// Used to be four options (browse/manage x public/private), one per
+// combination of "do I need a token" and "do I need write access". A classic
+// PAT can't be split into read-only vs. write, or scoped to specific repos,
+// the way the old fine-grained tokens could (see buildClassicTokenCreationUrl's
+// doc comment) -- so three of those four rendered the identical field and
+// link, and the only thing the choice still did was gate whether Test
+// Connection also checked write access. Down to the one real question left:
+// do you need a token at all. Test Connection now checks write access
+// whenever a token and a storage location are both present, regardless of
+// which option is picked here -- see handleTestClick.
+const INTENT_OPTIONS = [
   {
-    label: 'Browsing',
-    options: [
-      {
-        value: INTENTS.BROWSE_PUBLIC,
-        title: 'Browse or aggregate — public specs only',
-        description: 'Nothing to configure — works anonymously.',
-      },
-      {
-        value: INTENTS.BROWSE_PRIVATE,
-        title: 'Browse or aggregate — includes private specs',
-        description: 'Needs a classic personal access token.',
-      },
-    ],
+    value: INTENTS.PUBLIC_ONLY,
+    title: 'Browse or aggregate — public specs only',
+    description: 'Nothing to configure — works anonymously.',
   },
   {
-    label: 'Creating & editing sets',
-    options: [
-      {
-        value: INTENTS.MANAGE_PUBLIC,
-        title: 'Create, edit, or delete sets — public specs only',
-        description: 'Needs a classic personal access token.',
-      },
-      {
-        value: INTENTS.MANAGE_PRIVATE,
-        title: 'Create, edit, or delete sets — includes private specs',
-        description: 'Needs a classic personal access token — same one as the other options.',
-      },
-    ],
+    value: INTENTS.NEEDS_TOKEN,
+    title: 'Private specs, or creating/editing sets',
+    description: 'Needs one classic personal access token.',
   },
 ];
 
 // Guesses which picker option to open with from whatever's already saved, so
 // a returning user's existing token isn't hidden behind the wrong selection
-// -- a first-time user with nothing saved starts at "browse public" (token
+// -- a first-time user with nothing saved starts at "public only" (token
 // field hidden), matching the zero-config case.
 function inferInitialIntent({ token }) {
   if (token) {
-    return INTENTS.MANAGE_PUBLIC;
+    return INTENTS.NEEDS_TOKEN;
   }
-  return INTENTS.BROWSE_PUBLIC;
+  return INTENTS.PUBLIC_ONLY;
 }
 
 const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
@@ -86,7 +62,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [token, setToken] = useState('');
   const [status, setStatus] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [intent, setIntent] = useState(INTENTS.BROWSE_PUBLIC);
+  const [intent, setIntent] = useState(INTENTS.PUBLIC_ONLY);
   const [storage, setStorage] = useState({ owner: '', repo: '' });
 
   const Modal = getComponent('Modal');
@@ -124,7 +100,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
     setStatus(null);
     let result = await testConnection({ apiBaseUrl, token });
 
-    if (result.ok && NEEDS_WRITE.has(intent) && storage.owner && storage.repo) {
+    if (result.ok && token && storage.owner && storage.repo) {
       const hasWriteAccess = await canWriteToStorage(storage, { apiBaseUrl, token });
       const repoLabel = `${storage.owner}/${storage.repo}`;
       result = {
@@ -177,35 +153,30 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           <legend className="swagger-editor__intent-picker-title">What do you want to do?</legend>
 
           <div className="swagger-editor__intent-grid">
-            {INTENT_GROUPS.map((group) => (
-              <React.Fragment key={group.label}>
-                <div className="swagger-editor__intent-group-label">{group.label}</div>
-                {group.options.map((option) => (
-                  // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                  <label
-                    key={option.value}
-                    className={
-                      intent === option.value
-                        ? 'swagger-editor__intent-option swagger-editor__intent-option--selected'
-                        : 'swagger-editor__intent-option'
-                    }
-                  >
-                    <input
-                      type="radio"
-                      name="github-intent"
-                      value={option.value}
-                      checked={intent === option.value}
-                      onChange={handleIntentChange}
-                    />
-                    <span className="swagger-editor__intent-option-text">
-                      <span className="swagger-editor__intent-option-title">{option.title}</span>
-                      <span className="swagger-editor__intent-option-description">
-                        {option.description}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </React.Fragment>
+            {INTENT_OPTIONS.map((option) => (
+              // eslint-disable-next-line jsx-a11y/label-has-associated-control
+              <label
+                key={option.value}
+                className={
+                  intent === option.value
+                    ? 'swagger-editor__intent-option swagger-editor__intent-option--selected'
+                    : 'swagger-editor__intent-option'
+                }
+              >
+                <input
+                  type="radio"
+                  name="github-intent"
+                  value={option.value}
+                  checked={intent === option.value}
+                  onChange={handleIntentChange}
+                />
+                <span className="swagger-editor__intent-option-text">
+                  <span className="swagger-editor__intent-option-title">{option.title}</span>
+                  <span className="swagger-editor__intent-option-description">
+                    {option.description}
+                  </span>
+                </span>
+              </label>
             ))}
           </div>
 
@@ -235,7 +206,7 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             Enterprise Cloud custom domain.
           </p>
         </div>
-        {intent !== INTENTS.BROWSE_PUBLIC && (
+        {intent !== INTENTS.PUBLIC_ONLY && (
           <div className="input-group">
             {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label htmlFor="input-github-token" aria-labelledby="input-github-token">
