@@ -192,17 +192,16 @@
       z-index: 10000;
       flex-direction: column;
       align-items: stretch;
-      // An explicit height (not just max-height) gives space-evenly actual
-      // room to distribute into -- with only max-height, the box shrinks to
-      // fit its content whenever that's shorter than the viewport, so items
-      // stayed packed at the top with dead space (or a scrollbar) below
-      // instead of spreading across the screen. Still caps at the viewport
-      // and scrolls (rather than clips) on a short enough screen with
-      // enough items that it genuinely can't all fit.
-      height: calc(100vh - 54px);
+      // Sized to its own content (a normal top-aligned list), not stretched
+      // to fill the viewport -- max-height is only a cap for the rare case
+      // there are more items than a short screen can fit, where it scrolls
+      // instead of overflowing. (Used to also set an explicit `height` and
+      // `justify-content: space-evenly` to give that stretch something to
+      // distribute into -- with as few as 3-4 top-level items that spread
+      // them across the full screen with large dead gaps between each one,
+      // which read as broken rather than spacious.)
       max-height: calc(100vh - 54px);
-      justify-content: space-evenly;
-      padding: 0.5rem 0;
+      padding: 0.25rem 0;
       background-color: #173647;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       overflow-y: auto;
@@ -227,7 +226,16 @@
         // the same amount off each side.
         box-sizing: border-box;
         margin: 0;
-        padding: 0.85rem 1.25rem;
+        padding: 0.75rem 1.25rem;
+        // Hairline separators so a short, top-aligned list still reads as
+        // one connected menu rather than a handful of unrelated rows --
+        // skips the first item since there's nothing above it to divide
+        // from (and the panel's own top edge already reads as a boundary).
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+        &:first-child {
+          border-top: none;
+        }
       }
     }
   }
