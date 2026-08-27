@@ -18,6 +18,7 @@ import AggregationStoragePlugin from 'plugins/aggregation-storage/index.js';
 import ModalsPlugin from 'plugins/modals/index.js';
 import DialogsPlugin from 'plugins/dialogs/index.js';
 import DropdownMenuPlugin from 'plugins/dropdown-menu/index.js';
+import ThemePlugin from 'plugins/theme/index.js';
 import DropzonePlugin from 'plugins/dropzone/index.js';
 import VersionsPlugin from 'plugins/versions/index.js';
 import EditorTextareaPlugin from 'plugins/editor-textarea/index.js';
@@ -163,6 +164,7 @@ SwaggerEditor.plugins = {
   Modals: ModalsPlugin,
   Dialogs: DialogsPlugin,
   DropdownMenu: DropdownMenuPlugin,
+  Theme: ThemePlugin,
   Dropzone: DropzonePlugin,
   Versions: VersionsPlugin,
   EditorTextarea: EditorTextareaPlugin,

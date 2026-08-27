@@ -72,6 +72,80 @@
     height: 100%;
   }
 
+  &__top-bar-row-end {
+    display: flex;
+    align-items: center;
+  }
+
+  // Wide screens only: here -row-end is a direct child of -top-bar (see
+  // TopBar.jsx) rather than nested inside -top-bar-row, so this selector
+  // doesn't match the compact-mode instance -- there it's already pushed
+  // to the right for free by -top-bar-row's own space-between once that
+  // row is flexed to fill the bar (see &--compact above).
+  &__top-bar > &__top-bar-row-end {
+    margin-left: auto;
+  }
+
+  // 3-way segmented pill (see ThemeToggle.jsx): a track holding all three
+  // options side by side, plus a sliding highlight (the next rule) that
+  // glides beneath whichever one is active.
+  &__top-bar-theme-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 6.75rem; // 3 * the 2.25rem option width below, no gaps
+    height: 2.25rem;
+    padding: 2px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    box-sizing: border-box;
+  }
+
+  // Same size as one option, absolutely positioned over the track and
+  // translated by index -- CSS custom property set inline per render
+  // (ThemeToggle.jsx), so this is the only place that needs to know the
+  // math, and it stays a pure CSS transition (no animation library).
+  &__top-bar-theme-toggle-highlight {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / 3);
+    height: calc(100% - 4px);
+    background-color: rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    transform: translateX(calc(var(--se-theme-toggle-index, 0) * 100%));
+    transition: transform 0.2s ease;
+    pointer-events: none;
+  }
+
+  &__top-bar-theme-toggle-option {
+    position: relative; // stacks above the highlight, which is position: absolute
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    height: 100%;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 999px;
+    // Dims the two inactive options so the active one (full white, set by
+    // the [aria-checked="true"] rule below) reads as the current choice at
+    // a glance, same convention the highlight itself reinforces.
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: white;
+    }
+
+    &[aria-checked='true'] {
+      color: white;
+    }
+  }
+
   &__top-bar-hamburger {
     display: flex;
     flex-direction: column;

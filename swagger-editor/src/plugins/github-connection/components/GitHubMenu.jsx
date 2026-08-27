@@ -6,7 +6,7 @@ import GitHubMenuHandler from './GitHubMenuHandler.jsx';
 const GitHubMenu = (props) => {
   const { getComponent } = props;
   const githubMenuHandler = useRef(null);
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const DropdownMenuItem = getComponent('DropdownMenuItem');
 
   const handleConnectionSettingsClick = useCallback(() => {

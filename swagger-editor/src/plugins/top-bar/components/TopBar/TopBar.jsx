@@ -17,6 +17,7 @@ const TopBar = ({ getComponent }) => {
   const AggregateMenu = getComponent('TopBarAggregateMenu', true);
   const GitHubMenu = getComponent('TopBarGitHubMenu', true);
   const AboutMenu = getComponent('TopBarAboutMenu', true);
+  const ThemeToggle = getComponent('ThemeToggle', true);
 
   // Whether the full row of menus fits is content-dependent (how many
   // Generate Server/Client variants are showing for the current spec
@@ -91,17 +92,20 @@ const TopBar = ({ getComponent }) => {
       <div className="swagger-editor__top-bar-row">
         <Logo />
         {isCompact && (
-          <button
-            type="button"
-            className="swagger-editor__top-bar-hamburger"
-            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={isMenuOpen}
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
+          <div className="swagger-editor__top-bar-row-end">
+            <ThemeToggle />
+            <button
+              type="button"
+              className="swagger-editor__top-bar-hamburger"
+              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMenuOpen}
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          </div>
         )}
       </div>
       {(!isCompact || isMenuOpen) && (
@@ -111,6 +115,18 @@ const TopBar = ({ getComponent }) => {
           })}
         >
           {menuItems}
+        </div>
+      )}
+      {/* Wide screens: -row-end sits here as a direct child of -top-bar
+          (rather than nested inside -top-bar-row, as it is when isCompact)
+          so the direct-child margin-left: auto rule in _top-bar.scss pushes
+          it flush to the far right of the whole bar, after the menu items --
+          matching where it already sits on mobile (there it's pushed right
+          by -top-bar-row's own space-between once that row is flexed to
+          fill the compact bar). */}
+      {!isCompact && (
+        <div className="swagger-editor__top-bar-row-end">
+          <ThemeToggle />
         </div>
       )}
     </div>

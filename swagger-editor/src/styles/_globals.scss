@@ -1,3 +1,53 @@
+// Theme variables. Defined on :root as the light (default) palette, so
+// anything using var(--se-*) works correctly even before the `theme`
+// plugin's scope element mounts. The dark palette is the same set of
+// custom properties, redefined wherever the resolved theme is 'dark' --
+// see the mixin below and its two call sites: the app's own root (theme
+// plugin's SwaggerEditorLayoutWrapper) and react-modal's portal (theme
+// plugin's Modal wrapper), which renders as a DOM sibling of the app root
+// and so needs its own copy of the same override to inherit from.
+:root {
+  --se-color-surface: #ffffff;
+  --se-color-surface-muted: #f5f5f5;
+  --se-color-border: #e0e0e0;
+  --se-color-text: #3b4151;
+  --se-color-text-muted: #758491;
+  --se-color-hover: #e0e0e0;
+}
+
+@mixin se-dark-theme-vars {
+  // Matches swagger-ui-react's own dark-mode palette (its `html.dark-mode
+  // .swagger-ui { background:#1c2022; color:#e4e6e6 }` and friends) so the
+  // app chrome (modals, dropdown menus, editor pane bar, validation table)
+  // and the preview pane read as one palette instead of two similar but
+  // distinct dark grays. Deliberately not applied to the top bar/tab bar
+  // (brand navy, unrelated to swagger-ui-react) or to Monaco's own theme
+  // (see themes/se-vs-dark.js -- a separately-tuned syntax-highlighting
+  // palette, not just a background color).
+  --se-color-surface: #1c2022;
+  // Lighter than --se-color-surface, not darker: on a light page a subtle
+  // *darker* tint reads as a sunken panel, but the same trick barely
+  // registers against an already-dark page -- an elevated card needs to
+  // go the other way (lighter than what it sits on) to actually be
+  // visible, same as Material Design's dark-theme elevation convention
+  // (and what swagger-ui-react's own section.models .model-container does).
+  --se-color-surface-muted: #2a2e30;
+  --se-color-border: #545d61;
+  --se-color-text: #e4e6e6;
+  --se-color-text-muted: #b7bcbf;
+  --se-color-hover: #33383b;
+}
+
+.swagger-editor__theme-root[data-theme='dark'],
+.ReactModalPortal.swagger-editor__theme-dark {
+  @include se-dark-theme-vars;
+  // Tells the browser to draw its own native form-control chrome (select
+  // dropdown arrows, checkbox/radio ticks, scrollbars) in dark-appropriate
+  // colors -- without this, a <select> recolored via CSS keeps its
+  // light-mode arrow glyph, which renders dark-on-dark and disappears.
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   padding: 0;

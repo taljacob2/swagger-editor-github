@@ -19,8 +19,9 @@
   left: 50%;
   transform: translate(-50%, -50%);
 
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background-color: rgb(255, 255, 255);
+  border: 1px solid var(--se-color-border);
+  background-color: var(--se-color-surface);
+  color: var(--se-color-text);
   overflow: auto;
   border-radius: 0.3rem;
   outline: none;
@@ -89,7 +90,7 @@
 .modal-header .close {
   padding: 0.8rem;
   margin: -1rem -2rem -1rem auto;
-  color: #758491;
+  color: var(--se-color-text-muted);
   font-size: 1.0rem; // ref 15px
 
   @include mobile {
@@ -153,7 +154,7 @@
 .btn {
   display: inline-block;
   font-weight: 400;
-  color: #212529;
+  color: var(--se-color-text);
   text-align: center;
   vertical-align: middle;
   -webkit-user-select: none;
@@ -217,16 +218,16 @@ button.close {
   text-align: left;
   letter-spacing: 0px;
   font-size: 0.8rem;
-  color: #758491;
+  color: var(--se-color-text-muted);
   opacity: 1;
 }
 
 .input-group input {
-  background: #FFFFFF 0% 0% no-repeat padding-box;
-  border: 1px solid #B6BECB;
+  background: var(--se-color-surface) 0% 0% no-repeat padding-box;
+  border: 1px solid var(--se-color-border);
   border-radius: 4px;
   font-size: 0.8rem;
-  color: #758491;
+  color: var(--se-color-text);
   line-height: 1.5;
   padding: 0.375rem 0.75rem;
   opacity: 1;
@@ -240,11 +241,11 @@ button.close {
 .help-block {
   margin: 0.4rem 0 0;
   padding-left: 0.6rem;
-  border-left: 2px solid #B6BECB;
+  border-left: 2px solid var(--se-color-border);
   border-radius: 0;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: #8E99AB;
+  color: var(--se-color-text-muted);
 
   // When a field has more than one hint (e.g. a generic note plus an
   // intent-specific one), stack them closer to each other than either

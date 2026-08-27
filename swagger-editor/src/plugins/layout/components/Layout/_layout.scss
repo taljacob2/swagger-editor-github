@@ -23,7 +23,7 @@
 
     .Pane {
       overflow-y: scroll;
-      background-color: #FFFFFF;
+      background-color: var(--se-color-surface);
     }
 
     .dropzone {

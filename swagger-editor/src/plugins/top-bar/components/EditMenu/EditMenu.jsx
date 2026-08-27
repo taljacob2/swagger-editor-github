@@ -5,7 +5,7 @@ import EditMenuHandler from './EditMenuHandler.jsx';
 
 const EditMenu = (props) => {
   const { getComponent } = props;
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const ClearMenuItem = getComponent('TopBarEditMenuClearMenuItem', true);
   const ConvertToJSONMenuItem = getComponent('TopBarEditMenuConvertToJSONMenuItem', true);
   const ConvertToYAMLMenuItem = getComponent('TopBarEditMenuConvertToYAMLMenuItem', true);

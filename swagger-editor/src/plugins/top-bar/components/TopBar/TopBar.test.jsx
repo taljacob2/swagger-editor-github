@@ -34,6 +34,7 @@ const stubComponents = {
   TopBarAggregateMenu: StubMenu('Aggregate'),
   TopBarGitHubMenu: StubMenu('GitHub'),
   TopBarAboutMenu: StubMenu('About'),
+  ThemeToggle: StubMenu('ThemeToggle'),
 };
 
 const getComponent = (name) => stubComponents[name];

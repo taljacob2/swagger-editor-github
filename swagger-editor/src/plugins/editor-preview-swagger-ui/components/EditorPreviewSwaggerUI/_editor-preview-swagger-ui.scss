@@ -2,3 +2,23 @@
   &__editor-preview-swagger-ui {
   }
 }
+
+// Dark mode for swagger-ui-react itself is NOT handled here -- it ships its
+// own complete dark theme (swagger-ui-react/swagger-ui.css's
+// `html.dark-mode .swagger-ui { ... }` rules, ~250 selectors covering
+// .info, .opblock*, .model-box, section.models, the Authorize dialog,
+// buttons, form controls, etc.), gated on a `dark-mode` class the `theme`
+// plugin toggles on <html> directly (see SwaggerEditorLayoutWrapper.jsx --
+// that selector requires the class specifically on the root element, not
+// just an ancestor of .swagger-ui, so there's no lower-DOM way to scope it).
+//
+// An earlier version of this file duplicated a lot of that work by hand
+// with our own --se-color-* variables, discovered only after several
+// rounds of "still doesn't look right" -- that approach was strictly worse
+// (partial coverage, and it loaded after swagger-ui-react's own CSS, so on
+// any selector both touched, ours silently won over its better-tuned
+// colors). Removed in favor of deferring to upstream entirely.
+//
+// The API Design Systems preview (editor-preview-api-design-systems)
+// deliberately reuses these same swagger-ui-react classes for its own
+// markup -- see its Main.jsx -- and gets this same dark theme for free.

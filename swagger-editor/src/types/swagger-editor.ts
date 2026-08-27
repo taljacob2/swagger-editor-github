@@ -12,6 +12,7 @@ enum pluginNames {
   Modals = 'Modals',
   Dialogs = 'Dialogs',
   DropdownMenu = 'DropdownMenu',
+  Theme = 'Theme',
   Dropzone = 'Dropzone',
   Versions = 'Versions',
   EditorTextarea = 'EditorTextarea',

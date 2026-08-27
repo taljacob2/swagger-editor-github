@@ -6,7 +6,7 @@ import AggregateMenuHandler from './AggregateMenuHandler.jsx';
 const AggregateMenu = (props) => {
   const { getComponent } = props;
   const aggregateMenuHandler = useRef(null);
-  const DropdownMenu = getComponent('DropdownMenu');
+  const DropdownMenu = getComponent('DropdownMenu', true);
   const DropdownMenuItem = getComponent('DropdownMenuItem');
 
   const handleManageSetsClick = useCallback(() => {
