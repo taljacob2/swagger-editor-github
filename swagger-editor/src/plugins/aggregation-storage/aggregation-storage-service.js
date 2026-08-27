@@ -135,6 +135,34 @@ export function moveSwaggerUrl(swaggerUrls, index, direction) {
   return next;
 }
 
+// A live hint while typing/pasting a swagger URL, not a hard validation --
+// this repo has already seen a URL get pasted with its tail cut off
+// somewhere upstream (an address bar or link label that visually elides
+// long text, copied instead of using "copy link address"), which surfaces
+// much later and far more confusingly as a CORS error or a 404 on a
+// mangled Contents API path. Anything not ending in a recognized spec-file
+// extension is flagged -- a truncated URL falls out of this check for free
+// (it just happens to have no extension at its cut-off point), without
+// needing a separate "does this look cut off" heuristic of its own.
+const SPEC_FILE_EXTENSION_RE = /\.(ya?ml|json)$/i;
+
+export function getSwaggerUrlWarning(url) {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return null;
+  }
+  let pathname;
+  try {
+    ({ pathname } = new URL(trimmed));
+  } catch {
+    return "Doesn't look like a valid URL.";
+  }
+  if (!SPEC_FILE_EXTENSION_RE.test(pathname)) {
+    return "Doesn't look like it points to a spec file (expected it to end in .yaml, .yml, or .json) — if you pasted this, double-check it wasn't cut off.";
+  }
+  return null;
+}
+
 async function ghRequest(path, { connection, method = 'GET', body, allow404 = false } = {}) {
   // Omit Authorization entirely when there's no token, rather than sending an
   // empty bearer value — GitHub treats a malformed token as bad credentials
