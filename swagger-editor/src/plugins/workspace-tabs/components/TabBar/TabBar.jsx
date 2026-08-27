@@ -15,7 +15,7 @@ import {
   setTabContent,
 } from '../../workspace-tabs-service.js';
 
-const TabBar = ({ editorActions, EditorContentOrigin }) => {
+const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent }) => {
   const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -80,6 +80,14 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   // `workspace`, or it would save a stale snapshot over that content the
   // moment a tab is added/closed/switched/renamed.
   const applyWorkspace = (next, { activateContentFor } = {}) => {
+    // Flush (not cancel) any keystroke from the *currently* active tab that's
+    // still sitting in the shared setContentDebounced timer -- it's keyed
+    // globally, not per tab, so left pending it would otherwise land after
+    // this switch and overwrite whichever tab becomes active next with this
+    // tab's stale content (see flushPendingSetContent's own comment). Doing
+    // this before saveWorkspaceMeta below is what makes the flush apply to
+    // the outgoing tab rather than the incoming one.
+    flushPendingEditorContent?.();
     saveWorkspaceMeta(next);
     setWorkspace(next);
     if (activateContentFor) {
@@ -348,6 +356,7 @@ TabBar.propTypes = {
   EditorContentOrigin: PropTypes.shape({
     LocalStorage: PropTypes.string.isRequired,
   }).isRequired,
+  flushPendingEditorContent: PropTypes.func,
 };
 
 export default TabBar;

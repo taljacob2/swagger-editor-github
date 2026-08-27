@@ -105,6 +105,35 @@ describe('TabBar', () => {
     expect(workspaceTabsService.removeTabContent).not.toHaveBeenCalled();
   });
 
+  test('switching tabs flushes a pending debounced content write before activating the next tab (regression: a stale keystroke from the outgoing tab used to land on the new tab after the switch)', () => {
+    const flushPendingEditorContent = vi.fn();
+    render(
+      <TabBar
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+        flushPendingEditorContent={flushPendingEditorContent}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Tab 2'));
+
+    expect(flushPendingEditorContent).toHaveBeenCalledTimes(1);
+    // Order matters: flushing has to happen while "Tab 1" is still the
+    // active tab, i.e. strictly before the new tab's content is pushed in --
+    // otherwise the flush's own setContent call (carrying Tab 1's content)
+    // would be mistaken for Tab 2's and overwrite it.
+    expect(flushPendingEditorContent.mock.invocationCallOrder[0]).toBeLessThan(
+      editorActions.setContent.mock.invocationCallOrder[0]
+    );
+  });
+
+  test('is unaffected when no flushPendingEditorContent prop is supplied', () => {
+    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+
+    expect(() => fireEvent.click(screen.getByText('Tab 2'))).not.toThrow();
+    expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
+  });
+
   test('the "+" button adds a new blank tab and activates it', () => {
     render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
 
