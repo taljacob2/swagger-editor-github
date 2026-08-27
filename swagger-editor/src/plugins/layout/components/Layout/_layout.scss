@@ -1,14 +1,37 @@
 .swagger-editor {
   &__layout {
+    // Establishes this as the containing block .SplitPane's position:
+    // absolute resolves against (see below) -- without it, no ancestor in
+    // the chain up to <body> sets a non-static position, so the browser
+    // falls back to the initial containing block, i.e. the *live* viewport.
+    // On mobile that live viewport height changes as the browser chrome
+    // (address bar) collapses/expands mid-scroll -- including from a
+    // scroll gesture inside the preview pane's own internal scroll area,
+    // not just the page itself -- which was directly resizing .SplitPane
+    // and visibly shifting the editor/preview boundary while the user was
+    // just trying to read the preview.
+    //
+    // 100svh (small viewport height: the size with browser chrome fully
+    // *shown*, i.e. the smallest it ever is) instead of 100vh/100dvh pins
+    // this to the one value that's stable across the whole chrome show/
+    // hide range -- some empty space can appear below the split once the
+    // chrome hides, but the layout itself never has to resize to account
+    // for it. Plain 100vh first as a fallback for browsers that don't
+    // support small-viewport units (an invalid value is ignored, not
+    // applied, so the earlier declaration stands).
+    position: relative;
+    height: 100vh;
+    height: 100svh;
 
     .SplitPane {
       height: #{"calc(100% - 54px - 40px)"} !important;
       // react-collapse-pane's own styles set min-height: 100% for a
-      // horizontal split (used on mobile, see Layout.jsx) -- with .dropzone/
-      // .container unpositioned, that 100% resolves against the viewport,
-      // not this element's actual containing block, and (being a min-height)
-      // wins over the explicit height above unless neutralized here. Vertical
-      // split has no such min-height rule, so this is a no-op there.
+      // horizontal split (used on mobile, see Layout.jsx) -- that 100%
+      // resolves against this element's containing block (.swagger-editor
+      // __layout, see its own position: relative above) and, being a
+      // min-height, wins over the explicit height above unless neutralized
+      // here. Vertical split has no such min-height rule, so this is a
+      // no-op there.
       min-height: 0 !important;
       // Vertical split leaves top/bottom as 'auto', so the browser derives
       // top from this element's normal-flow (static) position -- correctly
