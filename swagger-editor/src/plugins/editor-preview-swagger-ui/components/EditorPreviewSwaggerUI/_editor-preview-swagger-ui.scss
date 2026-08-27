@@ -22,3 +22,19 @@
 // The API Design Systems preview (editor-preview-api-design-systems)
 // deliberately reuses these same swagger-ui-react classes for its own
 // markup -- see its Main.jsx -- and gets this same dark theme for free.
+//
+// One confirmed exception (checked directly against the installed
+// swagger-ui-react/swagger-ui.css): `.swagger-ui table.headers td` -- the
+// Name/Type cells of a response's "Headers" table -- has exactly one color
+// rule in the whole stylesheet, the light-mode `#3b4151`, with no
+// `html.dark-mode` variant anywhere to swap it out. Every other cell in that
+// same table (the th column headers, and the Description cell's own
+// Markdown-rendered content) *does* get a dark-mode color, so this isn't
+// "dark mode not fully wired up" on our end -- it's one selector upstream
+// never covered, and there's nothing of theirs to conflict with by patching
+// it here. --se-color-text's dark value (#e4e6e6) is exactly the same color
+// swagger-ui-react itself uses as its own dark-mode base text color, so this
+// matches their palette rather than introducing a different one.
+html.dark-mode .swagger-ui table.headers td {
+  color: var(--se-color-text);
+}
