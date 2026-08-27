@@ -13,6 +13,49 @@
   margin-bottom: 1rem;
 }
 
+// Each option is a <label> (see GitHubMenuHandler.jsx) inside the
+// fieldset's own .input-group class, so _modal.scss's `.input-group label`
+// rule -- compiled to `.ReactModalPortal .input-group label`, 2 classes +
+// 1 element -- matches it too, and its `display: inline-block` beat a
+// plain `.swagger-editor__intent-option { display: flex; ... }` (1 class):
+// the option never actually became a flex container at all. Per the CSS
+// Display spec, an inline-level display value on a grid item (this label
+// sits inside .intent-grid, display: grid) gets "blockified" to its block
+// equivalent -- inline-block becomes plain block -- which is what actually
+// rendered: the radio stacking on its own line above the text instead of
+// beside it, align-items having no effect since there was no flex box for
+// it to apply to. This was true through both the first (PR #15) and second
+// (PR #17) radio redesigns; neither ever visually applied for exactly this
+// reason, which is why the option box didn't look different before/after.
+//
+// Matching `.ReactModalPortal .input-group label` here too, plus the
+// option's own class, gets this to 3 classes + 1 element, which reliably
+// beats the 2-class + 1-element competing rule regardless of import order
+// (a tie on classes would still lose on the element count, so the extra
+// class is required, not just `.ReactModalPortal` on its own).
+.ReactModalPortal .input-group label.swagger-editor__intent-option {
+  display: flex;
+  // Centers the radio (see the .ReactModalPortal-prefixed rule below)
+  // against this option's full height -- title and description together --
+  // rather than just the title's first line, so it stays visually anchored
+  // to the block regardless of how many lines the title wraps to.
+  align-items: center;
+  gap: 0.6rem;
+  // A touch more vertical padding than the row-end fits alone would need --
+  // with the radio centered on the option's full height instead of pinned
+  // to the top, the shortest (unwrapped) options would otherwise read as
+  // visually cramped against the card's own top/bottom edges.
+  padding: 0.65rem 0.75rem;
+  // The competing rule above also sets a 0.5rem bottom margin (meant for
+  // the modal's other, single-line field labels) -- left alone, it stacks
+  // on top of .intent-grid's own row-gap between options, doubling the gap.
+  // .intent-grid's row-gap is the one place that spacing should come from.
+  margin: 0;
+  border: 1px solid #b6becb;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 // Same specificity trap as .help-block above: _modal.scss's
 // `.input-group input` rule (this fieldset also carries .input-group, for
 // the shared text-input styling elsewhere in this modal) compiles to
@@ -116,24 +159,6 @@
   }
 
   &__intent-option {
-    display: flex;
-    // Centers the radio (see the .ReactModalPortal-prefixed rule above)
-    // against this option's full height -- title and description
-    // together -- rather than just the title's first line, so it stays
-    // visually anchored to the block regardless of how many lines the
-    // title wraps to.
-    align-items: center;
-    gap: 0.6rem;
-    // A touch more vertical padding than the row-end fits alone would
-    // need -- with the radio now centered on the option's full height
-    // instead of pinned to the top, the shortest (unwrapped) options
-    // would otherwise read as visually cramped against the card's own
-    // top/bottom edges.
-    padding: 0.65rem 0.75rem;
-    border: 1px solid #b6becb;
-    border-radius: 4px;
-    cursor: pointer;
-
     &:hover {
       border-color: #00a0b4;
     }
@@ -143,10 +168,9 @@
       background-color: rgba(0, 160, 180, 0.06);
     }
 
-    // The radio's own styling lives in a standalone .ReactModalPortal-
-    // prefixed rule below (see the comment there) -- it can't be nested
-    // here, since .ReactModalPortal needs to be an *ancestor* of
-    // .swagger-editor in the compiled selector, not inside it.
+    // The box layout itself (display: flex and everything that depends on
+    // it) lives in a standalone .ReactModalPortal-prefixed rule below, not
+    // here -- see the comment there for why.
   }
 
   &__intent-option-text {
