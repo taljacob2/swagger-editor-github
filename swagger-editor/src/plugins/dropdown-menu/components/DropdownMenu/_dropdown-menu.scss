@@ -482,4 +482,30 @@
     padding-left: 1rem !important;
     padding-right: 0 !important;
   }
+
+  // Hairline row separators, same reasoning as the top-level hamburger
+  // list itself (see _top-bar.scss's --compact): each item's own generous
+  // 1em vertical padding (the base dd-menu library's tap-target sizing)
+  // reads as isolated floating text with no divider between rows -- most
+  // visible in a long, flat list like Generate Server/Client's framework
+  // names, but applies to every opened dropdown here, not just .long.
+  //
+  // Targets the *direct children* of the list (the adjacent-sibling
+  // combinator) rather than `li:not(:first-child)` -- a regular item
+  // (DropdownMenuItem.jsx) renders as `<div><li>...</li></div>`, so every
+  // `<li>` is its own wrapper div's *only* child and `:first-child` would
+  // match (and so exempt from the border) every single one, not just the
+  // first in the visible list. A nested item (DropdownMenuNested.jsx) has
+  // no such wrapper div, rendering `<li>` directly -- `* + *` still works
+  // uniformly across both shapes since it only cares about the list's own
+  // direct children, not each item's internal structure.
+  .dd-menu .dd-menu-items ul > * + *,
+  .dd-menu .dd-menu-items ol > * + * {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .dd-menu.dd-menu-inverse .dd-menu-items ul > * + *,
+  .dd-menu.dd-menu-inverse .dd-menu-items ol > * + * {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
 }
