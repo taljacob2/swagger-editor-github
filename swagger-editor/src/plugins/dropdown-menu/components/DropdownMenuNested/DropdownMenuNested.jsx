@@ -40,10 +40,36 @@ const DropdownMenuNested = ({ children = [], label, isLong = false }) => {
       onMouseEnter={handleOpen}
       onMouseLeave={handleClose}
     >
-      <button type="button" onClick={handleToggleClick}>
+      {/* Named for tests/CSS to target the trigger specifically -- since
+          the "‹ Back" header below repeats the same label text, plain
+          text queries (e.g. testing-library's getByText) now match both. */}
+      <button type="button" className="nested-dd-menu-trigger" onClick={handleToggleClick}>
         {label}&nbsp;&nbsp;<b>&gt;</b>
       </button>
-      <span className="dd-item-ignore">{isOpen && <ul>{children}</ul>}</span>
+      {/* Always mounted (not conditional on isOpen) so compact mode (see
+          _dropdown-menu.scss) can transition it in as a sliding full-panel
+          screen -- same reasoning as DropdownMenu.jsx's own dd-menu-items.
+          `dd-item-ignore` itself is a marker the base dd-menu library CSS
+          already keys off (excludes this from the plain-row padding it
+          gives every other `li > *`); the open state gets its own
+          modifier class alongside it. */}
+      <span
+        className={classNames('dd-item-ignore', { 'dd-item-ignore--open': isOpen })}
+        aria-hidden={!isOpen || undefined}
+        inert={!isOpen ? '' : undefined}
+      >
+        <button
+          type="button"
+          className="dd-menu-items__back"
+          onClick={(event) => {
+            event.stopPropagation();
+            handleClose();
+          }}
+        >
+          <span aria-hidden="true">‹</span> {label}
+        </button>
+        <ul>{children}</ul>
+      </span>
     </li>
   );
 };

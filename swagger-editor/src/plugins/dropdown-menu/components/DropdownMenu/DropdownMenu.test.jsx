@@ -30,7 +30,7 @@ describe('DropdownMenu', () => {
         <li>Item</li>
       </DropdownMenu>
     );
-    fireEvent.click(screen.getByText('File'));
+    fireEvent.click(screen.getByText('File', { selector: '.menu-item' }));
 
     const items = document.querySelector('.dd-menu-items');
     expect(items.style.transform).toBe('');
@@ -48,7 +48,7 @@ describe('DropdownMenu', () => {
         <li>csharp</li>
       </DropdownMenu>
     );
-    fireEvent.click(screen.getByText('Generate Client'));
+    fireEvent.click(screen.getByText('Generate Client', { selector: '.menu-item' }));
 
     const items = document.querySelector('.dd-menu-items');
     // Right edge (1159) should land at 920 - 16 = 904, a -255px shift.
@@ -68,7 +68,7 @@ describe('DropdownMenu', () => {
         <li>csharp</li>
       </DropdownMenu>
     );
-    fireEvent.click(screen.getByText('Generate Client'));
+    fireEvent.click(screen.getByText('Generate Client', { selector: '.menu-item' }));
 
     const items = document.querySelector('.dd-menu-items');
     // Left edge (50) should land at exactly the 16px margin: a +(-34)px,
@@ -87,12 +87,12 @@ describe('DropdownMenu', () => {
     );
 
     window.innerWidth = 350;
-    fireEvent.click(screen.getByText('File'));
+    fireEvent.click(screen.getByText('File', { selector: '.menu-item' }));
     expect(document.querySelector('.dd-menu-items').style.transform).not.toBe('');
 
-    fireEvent.click(screen.getByText('File'));
+    fireEvent.click(screen.getByText('File', { selector: '.menu-item' }));
     window.innerWidth = 1000;
-    fireEvent.click(screen.getByText('File'));
+    fireEvent.click(screen.getByText('File', { selector: '.menu-item' }));
     expect(document.querySelector('.dd-menu-items').style.transform).toBe('');
   });
 });

@@ -367,6 +367,32 @@
   top: 0;
 }
 
+// DropdownMenu.jsx and DropdownMenuNested.jsx always mount their items
+// panel now (instead of conditionally rendering it only while open), so a
+// CSS transition can play it in/out in compact mode (see the --compact
+// block below) -- a transition can't run on an element that wasn't in the
+// DOM the frame before. This replaces that conditional mount with the
+// same net effect via plain display: none/block, keyed off the open
+// modifier class each component adds -- nothing here is visible or
+// focusable while closed, on desktop or compact alike.
+.dd-menu .dd-menu-items,
+.dd-menu li.nested-dd-menu > span.dd-item-ignore {
+  display: none;
+}
+
+.dd-menu .dd-menu-items.dd-menu-items--open,
+.dd-menu li.nested-dd-menu > span.dd-item-ignore.dd-item-ignore--open {
+  display: block;
+}
+
+// The "‹ Back" header each panel now renders as its first child only
+// matters once compact mode turns the panel into a full-screen drill-down
+// (see --compact below) -- desktop's panel still opens as a small flyout
+// beneath its trigger, where a back button serves no purpose.
+.dd-menu-items__back {
+  display: none;
+}
+
 .dd-menu {
   &.long {
     display: flex;
@@ -425,62 +451,137 @@
 // GitHub/About), so they key off .swagger-editor__top-bar--compact -- the
 // same measured "does the row actually fit" state the top bar itself
 // switches to a hamburger under (see useOverflowCompact.js), rather than a
-// static breakpoint. Every size variant above (dd-menu-sm/-md/-lg/-xl/
-// .long) is a fixed pixel width (150-700px) anchored via position: absolute
-// to its trigger; in compact mode the triggers themselves are stacked
-// vertically inside the hamburger panel (see TopBar.jsx / _top-bar.scss's
-// --compact), at very different heights, so a panel anchored to the
-// *viewport* instead of its own trigger (an earlier version of this rule)
-// always opened in the same spot near the top of the screen regardless of
-// which item -- File or About -- was actually tapped. Stay position:
-// absolute (i.e. don't touch it) so it keeps anchoring to its trigger's
-// actual position like the wide-screen behavior above, and only override
-// the parts that caused off-screen/overflowing panels: full width instead
-// of a fixed 150-700px, and no horizontal escape.
+// static breakpoint.
+//
+// Rather than opening beneath its trigger (the wide-screen flyout above),
+// a panel here becomes a full-screen drill-down: it slides in from the
+// right to replace the hamburger list entirely, with a "‹ Back" header
+// (rendered by DropdownMenu.jsx/DropdownMenuNested.jsx, hidden on desktop)
+// to return. A long, flat list like Generate Server's 17 frameworks, or a
+// nested one like File > Load Example, no longer has to share scroll
+// space with everything above and below it in one long inline list --
+// each screen shows only its own items.
 .swagger-editor__top-bar--compact {
-  .dd-menu .dd-menu-items {
-    left: 0 !important;
-    right: 0 !important;
-    width: auto !important;
+  .dd-menu .dd-menu-items,
+  .dd-menu li.nested-dd-menu > span.dd-item-ignore {
+    // Laid out (unlike the desktop display: none/block toggle above) so
+    // the slide-in below can transition it, but pushed off-screen to the
+    // right and non-interactive until opened.
+    //
+    // Animates `left` rather than `transform: translateX()` -- a non-none
+    // transform on an element makes it the *containing block* for any
+    // position: fixed descendant of its own (per spec), which would hijack
+    // a nested drill-down screen (Load Example's own panel, position:
+    // fixed too) into being sized/painted relative to File's panel instead
+    // of the real viewport. Both screens need to stay independent fixed
+    // overlays -- e.g. Load Example's Back button must stay clickable on
+    // top of File's, not have File's panel capture the pointer events
+    // meant for it, which is exactly what that hijack caused.
+    display: block;
+    position: fixed;
+    // Matches the hamburger panel's own top offset (see &--compact in
+    // _top-bar.scss, which hardcodes the same 54px top-bar height for the
+    // same reason: nothing shorter than the full app shell exposes this
+    // as a shared constant to pull from instead).
+    top: 54px;
+    bottom: 0;
+    left: 100%;
+    width: 100%;
+    // !important on both: an earlier "defense in depth" rule
+    // (.dd-menu .dd-menu-items { margin/max-width ... !important }, a
+    // little further up this file) caps every panel at calc(100vw - 2rem)
+    // with a 1.1rem top margin so a desktop flyout can never push past
+    // either screen edge -- exactly what a full-bleed, edge-to-edge
+    // compact drill-down screen needs to override.
     max-width: none !important;
-    // No fixed viewport-relative cap makes sense here since the trigger's
-    // own height varies -- rely mostly on the hamburger panel's own scroll
-    // (see --compact in _top-bar.scss) and just keep this from being
-    // taller than the screen on its own.
-    max-height: calc(100vh - 8rem) !important;
-    overflow-y: auto !important;
+    max-height: none;
+    margin: 0 !important;
+    background-color: #173647;
+    overflow-y: auto;
     // Without an explicit overflow-x, the browser auto-promotes it from
     // visible to auto too (CSS Overflow spec: an axis left visible next to
     // a scrolling one becomes auto), showing a horizontal scrollbar for
     // even a sliver of overflow. Pin it to hidden explicitly.
-    overflow-x: hidden !important;
+    overflow-x: hidden;
+    transition: left 0.25s ease;
+    visibility: hidden;
+    // Cancels DropdownMenu.jsx's own inline shift-to-fit-viewport style
+    // (an unrelated desktop-only fix for a flyout overflowing a screen
+    // edge -- see its useLayoutEffect) -- left uneffected here, a full-
+    // width compact panel would still measure as "overflowing" by a few
+    // px against that logic and pick up a small, unwanted extra shift.
     transform: none !important;
   }
 
-  .dd-menu.long {
-    max-width: none;
+  .dd-menu .dd-menu-items.dd-menu-items--open,
+  .dd-menu li.nested-dd-menu > span.dd-item-ignore.dd-item-ignore--open {
+    left: 0;
+    visibility: visible;
+  }
 
-    .dd-menu-items .dd-items-left {
-      flex-direction: column;
-      max-height: none;
-
-      li {
-        flex: 1 1 100%;
-      }
+  @media (prefers-reduced-motion: reduce) {
+    .dd-menu .dd-menu-items,
+    .dd-menu li.nested-dd-menu > span.dd-item-ignore {
+      transition: none;
     }
   }
 
-  // Nested submenus (e.g. "Load Example") normally fly out to the side of
-  // their parent panel via absolute positioning -- against an already
-  // viewport-clamped parent, that would just push them off-screen again.
-  // Render them in normal flow, indented under their parent item, instead.
-  .dd-menu .dd-menu-items .nested-dd-menu > span {
-    position: static !important;
-    left: auto !important;
-    right: auto !important;
-    top: auto !important;
-    padding-left: 1rem !important;
-    padding-right: 0 !important;
+  .dd-menu.long .dd-menu-items .dd-items-left {
+    flex-direction: column;
+    max-height: none;
+    // The .long variant's own top margin (a little further up this file)
+    // is meant to clear a flyout's rounded corner on desktop -- against
+    // the "‹ Back" header here, it just reads as a stray gap of empty
+    // background before the first row.
+    margin-top: 0 !important;
+
+    li {
+      flex: 1 1 100%;
+    }
+  }
+
+  // The "‹ Back" header: a full-width row above the list, styled to read
+  // as a screen title rather than just another menu item.
+  .dd-menu-items__back {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+
+    span {
+      font-size: 1.3rem;
+      font-weight: 400;
+      line-height: 1;
+    }
+  }
+
+  // Hides every sibling trigger while one of them is drilled into, so the
+  // full-screen panel doesn't share the list with anything else -- :has()
+  // keeps this pure CSS (no shared state needed between sibling
+  // DropdownMenu instances, each of which still just tracks its own
+  // isOpen, same as before).
+  .swagger-editor__top-bar-wrapper--compact:has(.dd-menu-items--open)
+    > .dd-menu:not(:has(> .dd-menu-items--open)) {
+    display: none;
+  }
+
+  // The open one's own trigger label sits underneath its own now-fixed,
+  // full-screen panel -- fully covered visually, but still hide it (like
+  // the siblings above) so it isn't reachable by keyboard or a screen
+  // reader while its panel is showing. Same idea one level deeper, for a
+  // nested trigger (e.g. "Load Example") whose own panel is open.
+  .dd-menu:has(> .dd-menu-items--open) > .menu-item,
+  .dd-menu li.nested-dd-menu:has(> span.dd-item-ignore--open) > button {
+    display: none;
   }
 
   // Hairline row separators, same reasoning as the top-level hamburger
