@@ -1,7 +1,14 @@
 .ReactModal__Overlay {
   opacity: 0;
   transition: opacity 200ms ease-in-out;
-  z-index: 1000;
+  // Modals must always sit above every other overlay in the app, including
+  // the mobile hamburger panel (.swagger-editor__top-bar-wrapper--compact,
+  // z-index: 10000) and its dd-menu submenus (z-index: 10001) -- a menu
+  // item inside that panel can open a modal without the panel itself
+  // closing (it only closes on an outside click, and the tap that opened
+  // the modal was an *inside* click), so the modal has to outrank it
+  // regardless of whether the panel happens to still be open behind it.
+  z-index: 20000;
 }
 
 .ReactModal__Overlay--after-open {
