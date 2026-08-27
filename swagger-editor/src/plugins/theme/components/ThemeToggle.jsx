@@ -1,12 +1,11 @@
 import PropTypes from 'prop-types';
-import { SunIcon, MoonIcon, ColumnsIcon, DeviceDesktopIcon } from '@primer/octicons-react';
+import { SunIcon, MoonIcon, ColumnsIcon } from '@primer/octicons-react';
 
-// light -> semi-dark -> dark -> system -> light ...
+// light -> semi-dark -> dark -> light ...
 const NEXT_MODE = {
   light: 'semi-dark',
   'semi-dark': 'dark',
-  dark: 'system',
-  system: 'light',
+  dark: 'light',
 };
 
 const MODE_ICON = {
@@ -16,14 +15,12 @@ const MODE_ICON = {
   // preview pane genuinely disagree (editor dark, preview light), unlike
   // every other mode where a single icon can stand for the whole app.
   'semi-dark': ColumnsIcon,
-  system: DeviceDesktopIcon,
 };
 
 const MODE_LABEL = {
   light: 'Light theme',
   dark: 'Dark theme',
   'semi-dark': 'Semi-dark theme (dark editor, light preview)',
-  system: 'System default theme',
 };
 
 const ThemeToggle = ({ editorSelectors, editorActions }) => {
