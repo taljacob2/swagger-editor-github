@@ -38,3 +38,22 @@
 html.dark-mode .swagger-ui table.headers td {
   color: var(--se-color-text);
 }
+
+// Second confirmed exception: inline `code` spans inside Markdown-rendered
+// text (`.markdown code, .swagger-ui .renderedMarkdown code`) get
+// `padding: 5px 7px` from upstream, applied identically in both themes --
+// but the surrounding paragraph never gets a taller `line-height` to make
+// room for it, so the padded chip visually overflows into the line above
+// and below it wherever inline code lands mid-paragraph (e.g. the `info`
+// description's "the api key `special-key`" text). This is present in
+// light mode too, just imperceptible there: the default light background
+// (`rgba(0,0,0,.05)`) barely shows against a white page, while dark mode's
+// near-black chip (`#080a0b`) reads clearly against the dark preview
+// background, which is what actually exposes the overlap. Scoped to dark
+// mode to match that report and stay minimal -- 2 gives the ~26px padded
+// chip (at this 14px font size) comfortable room without overlap.
+html.dark-mode .swagger-ui .markdown p,
+html.dark-mode .swagger-ui .renderedMarkdown p,
+html.dark-mode .swagger-ui .renderedMarkdown li {
+  line-height: 2;
+}
