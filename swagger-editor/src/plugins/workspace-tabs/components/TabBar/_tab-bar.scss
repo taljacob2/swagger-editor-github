@@ -13,9 +13,16 @@
   // the fade overlays below something to anchor to that's exactly the
   // scrollable region's own width (not the whole bar, which also includes
   // the + button).
+  //
+  // flex-grow is 0, not 1: this should only take the *available* width when
+  // the tabs actually need it (shrinking below its content size, via
+  // min-width: 0 below, to make that possible and trigger the scroll
+  // region's own overflow-x once they don't fit) -- not claim leftover
+  // space it has no content for, which would push the + button off to the
+  // far edge of the bar instead of sitting right after the last tab.
   &__tab-bar-scroll-wrapper {
     position: relative;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
   }
 
