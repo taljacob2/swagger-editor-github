@@ -29,6 +29,24 @@ function shouldAttachToken(url, apiBaseUrl) {
   }
 }
 
+// A raw/blob-shaped GitHub URL that parseGitHubFileUrl couldn't rewrite --
+// its host doesn't match either github.com's fixed hosts or the one derived
+// from connection.apiBaseUrl (see github-file-url.js) -- almost always means
+// the spec lives on a different GitHub instance than the one "API base URL"
+// in Connection Settings is currently pointed at (e.g. storage is on
+// github.com but this URL is on a company GHE instance). A plain,
+// unauthenticated fetch to a host in that state fails with a browser-level
+// CORS error, not a normal HTTP error, so there's no response/status to work
+// with here -- just a heuristic on the URL's own shape.
+function looksLikeUnroutedGitHubUrl(url) {
+  try {
+    const { hostname, pathname } = new URL(url);
+    return hostname.startsWith('raw.') || pathname.includes('/blob/');
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchSpec(url, connection) {
   const parsed = parseGitHubFileUrl(url, connection.apiBaseUrl);
   const requestUrl = parsed
@@ -44,7 +62,19 @@ export async function fetchSpec(url, connection) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(requestUrl, { headers });
+  let response;
+  try {
+    response = await fetch(requestUrl, { headers });
+  } catch (networkError) {
+    if (!parsed && looksLikeUnroutedGitHubUrl(requestUrl)) {
+      throw new Error(
+        `Couldn't reach ${new URL(requestUrl).hostname} directly (likely blocked by CORS). ` +
+          "If this spec lives on the same GitHub instance you're connected to, set " +
+          '"API base URL" in Connection Settings to match it, then try again.'
+      );
+    }
+    throw networkError;
+  }
   if (!response.ok) {
     const ssoUrl = parseSsoAuthorizationUrl(response);
     const error = new Error(
