@@ -77,6 +77,15 @@
     align-items: center;
   }
 
+  // Wide screens only: here -row-end is a direct child of -top-bar (see
+  // TopBar.jsx) rather than nested inside -top-bar-row, so this selector
+  // doesn't match the compact-mode instance -- there it's already pushed
+  // to the right for free by -top-bar-row's own space-between once that
+  // row is flexed to fill the bar (see &--compact above).
+  &__top-bar > &__top-bar-row-end {
+    margin-left: auto;
+  }
+
   &__top-bar-theme-toggle {
     display: flex;
     align-items: center;

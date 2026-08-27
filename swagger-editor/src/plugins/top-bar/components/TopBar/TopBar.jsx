@@ -91,9 +91,9 @@ const TopBar = ({ getComponent }) => {
       </div>
       <div className="swagger-editor__top-bar-row">
         <Logo />
-        <div className="swagger-editor__top-bar-row-end">
-          <ThemeToggle />
-          {isCompact && (
+        {isCompact && (
+          <div className="swagger-editor__top-bar-row-end">
+            <ThemeToggle />
             <button
               type="button"
               className="swagger-editor__top-bar-hamburger"
@@ -105,8 +105,8 @@ const TopBar = ({ getComponent }) => {
               <span />
               <span />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       {(!isCompact || isMenuOpen) && (
         <div
@@ -115,6 +115,18 @@ const TopBar = ({ getComponent }) => {
           })}
         >
           {menuItems}
+        </div>
+      )}
+      {/* Wide screens: -row-end sits here as a direct child of -top-bar
+          (rather than nested inside -top-bar-row, as it is when isCompact)
+          so the direct-child margin-left: auto rule in _top-bar.scss pushes
+          it flush to the far right of the whole bar, after the menu items --
+          matching where it already sits on mobile (there it's pushed right
+          by -top-bar-row's own space-between once that row is flexed to
+          fill the compact bar). */}
+      {!isCompact && (
+        <div className="swagger-editor__top-bar-row-end">
+          <ThemeToggle />
         </div>
       )}
     </div>
