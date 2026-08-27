@@ -12,6 +12,7 @@ import {
   doesBranchExist,
   getRepoDefaultBranch,
   getStorageSettings,
+  getSwaggerUrlWarning,
   listAggregationSets,
   moveSwaggerUrl,
   saveAggregationSet,
@@ -235,6 +236,9 @@ const AggregateMenuHandler = forwardRef(
       }));
       setEditingUrlIndex(null);
     };
+
+    const newUrlWarning = getSwaggerUrlWarning(newUrlValue);
+    const editUrlWarning = getSwaggerUrlWarning(editUrlDraft.url);
 
     const handleEditUrlKeyDown = (event) => {
       if (event.key === 'Enter') {
@@ -658,15 +662,22 @@ const AggregateMenuHandler = forwardRef(
                                   // eslint-disable-next-line jsx-a11y/no-autofocus
                                   autoFocus
                                 />
-                                <input
-                                  type="text"
-                                  aria-label="Edit Swagger URL"
-                                  value={editUrlDraft.url}
-                                  onChange={(e) =>
-                                    setEditUrlDraft((prev) => ({ ...prev, url: e.target.value }))
-                                  }
-                                  onKeyDown={handleEditUrlKeyDown}
-                                />
+                                <div className="swagger-editor__aggregate-url-edit-field">
+                                  <input
+                                    type="text"
+                                    aria-label="Edit Swagger URL"
+                                    value={editUrlDraft.url}
+                                    onChange={(e) =>
+                                      setEditUrlDraft((prev) => ({ ...prev, url: e.target.value }))
+                                    }
+                                    onKeyDown={handleEditUrlKeyDown}
+                                  />
+                                  {editUrlWarning && (
+                                    <p className="swagger-editor__aggregate-url-warning">
+                                      {editUrlWarning}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                               <div className="swagger-editor__aggregate-url-actions">
                                 <button
@@ -775,6 +786,9 @@ const AggregateMenuHandler = forwardRef(
                         disabled={editingUrlIndex !== null}
                         onChange={(e) => setNewUrlValue(e.target.value)}
                       />
+                      {newUrlWarning && (
+                        <p className="swagger-editor__aggregate-url-warning">{newUrlWarning}</p>
+                      )}
                     </div>
                     <button
                       type="button"

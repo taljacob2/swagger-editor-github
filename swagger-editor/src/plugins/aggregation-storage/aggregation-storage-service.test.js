@@ -10,6 +10,7 @@ import {
   getAggregationSet,
   getRepoDefaultBranch,
   getStorageSettings,
+  getSwaggerUrlWarning,
   listAggregationSets,
   moveSwaggerUrl,
   saveAggregationSet,
@@ -583,6 +584,40 @@ describe('aggregation-storage-service', () => {
       const input = urls('a', 'b');
       moveSwaggerUrl(input, 0, 'down');
       expect(input.map((e) => e.name)).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('getSwaggerUrlWarning', () => {
+    test('returns null for an empty or whitespace-only value', () => {
+      expect(getSwaggerUrlWarning('')).toBeNull();
+      expect(getSwaggerUrlWarning('   ')).toBeNull();
+    });
+
+    test('returns null for a URL ending in a recognized spec-file extension', () => {
+      expect(getSwaggerUrlWarning('https://example.com/owner/repo/openapi.yaml')).toBeNull();
+      expect(getSwaggerUrlWarning('https://example.com/owner/repo/openapi.yml')).toBeNull();
+      expect(getSwaggerUrlWarning('https://example.com/owner/repo/openapi.json')).toBeNull();
+      // Case-insensitive, and tolerant of a trailing query string.
+      expect(getSwaggerUrlWarning('https://example.com/openapi.YAML')).toBeNull();
+      expect(getSwaggerUrlWarning('https://example.com/openapi.yaml?ref=main')).toBeNull();
+    });
+
+    test('flags a value that is not a valid URL at all', () => {
+      expect(getSwaggerUrlWarning('not a url')).toBe("Doesn't look like a valid URL.");
+    });
+
+    // The exact scenario this was added for: a raw URL pasted with its tail
+    // cut off, which happens to have no extension at the point it was cut.
+    test('flags a URL truncated mid-path, with no extension', () => {
+      expect(
+        getSwaggerUrlWarning(
+          'https://raw.tradeone.ghe.com/ea-financial/platform-market/refs/heads/migrate-swagger-to-'
+        )
+      ).toMatch(/cut off/);
+    });
+
+    test('flags a URL with no recognized spec-file extension', () => {
+      expect(getSwaggerUrlWarning('https://example.com/owner/repo')).toMatch(/spec file/);
     });
   });
 });

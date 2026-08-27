@@ -11,6 +11,10 @@ vi.mock('../../github-connection/github-connection-service.js');
 vi.mock('../aggregation-storage-service.js');
 vi.mock('../aggregation-merge-service.js');
 
+const { getSwaggerUrlWarning: realGetSwaggerUrlWarning } = await vi.importActual(
+  '../aggregation-storage-service.js'
+);
+
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
 StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.node.isRequired };
 
@@ -98,6 +102,11 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.buildBranchName.mockImplementation(
       (suffix) => `${BRANCH_PREFIX}${(suffix || '').trim() || 'default'}`
     );
+    // getSwaggerUrlWarning is a pure function with its own dedicated coverage
+    // in aggregation-storage-service.test.js -- importActual (rather than a
+    // hand-copied reimplementation, unlike the branch-prefix helpers above)
+    // keeps that single real implementation as the only source of truth.
+    aggregationStorageService.getSwaggerUrlWarning.mockImplementation(realGetSwaggerUrlWarning);
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -425,6 +434,31 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByLabelText('Service name')).toBeInTheDocument();
       expect(screen.queryByText('+ Add Service')).not.toBeInTheDocument();
     });
+
+    test('warns, without blocking Add, when the URL looks cut off mid-paste', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+
+      fireEvent.click(screen.getByText('New Set'));
+      fireEvent.change(screen.getByLabelText('Swagger URL'), {
+        target: { value: 'https://raw.example.com/owner/repo/refs/heads/migrate-swagger-to-' },
+      });
+
+      expect(screen.getByText(/doesn't look like it points to a spec file/i)).toBeInTheDocument();
+      expect(screen.getByText('Add URL')).toBeEnabled();
+
+      fireEvent.change(screen.getByLabelText('Swagger URL'), {
+        target: {
+          value:
+            'https://raw.example.com/owner/repo/refs/heads/migrate-swagger-to-github/swagger.yaml',
+        },
+      });
+
+      expect(
+        screen.queryByText(/doesn't look like it points to a spec file/i)
+      ).not.toBeInTheDocument();
+    });
   });
 
   describe('reordering services in the edit form', () => {
@@ -561,6 +595,20 @@ describe('AggregateMenuHandler', () => {
       // exactly two now (row-level + form-level).
       expect(screen.getAllByText('Cancel')).toHaveLength(2);
       expect(screen.getByText('Save')).toBeInTheDocument();
+    });
+
+    test('warns, without blocking Save, when the edited URL looks cut off', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit Swagger URL'), {
+        target: { value: 'https://raw.example.com/owner/repo/refs/heads/migrate-swagger-to-' },
+      });
+
+      expect(screen.getByText(/doesn't look like it points to a spec file/i)).toBeInTheDocument();
+      expect(screen.getByText('Save')).toBeEnabled();
     });
 
     test('editing and saving updates that row, leaving the other untouched', async () => {

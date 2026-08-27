@@ -271,6 +271,10 @@
 
   &__aggregate-url-edit-fields {
     display: flex;
+    // The name field has no warning line below it and shouldn't stretch to
+    // match the URL field's height once one appears -- each field sizes to
+    // its own content instead.
+    align-items: flex-start;
     gap: 0.5rem;
     flex: 1 1 auto;
     min-width: 0;
@@ -285,6 +289,24 @@
       font-size: 0.8rem;
       color: var(--se-color-text-muted);
     }
+  }
+
+  &__aggregate-url-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  // A live, non-blocking hint (see getSwaggerUrlWarning) -- distinct from
+  // the .help-block pattern used for purely informational text elsewhere in
+  // this modal, since this one is specifically flagging something that
+  // looks like a likely mistake.
+  &__aggregate-url-warning {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #9a6700;
   }
 
   &__aggregate-icon-button {
