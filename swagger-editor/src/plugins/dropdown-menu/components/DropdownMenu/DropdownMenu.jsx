@@ -75,19 +75,39 @@ const DropdownMenu = ({ children = [], label, isLong = false, editorSelectors = 
       >
         {label}
       </span>
-      {isOpen && (
-        <div
-          className="dd-menu-items"
-          aria-labelledby="Dropdown"
-          onClick={handleToggleClick}
-          role="menu"
-          tabIndex={0}
-          ref={itemsRef}
-          style={shiftPx ? { transform: `translateX(${shiftPx}px)` } : undefined}
+      {/* Always mounted (not conditional on isOpen) so compact mode (see
+          _dropdown-menu.scss) can transition it in/out as a sliding
+          full-panel screen instead of just popping in -- a CSS transition
+          can't play on an element that wasn't in the DOM the frame before.
+          Desktop keeps the exact same net effect via a plain display:
+          none/block toggle on the open class, so nothing here is visible
+          or focusable while closed on either layout. */}
+      <div
+        className={classNames('dd-menu-items', { 'dd-menu-items--open': isOpen })}
+        aria-labelledby="Dropdown"
+        onClick={handleToggleClick}
+        role="menu"
+        tabIndex={0}
+        ref={itemsRef}
+        style={shiftPx ? { transform: `translateX(${shiftPx}px)` } : undefined}
+        aria-hidden={!isOpen || undefined}
+        inert={!isOpen ? '' : undefined}
+      >
+        {/* Compact-only "‹ File" header (see _dropdown-menu.scss) --
+            hidden entirely on desktop, where this panel still opens
+            beneath its trigger instead of taking over the screen. */}
+        <button
+          type="button"
+          className="dd-menu-items__back"
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsOpen(false);
+          }}
         >
-          <ul className="dd-items-left">{children}</ul>
-        </div>
-      )}
+          <span aria-hidden="true">‹</span> {label}
+        </button>
+        <ul className="dd-items-left">{children}</ul>
+      </div>
     </div>
   );
 };

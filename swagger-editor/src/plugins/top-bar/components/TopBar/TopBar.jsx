@@ -108,15 +108,22 @@ const TopBar = ({ getComponent }) => {
           </div>
         )}
       </div>
-      {(!isCompact || isMenuOpen) && (
-        <div
-          className={classNames('swagger-editor__top-bar-wrapper', {
-            'swagger-editor__top-bar-wrapper--compact': isCompact,
-          })}
-        >
-          {menuItems}
-        </div>
-      )}
+      {/* Always mounted now (not conditional on isMenuOpen) so compact
+          mode can slide it in/out from the left as a transition -- a CSS
+          transition can't play on an element that wasn't in the DOM the
+          frame before (see DropdownMenu.jsx for the same reasoning).
+          Wide screens keep the exact same net effect: always visible,
+          nothing here to hide. */}
+      <div
+        className={classNames('swagger-editor__top-bar-wrapper', {
+          'swagger-editor__top-bar-wrapper--compact': isCompact,
+          'swagger-editor__top-bar-wrapper--compact-open': isCompact && isMenuOpen,
+        })}
+        aria-hidden={(isCompact && !isMenuOpen) || undefined}
+        inert={isCompact && !isMenuOpen ? '' : undefined}
+      >
+        {menuItems}
+      </div>
       {/* Wide screens: -row-end sits here as a direct child of -top-bar
           (rather than nested inside -top-bar-row, as it is when isCompact)
           so the direct-child margin-left: auto rule in _top-bar.scss pushes

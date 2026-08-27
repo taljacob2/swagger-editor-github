@@ -5,7 +5,56 @@
     height: 40px;
     background-color: #0e2a38;
     padding: 0 0.5rem;
+  }
+
+  // Holds just the scrollable tab list -- the + button (a sibling of this,
+  // outside it) stays out of the scroll region entirely so it's always
+  // reachable without scrolling all the way right, and this wrapper gives
+  // the fade overlays below something to anchor to that's exactly the
+  // scrollable region's own width (not the whole bar, which also includes
+  // the + button).
+  &__tab-bar-scroll-wrapper {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__tab-bar-scroll {
+    display: flex;
+    align-items: center;
     overflow-x: auto;
+    // Native scrollbar track/thumb is redundant here -- this list scrolls
+    // by touch swipe or drag, and the fade overlays below already signal
+    // there's more off-screen, so the bar underneath doesn't need its own.
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  // Hints there's more to scroll to on whichever side actually has more
+  // (opacity driven from JS-tracked scroll position, see TabBar.jsx) --
+  // matches the bar's own background so it reads as a soft edge fade
+  // rather than a hard cut.
+  &__tab-bar-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+
+    &--left {
+      left: 0;
+      background: linear-gradient(to right, #0e2a38, transparent);
+    }
+
+    &--right {
+      right: 0;
+      background: linear-gradient(to left, #0e2a38, transparent);
+    }
   }
 
   &__tab {
@@ -97,6 +146,9 @@
   }
 
   &__tab-add {
+    // A sibling of the scroll wrapper (not inside it), so it never shrinks
+    // to make room for tabs -- always fully visible regardless of scroll.
+    flex-shrink: 0;
     background: none;
     border: 1px solid white;
     border-radius: 4px;
