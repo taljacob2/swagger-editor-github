@@ -1,5 +1,7 @@
 import PropTypes from 'prop-types';
-import { SunIcon, MoonIcon, ColumnsIcon } from '@primer/octicons-react';
+import { SunIcon, MoonIcon } from '@primer/octicons-react';
+
+import SemiDarkThemeIcon from './SemiDarkThemeIcon.jsx';
 
 // Fixed left-to-right order of the segmented control -- also the source of
 // truth for the sliding highlight's position (its index into this array).
@@ -7,10 +9,11 @@ const MODES = ['light', 'semi-dark', 'dark'];
 
 const MODE_ICON = {
   light: SunIcon,
-  // Split-pane glyph -- 'semi-dark' is the one mode where the editor and
-  // preview pane genuinely disagree (editor dark, preview light), unlike
-  // 'light'/'dark' where a single icon can stand for the whole app.
-  'semi-dark': ColumnsIcon,
+  // Half-sun-half-moon glyph -- 'semi-dark' is the one mode where the
+  // editor and preview pane genuinely disagree (editor dark, preview
+  // light), unlike 'light'/'dark' where a single icon can stand for the
+  // whole app.
+  'semi-dark': SemiDarkThemeIcon,
   dark: MoonIcon,
 };
 
