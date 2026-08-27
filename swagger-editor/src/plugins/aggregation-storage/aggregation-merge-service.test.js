@@ -272,6 +272,42 @@ describe('fetchSpec', () => {
       fetchSpec('https://api.github.com/repos/x/y/contents/z', CONNECTION)
     ).rejects.toMatchObject({ ssoUrl });
   });
+
+  // A raw/blob URL whose host doesn't match connection.apiBaseUrl never gets
+  // rewritten to the Contents API (see github-file-url.js), so the browser
+  // fetches it as-is and CORS blocks it -- a network-level failure with no
+  // response to inspect, not a normal HTTP error.
+  describe('when a raw/blob-shaped URL is not routed through the Contents API', () => {
+    test('explains the likely cause instead of surfacing the raw CORS error', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      await expect(
+        fetchSpec(
+          'https://raw.mycompany.ghe.com/owner/repo/refs/heads/main/openapi.yaml',
+          CONNECTION
+        )
+      ).rejects.toThrow('API base URL');
+    });
+
+    test('does the same for a /blob/ URL', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      await expect(
+        fetchSpec('https://mycompany.ghe.com/owner/repo/blob/main/openapi.yaml', CONNECTION)
+      ).rejects.toThrow('API base URL');
+    });
+
+    test('leaves an unrelated URL failure as-is', async () => {
+      global.fetch = vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      await expect(fetchSpec('https://example.com/openapi.yaml', CONNECTION)).rejects.toThrow(
+        'Failed to fetch'
+      );
+    });
+  });
 });
 
 describe('mergeSpecs', () => {
