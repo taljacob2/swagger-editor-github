@@ -466,7 +466,9 @@
   .dd-menu li.nested-dd-menu > span.dd-item-ignore {
     // Laid out (unlike the desktop display: none/block toggle above) so
     // the slide-in below can transition it, but pushed off-screen to the
-    // right and non-interactive until opened.
+    // left and non-interactive until opened -- same edge the hamburger
+    // panel itself now slides in from (see &--compact in _top-bar.scss),
+    // so every level of the drill-down enters from the same direction.
     //
     // Animates `left` rather than `transform: translateX()` -- a non-none
     // transform on an element makes it the *containing block* for any
@@ -485,7 +487,7 @@
     // as a shared constant to pull from instead).
     top: 54px;
     bottom: 0;
-    left: 100%;
+    left: -100%;
     width: 100%;
     // !important on both: an earlier "defense in depth" rule
     // (.dd-menu .dd-menu-items { margin/max-width ... !important }, a
@@ -562,6 +564,18 @@
       font-weight: 400;
       line-height: 1;
     }
+  }
+
+  // The "▼" after every top-level trigger label (File▼, Edit▼, ...; see
+  // _dropdown-menu-item.scss, imported *after* this file so its rule
+  // would otherwise win a same-specificity tie) reads as "opens downward"
+  // -- true on desktop's own small flyout, no longer true here now that
+  // tapping it opens a full-screen drill-down instead. "›" instead,
+  // matching the literal ">" DropdownMenuNested.jsx already renders for
+  // its own trigger (e.g. "Load Example >"), reads as "leads to another
+  // screen".
+  .menu-item::after {
+    content: '\203A' !important;
   }
 
   // Hides every sibling trigger while one of them is drilled into, so the

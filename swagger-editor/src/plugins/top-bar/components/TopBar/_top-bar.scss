@@ -181,27 +181,35 @@
       font-weight: 500;
     }
 
-    // Collapsed into the hamburger panel above, so this only ever renders
-    // (see TopBar.jsx) while open -- laid out as a full-width dropdown
+    // Collapsed into the hamburger panel above, laid out as a full-width
     // list under the top bar instead of the wide-screen horizontal row.
+    // Always mounted now (see TopBar.jsx), so it's a slide-in panel from
+    // the left rather than an instant pop-in -- matching the drill-down
+    // submenus it opens (see _dropdown-menu.scss), which slide in the
+    // same direction for a consistent feel across every level.
+    //
+    // Animates `left` rather than `transform: translateX()` -- a non-none
+    // transform would make this the *containing block* for its own
+    // position: fixed descendants (the drill-down submenu screens it
+    // contains), hijacking their sizing/paint order relative to this
+    // panel instead of the real viewport. See _dropdown-menu.scss for the
+    // full explanation of that failure mode.
     &--compact {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      position: fixed;
+      // Matches the top bar's own height -- hardcoded because nothing
+      // shorter than the full app shell exposes it as a shared constant
+      // to pull from instead (same reasoning as _dropdown-menu.scss's
+      // identical 54px, which this panel's own submenus need to match).
+      // Setting both top and bottom (with no explicit height) makes the
+      // browser compute the height as the gap between them, i.e. exactly
+      // 100vh - 54px -- no separate max-height needed to cap it.
+      top: 54px;
+      bottom: 0;
+      left: -100%;
+      width: 100%;
       z-index: 10000;
       flex-direction: column;
       align-items: stretch;
-      // Sized to its own content (a normal top-aligned list), not stretched
-      // to fill the viewport -- max-height is only a cap for the rare case
-      // there are more items than a short screen can fit, where it scrolls
-      // instead of overflowing. (Used to also set an explicit `height` and
-      // `justify-content: space-evenly` to give that stretch something to
-      // distribute into -- with as few as 3-4 top-level items that spread
-      // them across the full screen with large dead gaps between each one,
-      // which read as broken rather than spacious.)
-      max-height: calc(100vh - 54px);
-      padding: 0.25rem 0;
       background-color: #173647;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       overflow-y: auto;
@@ -212,6 +220,15 @@
       // sliver of overflow (e.g. the vertical scrollbar's own width nudging
       // a full-width child past the edge). Pin it to hidden explicitly.
       overflow-x: hidden;
+      transition: left 0.25s ease;
+      visibility: hidden;
+
+      &-open {
+        left: 0;
+        visibility: visible;
+      }
+
+      padding: 0.25rem 0;
 
       & > * {
         // Each child is a .dd-menu (display: inline-block upstream), which
@@ -221,9 +238,7 @@
         width: 100%;
         // Without this, width: 100% + padding (content-box is the default,
         // and nothing in this app resets it) makes the actual box ~2.5rem
-        // wider than its parent -- which .dd-menu-items (position: absolute,
-        // left/right: 0 relative to *this* box) then inherits, overflowing
-        // the same amount off each side.
+        // wider than its parent, overflowing the row horizontally.
         box-sizing: border-box;
         margin: 0;
         padding: 0.75rem 1.25rem;
@@ -237,6 +252,12 @@
           border-top: none;
         }
       }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__top-bar-wrapper--compact {
+      transition: none;
     }
   }
 }

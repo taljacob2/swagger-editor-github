@@ -39,10 +39,17 @@ const stubComponents = {
 
 const getComponent = (name) => stubComponents[name];
 
-// Both the visible row/panel and the hidden measuring copy render each
-// menu's label, so assertions on the *visible* one need to filter it out.
+// The hidden measuring copy always renders each menu's label too, and
+// (since TopBar.jsx now always mounts the compact panel so it can slide
+// in/out as a transition, rather than only while open) so does the real
+// panel while closed -- just marked aria-hidden. Assertions on the
+// *visible* one need to filter both out.
 const isVisible = (text) =>
-  screen.queryAllByText(text).some((el) => !el.closest('.swagger-editor__top-bar-measure'));
+  screen
+    .queryAllByText(text)
+    .some(
+      (el) => !el.closest('.swagger-editor__top-bar-measure') && !el.closest('[aria-hidden="true"]')
+    );
 
 function makeItNotFit(container) {
   const topBar = container.querySelector('.swagger-editor__top-bar');
