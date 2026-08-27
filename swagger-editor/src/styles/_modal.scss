@@ -67,13 +67,27 @@
   // screen with no way to reach them. Harmless on desktop, where no modal
   // today gets this tall; the tighter mobile margin buys back real space on
   // short phone viewports.
+  //
+  // 100vh first as a fallback, then 100svh (small viewport height -- the
+  // size with mobile browser chrome, e.g. the address bar, fully *shown*)
+  // to override it in browsers that support small-viewport units (an
+  // unsupported value in calc() invalidates the whole declaration, so it's
+  // simply skipped, leaving the 100vh version standing). Plain 100vh on
+  // mobile is the *large* viewport (chrome fully hidden) -- sizing up to
+  // that let the modal end up genuinely taller than whatever's currently
+  // visible whenever the chrome was actually showing (its usual state),
+  // clipping the header/close button and footer/action buttons behind the
+  // browser's own UI at both edges. Same fix as .swagger-editor__layout's
+  // .SplitPane sizing (see _layout.scss) for the same underlying reason.
   max-height: calc(100vh - 4rem);
+  max-height: calc(100svh - 4rem);
   pointer-events: auto;
 
   @include mobile {
     width: calc(100vw - 2rem);
     min-width: 0;
     max-height: calc(100vh - 2rem);
+    max-height: calc(100svh - 2rem);
   }
 }
 
