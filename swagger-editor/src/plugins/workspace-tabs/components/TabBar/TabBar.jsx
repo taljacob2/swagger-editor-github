@@ -29,6 +29,50 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
   const cancelRenameRef = useRef(false);
   const renameInputRef = useRef(null);
 
+  // Drives the left/right edge fade overlays (see _tab-bar.scss) that hint
+  // there are more tabs off-screen -- only shown on the side(s) that
+  // actually have more to scroll to, not unconditionally.
+  const scrollRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
+  // Keyed by tab id (not index/ref array) so a mid-list close/reorder can't
+  // leave a stale ref pointing at the wrong tab.
+  const tabRefs = useRef({});
+
+  const updateScrollState = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setScrollState({
+      canScrollLeft: el.scrollLeft > 0,
+      // -1px epsilon: some browsers report a fractional scrollWidth that's
+      // a hair short of scrollLeft + clientWidth even when fully scrolled.
+      canScrollRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+    });
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    updateScrollState();
+    el.addEventListener('scroll', updateScrollState, { passive: true });
+    // Catches width changes scrolling alone wouldn't fire for -- a tab
+    // added/closed/renamed, or the bar itself resizing with the window.
+    const resizeObserver = new ResizeObserver(updateScrollState);
+    resizeObserver.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      resizeObserver.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    tabRefs.current[workspace.activeTabId]?.scrollIntoView({
+      inline: 'nearest',
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [workspace.activeTabId]);
+
   // Every keystroke in the active tab is persisted independently by the
   // wrap-actions.js setContent wrapper, straight to localStorage -- it does
   // NOT flow through this component's state. So every mutation here must
@@ -207,66 +251,87 @@ const TabBar = ({ editorActions, EditorContentOrigin }) => {
 
   return (
     <div className="swagger-editor__tab-bar">
-      {workspace.tabs.map((tab) => (
-        <div
-          key={tab.id}
-          draggable={renamingTabId !== tab.id}
-          onDragStart={(event) => handleDragStart(event, tab.id)}
-          onDragOver={(event) => handleDragOver(event, tab.id)}
-          onDragLeave={(event) => handleDragLeave(event, tab.id)}
-          onDrop={(event) => handleDrop(event, tab.id)}
-          onDragEnd={handleDragEnd}
-          className={[
-            'swagger-editor__tab',
-            tab.id === workspace.activeTabId && 'swagger-editor__tab--active',
-            draggedTabId === tab.id && 'swagger-editor__tab--dragging',
-            dropIndicator?.tabId === tab.id &&
-              `swagger-editor__tab--drag-over-${dropIndicator.position}`,
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {renamingTabId === tab.id ? (
-            <input
-              ref={renameInputRef}
-              type="text"
-              className="swagger-editor__tab-name-input"
-              value={renameValue}
-              onChange={(event) => setRenameValue(event.target.value)}
-              onBlur={handleRenameBlur}
-              onKeyDown={handleRenameKeyDown}
-            />
-          ) : (
-            <button
-              type="button"
-              className="swagger-editor__tab-name"
-              onClick={() => handleSwitch(tab.id)}
-              onDoubleClick={() => handleStartRename(tab)}
-              title="Double-click to rename"
+      {/* Wraps just the scrollable region (not the ever-visible + button
+          below) so the fade overlays can be positioned relative to its
+          edges alone. */}
+      <div className="swagger-editor__tab-bar-scroll-wrapper">
+        <div className="swagger-editor__tab-bar-scroll" ref={scrollRef}>
+          {workspace.tabs.map((tab) => (
+            <div
+              key={tab.id}
+              ref={(el) => {
+                if (el) tabRefs.current[tab.id] = el;
+                else delete tabRefs.current[tab.id];
+              }}
+              draggable={renamingTabId !== tab.id}
+              onDragStart={(event) => handleDragStart(event, tab.id)}
+              onDragOver={(event) => handleDragOver(event, tab.id)}
+              onDragLeave={(event) => handleDragLeave(event, tab.id)}
+              onDrop={(event) => handleDrop(event, tab.id)}
+              onDragEnd={handleDragEnd}
+              className={[
+                'swagger-editor__tab',
+                tab.id === workspace.activeTabId && 'swagger-editor__tab--active',
+                draggedTabId === tab.id && 'swagger-editor__tab--dragging',
+                dropIndicator?.tabId === tab.id &&
+                  `swagger-editor__tab--drag-over-${dropIndicator.position}`,
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
-              {tab.name}
-            </button>
-          )}
-          <button
-            type="button"
-            className="swagger-editor__tab-action"
-            title="Duplicate tab"
-            onClick={() => handleDuplicate(tab.id)}
-          >
-            ⧉
-          </button>
-          {workspace.tabs.length > 1 && (
-            <button
-              type="button"
-              className="swagger-editor__tab-action"
-              title="Close tab"
-              onClick={() => handleClose(tab.id)}
-            >
-              ×
-            </button>
-          )}
+              {renamingTabId === tab.id ? (
+                <input
+                  ref={renameInputRef}
+                  type="text"
+                  className="swagger-editor__tab-name-input"
+                  value={renameValue}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  onBlur={handleRenameBlur}
+                  onKeyDown={handleRenameKeyDown}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="swagger-editor__tab-name"
+                  onClick={() => handleSwitch(tab.id)}
+                  onDoubleClick={() => handleStartRename(tab)}
+                  title="Double-click to rename"
+                >
+                  {tab.name}
+                </button>
+              )}
+              <button
+                type="button"
+                className="swagger-editor__tab-action"
+                title="Duplicate tab"
+                onClick={() => handleDuplicate(tab.id)}
+              >
+                ⧉
+              </button>
+              {workspace.tabs.length > 1 && (
+                <button
+                  type="button"
+                  className="swagger-editor__tab-action"
+                  title="Close tab"
+                  onClick={() => handleClose(tab.id)}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
         </div>
-      ))}
+        <span
+          className="swagger-editor__tab-bar-fade swagger-editor__tab-bar-fade--left"
+          aria-hidden="true"
+          style={{ opacity: scrollState.canScrollLeft ? 1 : 0 }}
+        />
+        <span
+          className="swagger-editor__tab-bar-fade swagger-editor__tab-bar-fade--right"
+          aria-hidden="true"
+          style={{ opacity: scrollState.canScrollRight ? 1 : 0 }}
+        />
+      </div>
       <button type="button" className="swagger-editor__tab-add" title="New tab" onClick={handleAdd}>
         +
       </button>

@@ -16,6 +16,18 @@ vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
   };
 });
 
+// jsdom doesn't implement ResizeObserver -- same mock pattern as
+// useOverflowCompact.test.jsx, which needs it for the same reason (the
+// component observes an element's size to react to content/layout changes
+// a plain 'resize' listener wouldn't catch).
+class MockResizeObserver {
+  // eslint-disable-next-line class-methods-use-this
+  observe() {}
+
+  // eslint-disable-next-line class-methods-use-this
+  disconnect() {}
+}
+
 const EditorContentOrigin = { LocalStorage: 'local-storage' };
 
 const threeTabMeta = () => ({
@@ -32,8 +44,12 @@ const CONTENT_BY_ID = { a: 'a-content', b: 'b-content', c: 'c-content' };
 describe('TabBar', () => {
   let editorActions;
   let contentStore;
+  const originalResizeObserver = window.ResizeObserver;
 
   beforeEach(() => {
+    window.ResizeObserver = MockResizeObserver;
+    // jsdom doesn't implement scrollIntoView either.
+    Element.prototype.scrollIntoView = vi.fn();
     editorActions = { setContent: vi.fn(), setActiveDocument: vi.fn(), disposeDocument: vi.fn() };
     contentStore = { ...CONTENT_BY_ID };
     workspaceTabsService.getWorkspaceMeta.mockReturnValue(threeTabMeta());
@@ -47,6 +63,10 @@ describe('TabBar', () => {
     workspaceTabsService.removeTabContent.mockImplementation((id) => {
       delete contentStore[id];
     });
+  });
+
+  afterEach(() => {
+    window.ResizeObserver = originalResizeObserver;
   });
 
   test('renders every tab, highlighting the active one', () => {
