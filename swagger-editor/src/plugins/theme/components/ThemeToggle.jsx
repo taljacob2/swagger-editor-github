@@ -1,11 +1,11 @@
 import PropTypes from 'prop-types';
 import { SunIcon, MoonIcon, ColumnsIcon, DeviceDesktopIcon } from '@primer/octicons-react';
 
-// light -> dark -> semi-dark -> system -> light ...
+// light -> semi-dark -> dark -> system -> light ...
 const NEXT_MODE = {
-  light: 'dark',
-  dark: 'semi-dark',
-  'semi-dark': 'system',
+  light: 'semi-dark',
+  'semi-dark': 'dark',
+  dark: 'system',
   system: 'light',
 };
 

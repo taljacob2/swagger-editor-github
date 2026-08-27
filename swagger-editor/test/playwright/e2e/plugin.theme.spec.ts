@@ -13,26 +13,27 @@ test.describe('Theme', () => {
     await waitForSplashScreen(page);
   });
 
-  test('cycles light -> dark -> semi-dark -> system -> light and updates data-theme', async ({
+  test('cycles light -> semi-dark -> dark -> system -> light and updates data-theme', async ({
     page,
   }) => {
     const themeRoot = page.locator('.swagger-editor__theme-root');
     const toggle = page.locator('.swagger-editor__top-bar-theme-toggle');
 
-    // Starting mode is 'system'; in a headless browser with no explicit
-    // color-scheme emulation, prefers-color-scheme resolves to light.
+    // Starting mode is 'system' (the default); in a headless browser with
+    // no explicit color-scheme emulation, prefers-color-scheme resolves to
+    // light.
     await expect(themeRoot).toHaveAttribute('data-theme', 'light');
 
     await toggle.click(); // system -> light (still resolves to light)
     await expect(themeRoot).toHaveAttribute('data-theme', 'light');
 
-    await toggle.click(); // light -> dark
-    await expect(themeRoot).toHaveAttribute('data-theme', 'dark');
-
-    await toggle.click(); // dark -> semi-dark (chrome/preview resolve back to light)
+    await toggle.click(); // light -> semi-dark (chrome/preview stay light)
     await expect(themeRoot).toHaveAttribute('data-theme', 'light');
 
-    await toggle.click(); // semi-dark -> system (resolves to light again)
+    await toggle.click(); // semi-dark -> dark
+    await expect(themeRoot).toHaveAttribute('data-theme', 'dark');
+
+    await toggle.click(); // dark -> system (resolves to light again)
     await expect(themeRoot).toHaveAttribute('data-theme', 'light');
   });
 
@@ -41,8 +42,7 @@ test.describe('Theme', () => {
     const monacoEditor = page.locator('.monaco-editor').first();
 
     await toggle.click(); // system -> light
-    await toggle.click(); // light -> dark
-    await toggle.click(); // dark -> semi-dark
+    await toggle.click(); // light -> semi-dark
 
     const stored = await page.evaluate(() => localStorage.getItem('swagger-editor:theme-mode'));
     expect(stored).toBe('semi-dark');
@@ -62,7 +62,8 @@ test.describe('Theme', () => {
     const toggle = page.locator('.swagger-editor__top-bar-theme-toggle');
 
     await toggle.click(); // system -> light
-    await toggle.click(); // light -> dark
+    await toggle.click(); // light -> semi-dark
+    await toggle.click(); // semi-dark -> dark
     await expect(themeRoot).toHaveAttribute('data-theme', 'dark');
 
     await page.reload();
@@ -76,7 +77,8 @@ test.describe('Theme', () => {
   test('applies the dark scope class to modal portals', async ({ page }) => {
     const toggle = page.locator('.swagger-editor__top-bar-theme-toggle');
     await toggle.click(); // system -> light
-    await toggle.click(); // light -> dark
+    await toggle.click(); // light -> semi-dark
+    await toggle.click(); // semi-dark -> dark
 
     await page.getByText('File', { exact: true }).last().click();
     await page.getByText('Import URL', { exact: true }).last().click();
