@@ -12,6 +12,7 @@ import {
   editorTearDown as editorTearDownWrap,
   setContentDebounced as setContentDebouncedWrap,
   clearContent as clearContentWrap,
+  flushPendingSetContent,
 } from './wrap-actions.js';
 import { updateSpec as updateSpecWrap } from './extensions/spec/wrap-actions.js';
 import { makeUseEditorLifecycle, useElementResize } from './hooks.js';
@@ -22,6 +23,7 @@ const EditorTextareaPlugin = ({ getSystem }) => ({
   rootInjects: {
     useEditorLifecycle: makeUseEditorLifecycle(getSystem),
     useElementResize,
+    flushPendingEditorContent: flushPendingSetContent,
   },
   components: {
     EditorPane,
