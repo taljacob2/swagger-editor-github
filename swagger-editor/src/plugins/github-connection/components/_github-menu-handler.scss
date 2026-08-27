@@ -26,13 +26,16 @@
 // A custom-drawn circle (appearance: none, styled directly on the input
 // rather than a hidden-input-plus-fake-dot pair) instead of the browser's
 // own radio glyph -- that glyph's rendered size and vertical metrics vary
-// by OS/browser, so nudging it into place with a fixed margin-top (the
-// previous approach) landed it a few px high or low depending on what
-// rendered it, reading as "off" against the title text next to it. A
-// custom circle has a size this stylesheet chooses outright, so it can be
-// centered on the title's own line exactly -- see margin below, computed
-// against that line's own line-height (.intent-option-title) rather than
-// guessed.
+// by OS/browser, so nudging it into place with a fixed margin-top (an
+// earlier approach) landed it a few px high or low depending on what
+// rendered it, reading as "off" against the text next to it. This one has
+// a size this stylesheet chooses outright, and .intent-option centers it
+// against the *whole* option (title + description together, see
+// align-items: center there) rather than pinning it to just the title's
+// first line -- the latter reads fine for a single, unwrapped line, but
+// once the title wraps (as it does on narrow screens) or the description
+// adds a second visual line below it, a first-line-only circle ends up
+// looking stranded near the top of the block instead of anchored to it.
 .ReactModalPortal .swagger-editor__intent-option input[type='radio'] {
   appearance: none;
   -webkit-appearance: none;
@@ -47,13 +50,7 @@
   box-sizing: border-box;
   width: 1rem;
   height: 1rem;
-  // Centers the circle on the title line's own 1.25rem line-height, not
-  // the option's full (title + description) height -- .intent-option is
-  // align-items: flex-start, so both this input and the text block beside
-  // it start flush with the row's own top edge; from there, (line-height
-  // - circle size) / 2 is exactly the offset that puts the circle's own
-  // center on the title text's center.
-  margin: calc((1.25rem - 1rem) / 2) 0 0 0;
+  margin: 0;
   border: 1.5px solid #b6becb;
   border-radius: 50%;
   background-color: var(--se-color-surface);
@@ -120,9 +117,19 @@
 
   &__intent-option {
     display: flex;
-    align-items: flex-start;
+    // Centers the radio (see the .ReactModalPortal-prefixed rule above)
+    // against this option's full height -- title and description
+    // together -- rather than just the title's first line, so it stays
+    // visually anchored to the block regardless of how many lines the
+    // title wraps to.
+    align-items: center;
     gap: 0.6rem;
-    padding: 0.5rem 0.75rem;
+    // A touch more vertical padding than the row-end fits alone would
+    // need -- with the radio now centered on the option's full height
+    // instead of pinned to the top, the shortest (unwrapped) options
+    // would otherwise read as visually cramped against the card's own
+    // top/bottom edges.
+    padding: 0.65rem 0.75rem;
     border: 1px solid #b6becb;
     border-radius: 4px;
     cursor: pointer;
@@ -150,9 +157,6 @@
   &__intent-option-title {
     font-size: 0.8rem;
     font-weight: 600;
-    // Explicit rather than inherited -- the custom radio next to it (see
-    // above) is centered against this exact value, so a from-under-the-
-    // hood inherited line-height would silently throw that off.
     line-height: 1.25rem;
     color: var(--se-color-text);
   }
