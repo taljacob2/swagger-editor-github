@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'swagger-editor:theme-mode';
 
-export const THEME_MODES = ['light', 'dark', 'system'];
+export const THEME_MODES = ['light', 'dark', 'semi-dark', 'system'];
 export const DEFAULT_THEME_MODE = 'system';
 
 export function getStoredThemeMode() {

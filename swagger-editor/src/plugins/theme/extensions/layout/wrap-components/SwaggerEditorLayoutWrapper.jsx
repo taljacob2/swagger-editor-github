@@ -11,14 +11,23 @@ import { useEffect } from 'react';
 // in editor-monaco, see themes/se-vs-dark.js/se-vs-light.js) in sync with
 // the global theme, rather than duplicating theme-resolution logic at the
 // editor layer.
+//
+// Two separate resolved-theme selectors, not one: 'semi-dark' mode forces
+// the editor dark while leaving chrome + the preview pane light, so the
+// scope element's data-theme (and the dark-mode class below, which only
+// ever affects the preview pane) tracks selectResolvedTheme, while
+// Monaco's own theme tracks selectResolvedEditorTheme -- for every other
+// mode the two agree, so this split is a no-op everywhere except
+// 'semi-dark'.
 const SwaggerEditorLayoutWrapper = (Original, system) => {
   const ThemedSwaggerEditorLayout = (props) => {
     const { editorSelectors, editorActions } = system;
     const resolvedTheme = editorSelectors.selectResolvedTheme();
+    const resolvedEditorTheme = editorSelectors.selectResolvedEditorTheme();
 
     useEffect(() => {
-      editorActions.setTheme?.(resolvedTheme === 'dark' ? 'se-vs-dark' : 'se-vs-light');
-    }, [resolvedTheme, editorActions]);
+      editorActions.setTheme?.(resolvedEditorTheme === 'dark' ? 'se-vs-dark' : 'se-vs-light');
+    }, [resolvedEditorTheme, editorActions]);
 
     // swagger-ui-react ships its own complete dark theme (see swagger-ui.css's
     // `html.dark-mode .swagger-ui { ... }` rules) gated on this class on
