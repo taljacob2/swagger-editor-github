@@ -408,8 +408,9 @@ describe('SuggestPrModal', () => {
 
   describe('changing the link', () => {
     // Linking has no UI of its own outside this modal (see TabBar.jsx) --
-    // "Change…" is how a first-time or already-linked tab ever reaches it.
-    test('shows what the tab is linked to, with a "Change…" affordance, outside preview/success', async () => {
+    // the footer's "Link to repository file" button is how a first-time or
+    // already-linked tab ever reaches it.
+    test('shows what the tab is linked to, and the footer button reaches back to linking', async () => {
       repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
       workspaceTabsService.getTabContent.mockReturnValue(TARGET.baselineContent);
       const onChangeLink = vi.fn();
@@ -429,14 +430,15 @@ describe('SuggestPrModal', () => {
       expect(screen.getByText('octo-org/petstore')).toBeInTheDocument();
       expect(screen.getByText('openapi.yaml')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByText('Change…'));
+      fireEvent.click(screen.getByText('Link to repository file'));
 
       expect(onChangeLink).toHaveBeenCalled();
     });
 
-    test('is hidden during preview, which already shows the target inline', async () => {
+    test('the footer button stays available during preview, which also shows the target inline', async () => {
       repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
       workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+      const onChangeLink = vi.fn();
 
       render(
         <SuggestPrModal
@@ -445,15 +447,17 @@ describe('SuggestPrModal', () => {
           onClose={vi.fn()}
           tabId="a"
           editorActions={editorActions}
+          onChangeLink={onChangeLink}
         />
       );
 
       await screen.findByText('Open pull request');
 
-      expect(screen.queryByText('Change…')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('Link to repository file'));
+      expect(onChangeLink).toHaveBeenCalled();
     });
 
-    test('a broken link offers to link the tab instead of dead-ending on the error', async () => {
+    test('a broken link can still reach linking via the footer button, not a dead end', async () => {
       linkedTargetService.getLinkedTarget.mockReturnValue(null);
       const onChangeLink = vi.fn();
 
@@ -468,10 +472,34 @@ describe('SuggestPrModal', () => {
         />
       );
 
-      const linkButton = await screen.findByText('Link this tab to a repository file…');
-      fireEvent.click(linkButton);
+      await screen.findByText('This tab is no longer linked.');
+      fireEvent.click(screen.getByText('Link to repository file'));
 
       expect(onChangeLink).toHaveBeenCalled();
+    });
+
+    test('the footer button is not shown once a pull request has been opened', async () => {
+      repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+      workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+          onChangeLink={vi.fn()}
+        />
+      );
+
+      await screen.findByText('Open pull request');
+      await act(async () => {
+        fireEvent.click(screen.getByText('Open pull request'));
+      });
+      await waitFor(() => expect(screen.getByText('Pull request opened.')).toBeInTheDocument());
+
+      expect(screen.queryByText('Link to repository file')).not.toBeInTheDocument();
     });
   });
 });

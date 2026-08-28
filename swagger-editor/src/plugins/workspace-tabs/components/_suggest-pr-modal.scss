@@ -13,16 +13,6 @@
     }
   }
 
-  &__link-button {
-    padding: 0;
-    border: none;
-    background: none;
-    color: #00a0b4;
-    font-size: inherit;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
   &__suggest-pr-summary {
     margin: 0 0 0.75rem 0;
     font-size: 0.8rem;
@@ -146,5 +136,10 @@
 
   &__suggest-pr-success-chip-number {
     color: var(--se-color-text-muted);
+  }
+
+  &__suggest-pr-relink-button svg {
+    margin-right: 0.3rem;
+    vertical-align: text-bottom;
   }
 }

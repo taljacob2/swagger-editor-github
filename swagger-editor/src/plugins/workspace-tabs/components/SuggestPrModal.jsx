@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { CheckCircleFillIcon, GitPullRequestIcon, RepoIcon, XIcon } from '@primer/octicons-react';
+import {
+  CheckCircleFillIcon,
+  GitPullRequestIcon,
+  LinkIcon,
+  RepoIcon,
+  XIcon,
+} from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
@@ -275,10 +281,11 @@ const SuggestPrModal = ({
       </ModalHeader>
       <ModalBody>
         {/* Linking has no persistent UI of its own elsewhere in the tab bar
-            -- this is the only place it's ever reachable from, both for a
-            first-time link (below, when there isn't one yet) and to repoint
-            an already-linked tab at a different file. Hidden on 'preview'
-            and 'success', which already show the target inline. */}
+            -- the footer's "Link to repository file" button below is the
+            only place it's ever reachable from, both for a first-time link
+            and to repoint an already-linked tab at a different file. This
+            line is purely informational; hidden on 'preview' and 'success',
+            which already show the target inline. */}
         {state.target && state.phase !== 'preview' && state.phase !== 'success' && (
           <p className="swagger-editor__suggest-pr-target">
             <RepoIcon size={14} aria-hidden="true" />
@@ -286,26 +293,7 @@ const SuggestPrModal = ({
             <code>
               {state.target.owner}/{state.target.repo}
             </code>
-            &apos;s <code>{state.target.path}</code>.{' '}
-            <button
-              type="button"
-              className="swagger-editor__link-button"
-              onClick={() => onChangeLink?.()}
-            >
-              Change…
-            </button>
-          </p>
-        )}
-
-        {state.phase === 'error' && !state.target && (
-          <p className="swagger-editor__suggest-pr-target">
-            <button
-              type="button"
-              className="swagger-editor__link-button"
-              onClick={() => onChangeLink?.()}
-            >
-              Link this tab to a repository file…
-            </button>
+            &apos;s <code>{state.target.path}</code>.
           </p>
         )}
 
@@ -418,6 +406,20 @@ const SuggestPrModal = ({
         )}
       </ModalBody>
       <ModalFooter>
+        {/* Always available (bar 'success', where the PR is already open and
+            relinking has nothing left to do) -- linking has no button of its
+            own anywhere else, so this is it, whether the tab isn't linked
+            yet or the user wants to point it at a different file. */}
+        {onChangeLink && state.phase !== 'success' && (
+          <button
+            type="button"
+            className="btn btn-secondary swagger-editor__suggest-pr-relink-button"
+            onClick={() => onChangeLink()}
+          >
+            <LinkIcon size={14} aria-hidden="true" />
+            Link to repository file
+          </button>
+        )}
         {state.phase === 'drift' && (
           <button type="button" className="btn btn-primary" onClick={handleContinueAfterDrift}>
             Continue anyway
