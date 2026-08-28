@@ -100,8 +100,15 @@ describe('SuggestPrModal', () => {
     expect(await screen.findByText('Open pull request')).toBeInTheDocument();
     expect(screen.getByText(/Open a pull request updating/)).toBeInTheDocument();
     // The actual line-level diff: "title: X" removed, "title: Y" added.
-    expect(screen.getByText('- title: X')).toBeInTheDocument();
-    expect(screen.getByText('+ title: Y')).toBeInTheDocument();
+    expect(
+      screen.getByText('title: X').closest('.swagger-editor__suggest-pr-diff-line')
+    ).toHaveClass('swagger-editor__suggest-pr-diff-line--removed');
+    expect(
+      screen.getByText('title: Y').closest('.swagger-editor__suggest-pr-diff-line')
+    ).toHaveClass('swagger-editor__suggest-pr-diff-line--added');
+    // One line added, one removed -- the stat line above the diff.
+    expect(screen.getByText('+1')).toBeInTheDocument();
+    expect(screen.getByText('-1')).toBeInTheDocument();
     expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
     expect(suggestPrService.createPullRequest).not.toHaveBeenCalled();
 
@@ -317,6 +324,48 @@ describe('SuggestPrModal', () => {
       expect.objectContaining({ content: 'openapi: 3.0.0\n' }),
       expect.anything()
     );
+  });
+
+  test('numbers diff lines per side -- context on both, removed/added on just their own', async () => {
+    repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+    workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+
+    render(
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        tabId="a"
+        editorActions={editorActions}
+      />
+    );
+
+    await screen.findByText('Open pull request');
+
+    const removedLine = screen
+      .getByText('title: X')
+      .closest('.swagger-editor__suggest-pr-diff-line');
+    const [removedOldNo, removedNewNo] = removedLine.querySelectorAll(
+      '.swagger-editor__suggest-pr-diff-line-no'
+    );
+    expect(removedOldNo).toHaveTextContent('3');
+    expect(removedNewNo).toHaveTextContent('');
+
+    const addedLine = screen.getByText('title: Y').closest('.swagger-editor__suggest-pr-diff-line');
+    const [addedOldNo, addedNewNo] = addedLine.querySelectorAll(
+      '.swagger-editor__suggest-pr-diff-line-no'
+    );
+    expect(addedOldNo).toHaveTextContent('');
+    expect(addedNewNo).toHaveTextContent('3');
+
+    const firstContextLine = screen
+      .getByText('openapi: 3.0.0')
+      .closest('.swagger-editor__suggest-pr-diff-line');
+    const [contextOldNo, contextNewNo] = firstContextLine.querySelectorAll(
+      '.swagger-editor__suggest-pr-diff-line-no'
+    );
+    expect(contextOldNo).toHaveTextContent('1');
+    expect(contextNewNo).toHaveTextContent('1');
   });
 
   test('a file too large to diff falls back to a plain message instead of a line-by-line preview', async () => {

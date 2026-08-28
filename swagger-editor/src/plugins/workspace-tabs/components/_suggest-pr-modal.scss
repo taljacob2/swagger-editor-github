@@ -20,6 +20,24 @@
     font-size: 0.8rem;
   }
 
+  // GitHub's own PR-page convention: a compact "+N -M" count above the
+  // diff, giving the size of the change its own visual weight before the
+  // reader even scans a single line.
+  &__suggest-pr-diffstat {
+    margin: 0 0 0.5rem 0;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  &__suggest-pr-diffstat-added {
+    color: #1a7f37;
+  }
+
+  &__suggest-pr-diffstat-removed {
+    color: #d1242f;
+  }
+
   &__suggest-pr-diff {
     margin: 0;
     padding: 0.5rem 0;
@@ -29,12 +47,13 @@
     border-radius: 4px;
     background-color: var(--se-color-surface-muted);
     font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     line-height: 1.5;
     white-space: pre;
   }
 
   &__suggest-pr-diff-line {
+    display: flex;
     padding: 0 0.75rem;
 
     &--added {
@@ -50,5 +69,28 @@
     &--context {
       color: var(--se-color-text-muted);
     }
+  }
+
+  // Two right-aligned, fixed-width columns (old line #, new line #) so
+  // numbers of any digit count still line up -- a context line fills both,
+  // an added/removed line only the side it exists on (see numberDiffLines).
+  &__suggest-pr-diff-line-no {
+    flex: 0 0 2rem;
+    text-align: right;
+    padding-right: 0.6rem;
+    color: var(--se-color-text-muted);
+    opacity: 0.6;
+    user-select: none;
+  }
+
+  &__suggest-pr-diff-line-marker {
+    flex: 0 0 1rem;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  &__suggest-pr-diff-line-text {
+    flex: 1 1 auto;
+    white-space: pre;
   }
 }

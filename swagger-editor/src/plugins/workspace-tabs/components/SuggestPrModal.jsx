@@ -37,6 +37,29 @@ function summarizeDrift(baseline, fresh) {
   };
 }
 
+// A simple running counter per side (old/new), not full unified-diff hunk
+// math -- diffLines is a plain LCS line diff with no hunk headers to begin
+// with, so there's nothing more precise to number against. A context line
+// advances both counters (it exists on both sides); a removed line only the
+// old one, an added line only the new one.
+function numberDiffLines(diff) {
+  let oldNo = 0;
+  let newNo = 0;
+  return diff.map((line) => {
+    if (line.type === 'removed') {
+      oldNo += 1;
+      return { ...line, oldNo, newNo: null };
+    }
+    if (line.type === 'added') {
+      newNo += 1;
+      return { ...line, oldNo: null, newNo };
+    }
+    oldNo += 1;
+    newNo += 1;
+    return { ...line, oldNo, newNo };
+  });
+}
+
 const emptyState = {
   phase: 'working',
   workingLabel: 'Checking for changes…',
@@ -320,20 +343,39 @@ const SuggestPrModal = ({
               with this change?
             </p>
             {state.diff ? (
-              <pre className="swagger-editor__suggest-pr-diff">
-                {/* Diff lines have no stable identity of their own -- index is
-                    fine since this list is never reordered, only replaced whole. */}
-                {state.diff.map((line, index) => (
-                  <div
-                    // eslint-disable-next-line react/no-array-index-key
-                    key={index}
-                    className={`swagger-editor__suggest-pr-diff-line swagger-editor__suggest-pr-diff-line--${line.type}`}
-                  >
-                    {line.type === 'added' ? '+ ' : line.type === 'removed' ? '- ' : '  '}
-                    {line.text}
-                  </div>
-                ))}
-              </pre>
+              <>
+                <p className="swagger-editor__suggest-pr-diffstat">
+                  <span className="swagger-editor__suggest-pr-diffstat-added">
+                    +{state.diff.filter((line) => line.type === 'added').length}
+                  </span>{' '}
+                  <span className="swagger-editor__suggest-pr-diffstat-removed">
+                    -{state.diff.filter((line) => line.type === 'removed').length}
+                  </span>
+                </p>
+                <pre className="swagger-editor__suggest-pr-diff">
+                  {/* Diff lines have no stable identity of their own -- index
+                      is fine since this list is never reordered, only
+                      replaced whole. */}
+                  {numberDiffLines(state.diff).map((line, index) => (
+                    <div
+                      // eslint-disable-next-line react/no-array-index-key
+                      key={index}
+                      className={`swagger-editor__suggest-pr-diff-line swagger-editor__suggest-pr-diff-line--${line.type}`}
+                    >
+                      <span className="swagger-editor__suggest-pr-diff-line-no">
+                        {line.oldNo ?? ''}
+                      </span>
+                      <span className="swagger-editor__suggest-pr-diff-line-no">
+                        {line.newNo ?? ''}
+                      </span>
+                      <span className="swagger-editor__suggest-pr-diff-line-marker">
+                        {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
+                      </span>
+                      <span className="swagger-editor__suggest-pr-diff-line-text">{line.text}</span>
+                    </div>
+                  ))}
+                </pre>
+              </>
             ) : (
               <p className="help-block">
                 This file is too large to preview line-by-line here, but the change will be
