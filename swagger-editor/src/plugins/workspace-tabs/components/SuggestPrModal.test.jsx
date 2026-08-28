@@ -132,9 +132,15 @@ describe('SuggestPrModal', () => {
       }),
       expect.objectContaining({ apiBaseUrl: 'https://api.github.com' })
     );
+    // baselineContent must be pinned to what the base branch actually had
+    // (freshContent) -- not the just-suggested content, which only exists
+    // on the new branch until the PR is merged. Regression: this used to be
+    // set to the suggestion itself, so the very next drift check compared
+    // the real (unchanged) base branch against a baseline that had already
+    // "moved on" to an unmerged PR, misreporting drift every time.
     expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
       'a',
-      expect.objectContaining({ baselineContent: 'openapi: 3.0.0\ninfo:\n  title: Y\n' })
+      expect.objectContaining({ baselineContent: TARGET.baselineContent })
     );
   });
 
@@ -213,6 +219,12 @@ describe('SuggestPrModal', () => {
     expect(suggestPrService.createSuggestionBranch).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'openapi: 3.0.0\ninfo:\n  title: My edit\n' }),
       expect.anything()
+    );
+    // The new baseline is the upstream content acknowledged via "Continue
+    // anyway" (what the base branch actually has), not the suggestion.
+    expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
+      'a',
+      expect.objectContaining({ baselineContent: freshContent })
     );
   });
 

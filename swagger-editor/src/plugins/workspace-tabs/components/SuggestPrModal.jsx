@@ -140,6 +140,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         phase: 'preview',
         target,
         targetConnection,
+        freshContent,
         contentToCommit,
         diff: diffLines(freshContent, contentToCommit),
       });
@@ -159,7 +160,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
     run({ skipDriftCheck: true, baseContentOverride: state.freshContent });
 
   const handleConfirmCreate = async () => {
-    const { target, targetConnection, contentToCommit } = state;
+    const { target, targetConnection, contentToCommit, freshContent } = state;
     setState((prev) => ({ ...prev, phase: 'working', workingLabel: 'Opening pull request…' }));
     try {
       const branchName = buildSuggestionBranchName();
@@ -187,11 +188,16 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         targetConnection
       );
 
-      // The suggestion is now upstream-of-record for this tab -- next time,
-      // drift is measured against what was actually suggested.
+      // baselineContent tracks the base branch's actual content, not the
+      // suggestion -- the suggested content only exists on the new branch
+      // until the PR is merged, so treating it as the new baseline would
+      // make the very next drift check compare against content main doesn't
+      // have yet, misreporting a huge "drift" for a PR that just hasn't
+      // merged. freshContent is what the base branch genuinely had at the
+      // moment this PR was opened, which is still correct until it merges.
       setLinkedTarget(tabId, {
         ...target,
-        baselineContent: contentToCommit,
+        baselineContent: freshContent,
         baselineFetchedAt: new Date().toISOString(),
       });
 
