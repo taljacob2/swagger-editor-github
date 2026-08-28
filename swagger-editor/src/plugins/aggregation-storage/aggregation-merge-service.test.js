@@ -320,6 +320,11 @@ describe('mergeSpecs', () => {
     expect(mergeSpecs([{ name: 'Only', spec }])).toEqual({
       merged: spec,
       conflicts: { paths: [], tags: [], components: [] },
+      provenance: {
+        paths: { '/x': { service: 'Only', originalKey: '/x' } },
+        tags: {},
+        components: {},
+      },
     });
   });
 
@@ -503,6 +508,91 @@ describe('mergeSpecs', () => {
     expect(merged).not.toHaveProperty('paths');
     expect(merged).not.toHaveProperty('components');
   });
+
+  describe('provenance', () => {
+    test('traces a non-colliding entry back to its owning service under its own name', () => {
+      const users = {
+        name: 'Users',
+        spec: {
+          paths: { '/users': {} },
+          tags: [{ name: 'Users' }],
+          components: { schemas: { User: { type: 'object' } } },
+        },
+      };
+      const orders = { name: 'Orders', spec: { paths: { '/orders': {} } } };
+
+      const { provenance } = mergeSpecs([users, orders]);
+
+      expect(provenance.paths['/users']).toEqual({ service: 'Users', originalKey: '/users' });
+      expect(provenance.paths['/orders']).toEqual({ service: 'Orders', originalKey: '/orders' });
+      expect(provenance.tags.Users).toEqual({ service: 'Users', originalKey: 'Users' });
+      expect(provenance.components.schemas.User).toEqual({
+        service: 'Users',
+        originalKey: 'User',
+      });
+    });
+
+    test('traces a colliding entry back to its source under its renamed (final) key', () => {
+      const a = { name: 'Users', spec: { paths: { '/profile': {} } } };
+      const b = { name: 'Orders', spec: { paths: { '/profile': {} } } };
+
+      const { provenance } = mergeSpecs([a, b]);
+
+      expect(provenance.paths['/users/profile']).toEqual({
+        service: 'Users',
+        originalKey: '/profile',
+      });
+      expect(provenance.paths['/orders/profile']).toEqual({
+        service: 'Orders',
+        originalKey: '/profile',
+      });
+      expect(provenance.paths).not.toHaveProperty('/profile');
+    });
+
+    test('traces a colliding tag and component the same way', () => {
+      const a = {
+        name: 'Users',
+        spec: {
+          tags: [{ name: 'Shared' }],
+          components: { schemas: { Entity: { type: 'object' } } },
+        },
+      };
+      const b = {
+        name: 'Orders',
+        spec: {
+          tags: [{ name: 'Shared' }],
+          components: { schemas: { Entity: { type: 'string' } } },
+        },
+      };
+
+      const { provenance } = mergeSpecs([a, b]);
+
+      expect(provenance.tags['Users-Shared']).toEqual({ service: 'Users', originalKey: 'Shared' });
+      expect(provenance.tags['Orders-Shared']).toEqual({
+        service: 'Orders',
+        originalKey: 'Shared',
+      });
+      expect(provenance.components.schemas.UsersEntity).toEqual({
+        service: 'Users',
+        originalKey: 'Entity',
+      });
+      expect(provenance.components.schemas.OrdersEntity).toEqual({
+        service: 'Orders',
+        originalKey: 'Entity',
+      });
+    });
+
+    test('does not trace a path name rejected as an unsafe object key', () => {
+      // See the "drops a path literally named __proto__" test above for why
+      // this needs JSON.parse rather than an object literal.
+      const evilSpec = JSON.parse('{"paths": {"__proto__": {"get": {}}, "/real": {"get": {}}}}');
+      const a = { name: 'Users', spec: evilSpec };
+
+      const { provenance } = mergeSpecs([a, { name: 'Orders', spec: { paths: { '/other': {} } } }]);
+
+      expect(Object.keys(provenance.paths).sort()).toEqual(['/other', '/real']);
+    });
+  });
 });
 
 describe('aggregateSet', () => {
@@ -527,6 +617,60 @@ describe('aggregateSet', () => {
     expect(result.errors).toEqual([]);
     const parsed = YAML.load(result.yaml);
     expect(Object.keys(parsed.paths).sort()).toEqual(['/orders', '/users']);
+  });
+
+  test('reports each successful source alongside the raw text it fetched', async () => {
+    global.fetch = vi.fn(async (url) => ({
+      ok: true,
+      text: async () =>
+        url.includes('users') ? 'paths:\n  /users: {}\n' : 'paths:\n  /orders: {}\n',
+    }));
+
+    const result = await aggregateSet(
+      setOf([
+        { name: 'Users', url: 'https://example.com/users.yaml' },
+        { name: 'Orders', url: 'https://example.com/orders.yaml' },
+      ]),
+      CONNECTION
+    );
+
+    expect(result.sources).toEqual([
+      {
+        name: 'Users',
+        url: 'https://example.com/users.yaml',
+        rawContent: 'paths:\n  /users: {}\n',
+      },
+      {
+        name: 'Orders',
+        url: 'https://example.com/orders.yaml',
+        rawContent: 'paths:\n  /orders: {}\n',
+      },
+    ]);
+  });
+
+  test('omits a failed URL from sources', async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url.includes('broken')) {
+        return { ok: false, status: 500, statusText: 'Server Error' };
+      }
+      return { ok: true, text: async () => 'paths:\n  /users: {}\n' };
+    });
+
+    const result = await aggregateSet(
+      setOf([
+        { name: 'Users', url: 'https://example.com/users.yaml' },
+        { name: 'Broken', url: 'https://example.com/broken.yaml' },
+      ]),
+      CONNECTION
+    );
+
+    expect(result.sources).toEqual([
+      {
+        name: 'Users',
+        url: 'https://example.com/users.yaml',
+        rawContent: 'paths:\n  /users: {}\n',
+      },
+    ]);
   });
 
   test('continues past a partial failure and reports it', async () => {
