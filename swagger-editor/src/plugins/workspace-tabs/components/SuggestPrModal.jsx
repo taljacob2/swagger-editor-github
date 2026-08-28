@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
+import { XIcon } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
@@ -239,7 +240,7 @@ const SuggestPrModal = ({
     <Modal isOpen={isOpen} contentLabel="Suggest pull request" onRequestClose={resetAndClose}>
       <ModalHeader>
         <button type="button" className="close" onClick={resetAndClose}>
-          <span aria-hidden="true">x</span>
+          <XIcon size={16} aria-hidden="true" />
         </button>
         <ModalTitle>Suggest pull request</ModalTitle>
       </ModalHeader>

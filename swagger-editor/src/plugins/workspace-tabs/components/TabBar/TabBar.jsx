@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import { CopyIcon, GitPullRequestIcon, XIcon } from '@primer/octicons-react';
 
 import {
   addTab,
@@ -361,7 +362,7 @@ const TabBar = ({
                 }
                 onClick={() => handleSuggestPr(tab.id)}
               >
-                ⇪
+                <GitPullRequestIcon size={14} aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -369,7 +370,7 @@ const TabBar = ({
                 title="Duplicate tab"
                 onClick={() => handleDuplicate(tab.id)}
               >
-                ⧉
+                <CopyIcon size={14} aria-hidden="true" />
               </button>
               {workspace.tabs.length > 1 && (
                 <button
@@ -378,7 +379,7 @@ const TabBar = ({
                   title="Close tab"
                   onClick={() => handleClose(tab.id)}
                 >
-                  ×
+                  <XIcon size={14} aria-hidden="true" />
                 </button>
               )}
             </div>

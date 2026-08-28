@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import { XIcon } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import parseGitHubFileUrl from '../../github-connection/github-file-url.js';
@@ -85,7 +86,7 @@ const LinkTabModal = ({ getComponent, isOpen, onClose, tabId = null, onLinked = 
       <Modal isOpen={isOpen} contentLabel="Link to repository file" onRequestClose={resetAndClose}>
         <ModalHeader>
           <button type="button" className="close" onClick={resetAndClose}>
-            <span aria-hidden="true">x</span>
+            <XIcon size={16} aria-hidden="true" />
           </button>
           <ModalTitle>Link to repository file</ModalTitle>
         </ModalHeader>

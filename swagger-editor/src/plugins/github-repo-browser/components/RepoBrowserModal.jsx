@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
+import { XIcon } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import {
@@ -174,7 +175,7 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
     <Modal isOpen={isOpen} contentLabel="Browse GitHub repositories" onRequestClose={resetAndClose}>
       <ModalHeader>
         <button type="button" className="close" onClick={resetAndClose}>
-          <span aria-hidden="true">x</span>
+          <XIcon size={16} aria-hidden="true" />
         </button>
         <ModalTitle>Browse GitHub repositories</ModalTitle>
       </ModalHeader>
