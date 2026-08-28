@@ -3,6 +3,7 @@ import { useImperativeHandle, useRef, forwardRef } from 'react';
 import ImportUrlMenuItemHandler from './items/ImportUrlMenuItemHandler.jsx';
 import ImportFileMenuItemHandler from './items/ImportFileMenuItemHandler.jsx';
 import BrowseRepoMenuItemHandler from './items/BrowseRepoMenuItemHandler.jsx';
+import SuggestPrMenuItemHandler from './items/SuggestPrMenuItemHandler.jsx';
 import SaveAsMenuItemHandler from './items/SaveAsMenuItemHandler.jsx';
 import ConvertAndSaveAsJSONMenuItemHandler from './items/ConvertAndSaveAsJSONMenuItemHandler.jsx';
 import ConvertAndSaveAsYAMLMenuItemHandler from './items/ConvertAndSaveAsYAMLMenuItemHandler.jsx';
@@ -15,6 +16,7 @@ const FileMenuHandler = (props, ref) => {
   const importUrlMenuItemHandler = useRef(null);
   const importFileMenuItemHandler = useRef(null);
   const browseRepoMenuItemHandler = useRef(null);
+  const suggestPrMenuItemHandler = useRef(null);
   const saveAsMenuItemHandler = useRef(null);
   const convertAndSaveAsJSONMenuItemHandler = useRef(null);
   const convertAndSaveAsYAMLMenuItemHandler = useRef(null);
@@ -30,6 +32,9 @@ const FileMenuHandler = (props, ref) => {
     },
     browseRepo(event) {
       browseRepoMenuItemHandler.current.openModal(event);
+    },
+    suggestPr(event) {
+      suggestPrMenuItemHandler.current.openModal(event);
     },
     async saveAs(event) {
       await saveAsMenuItemHandler.current.downloadContent(event);
@@ -53,6 +58,7 @@ const FileMenuHandler = (props, ref) => {
       <ImportUrlMenuItemHandler ref={importUrlMenuItemHandler} {...props} />
       <ImportFileMenuItemHandler ref={importFileMenuItemHandler} {...props} />
       <BrowseRepoMenuItemHandler ref={browseRepoMenuItemHandler} {...props} />
+      <SuggestPrMenuItemHandler ref={suggestPrMenuItemHandler} {...props} />
       <SaveAsMenuItemHandler ref={saveAsMenuItemHandler} {...props} />
       <ConvertAndSaveAsJSONMenuItemHandler ref={convertAndSaveAsJSONMenuItemHandler} {...props} />
       <ConvertAndSaveAsYAMLMenuItemHandler ref={convertAndSaveAsYAMLMenuItemHandler} {...props} />

@@ -11,6 +11,7 @@ const FileMenu = (props) => {
   const ImportUrlMenuItem = getComponent('TopBarFileMenuImportUrlMenuItem', true);
   const ImportFileMenuItem = getComponent('TopBarFileMenuImportFileMenuItem', true);
   const BrowseRepoMenuItem = getComponent('TopBarFileMenuBrowseRepoMenuItem', true);
+  const SuggestPrMenuItem = getComponent('TopBarFileMenuSuggestPrMenuItem', true);
   const LoadExampleNestedMenu = getComponent('TopBarFileMenuLoadExampleNestedMenu', true);
   const SaveAsMenuItem = getComponent('TopBarFileMenuSaveAsMenuItem', true);
   const ConvertAndSaveAsJSONMenuItem = getComponent(
@@ -39,6 +40,9 @@ const FileMenu = (props) => {
   const handleBrowseRepoClick = useCallback((event) => {
     fileMenuHandler.current.browseRepo(event);
   }, []);
+  const handleSuggestPrClick = useCallback((event) => {
+    fileMenuHandler.current.suggestPr(event);
+  }, []);
   const handleSaveAsClick = useCallback(async (event) => {
     await fileMenuHandler.current.saveAs(event);
   }, []);
@@ -61,6 +65,7 @@ const FileMenu = (props) => {
       <FileMenuHandler {...props} ref={fileMenuHandler} />
       <DropdownMenu label="File">
         <ImportUrlMenuItem onClick={handleUrlImportClick} />
+        <SuggestPrMenuItem onClick={handleSuggestPrClick} />
         <ImportFileMenuItem onClick={handleFileImportClick} />
         <BrowseRepoMenuItem onClick={handleBrowseRepoClick} />
         <LoadExampleNestedMenu />
