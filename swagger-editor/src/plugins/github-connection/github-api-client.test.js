@@ -69,6 +69,31 @@ describe('ghRequest', () => {
     });
   });
 
+  test('extracts a clean message from a GitHub JSON error body instead of dumping it raw', async () => {
+    mockFetchOnce({
+      status: 403,
+      detail: JSON.stringify({
+        message: 'API rate limit exceeded for 79.177.133.201.',
+        documentation_url: 'https://docs.github.com/rest/overview/resources-in-the-rest-api',
+      }),
+    });
+
+    await expect(ghRequest('/user/repos', { connection: CONNECTION })).rejects.toMatchObject({
+      status: 403,
+      message:
+        'GitHub API GET /user/repos failed (403): API rate limit exceeded for 79.177.133.201.',
+    });
+  });
+
+  test('falls back to the raw body when the error response is not JSON', async () => {
+    mockFetchOnce({ status: 502, detail: '<html>Bad Gateway</html>' });
+
+    await expect(ghRequest('/user', { connection: CONNECTION })).rejects.toMatchObject({
+      status: 502,
+      message: 'GitHub API GET /user failed (502): <html>Bad Gateway</html>',
+    });
+  });
+
   test('returns null on a 204', async () => {
     mockFetchOnce({ status: 204 });
 

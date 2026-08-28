@@ -28,6 +28,17 @@ export async function ghRequest(path, { connection, method = 'GET', body, allow4
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
+    // GitHub's own error bodies are JSON ({"message": "...", "documentation_url": "..."}) --
+    // surfacing that raw (braces, quotes, doc link and all) in the UI reads
+    // as a wall of noise. Pull out just the human sentence when it parses;
+    // fall back to the raw body only when it's not the shape expected (an
+    // HTML error page from some intermediary, for instance).
+    let cleanDetail = detail;
+    try {
+      cleanDetail = JSON.parse(detail).message || detail;
+    } catch {
+      // not JSON -- use detail as-is
+    }
     const ssoUrl = parseSsoAuthorizationUrl(response);
     // A read-then-write-with-sha caller (e.g. saveAggregationSet) gets a 409
     // from GitHub when the file changed since it was last read (a real
@@ -39,7 +50,7 @@ export async function ghRequest(path, { connection, method = 'GET', body, allow4
         ? "This token is valid, but hasn't been authorized for single sign-on on this organization."
         : isSaveConflict
           ? 'This was updated elsewhere since you loaded it. Reload it and reapply your changes before saving again.'
-          : `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
+          : `GitHub API ${method} ${path} failed (${response.status}): ${cleanDetail || response.statusText}`
     );
     // Attached so callers can tell "no permission" apart from other failures
     // without string-matching the message.

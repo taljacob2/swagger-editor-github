@@ -1,0 +1,112 @@
+.swagger-editor {
+  // Same boxed treatment as aggregation-storage's __aggregate-alert (border +
+  // tinted background, not just colored text) -- a bare colored <p> for an
+  // API error (often a full sentence, sometimes with a Retry action right
+  // next to it) read as an unstyled wall of text with nothing separating it
+  // from the rest of the modal.
+  &__repo-browser-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 1rem 0;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border: 1px solid transparent;
+
+    &--error {
+      color: #d1242f;
+      background-color: rgba(209, 36, 47, 0.08);
+      border-color: rgba(209, 36, 47, 0.3);
+    }
+  }
+
+  &__repo-browser-alert-message {
+    // Otherwise a long GitHub error sentence pushes the Retry button off
+    // the edge of the modal instead of wrapping under it.
+    min-width: 0;
+  }
+
+  &__repo-browser-alert-retry {
+    flex-shrink: 0;
+  }
+
+  // Filter input above the list -- pulled tight to the list below it (the
+  // list itself supplies the gap above its own first row via its own
+  // margin, see __repo-browser-list) rather than the .input-group default,
+  // which is sized for a field followed by other fields, not a list.
+  &__repo-browser-filter {
+    margin-bottom: 0.6rem;
+  }
+
+  &__repo-browser-step-heading {
+    margin: 0 0 0.6rem 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+
+    code {
+      font-size: 0.75rem;
+    }
+  }
+
+  &__repo-browser-status {
+    margin: 0 0 0.6rem 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+  }
+
+  // Shared by the repo, branch, and file lists -- each is a set of
+  // full-width rows, not a bulleted list of inline buttons.
+  &__repo-browser-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    // Own scroll region rather than growing the modal to fit however many
+    // repos/branches/files come back -- .modal-body already scrolls, but
+    // letting this list alone grow unbounded pushed the footer's
+    // Continue/Cancel buttons far below the fold on an account with a lot
+    // of repos.
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  &__repo-browser-row {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    background-color: var(--se-color-surface);
+    color: var(--se-color-text);
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+
+  // The branch list's rows are <label>s wrapping a radio, not buttons --
+  // same row treatment, different element.
+  &__repo-browser-branch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+}

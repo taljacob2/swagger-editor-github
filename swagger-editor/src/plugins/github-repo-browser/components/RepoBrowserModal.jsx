@@ -179,27 +179,41 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
         <ModalTitle>Browse GitHub repositories</ModalTitle>
       </ModalHeader>
       <ModalBody>
-        {state.error && <p className="text-danger">{state.error}</p>}
-        {state.error && state.step === STEPS.REPOS && state.repos === null && (
-          <button type="button" className="btn btn-secondary" onClick={handleRetryClick}>
-            Retry
-          </button>
+        {state.error && (
+          <div className="swagger-editor__repo-browser-alert swagger-editor__repo-browser-alert--error">
+            <span className="swagger-editor__repo-browser-alert-message">{state.error}</span>
+            {state.step === STEPS.REPOS && state.repos === null && (
+              <button
+                type="button"
+                className="btn btn-secondary swagger-editor__repo-browser-alert-retry"
+                onClick={handleRetryClick}
+              >
+                Retry
+              </button>
+            )}
+          </div>
         )}
 
         {state.step === STEPS.REPOS && (
           <>
             <input
               type="text"
-              className="form-control"
+              className="form-control swagger-editor__repo-browser-filter"
               placeholder="Filter repositories…"
               value={state.repoFilter}
               onChange={(e) => setState((prev) => ({ ...prev, repoFilter: e.target.value }))}
             />
-            {state.isLoading && <p className="help-block">Loading repositories…</p>}
+            {state.isLoading && (
+              <p className="swagger-editor__repo-browser-status">Loading repositories…</p>
+            )}
             <ul className="swagger-editor__repo-browser-list">
               {filteredRepos.map((repo) => (
                 <li key={repo.full_name}>
-                  <button type="button" onClick={() => handleSelectRepo(repo)}>
+                  <button
+                    type="button"
+                    className="swagger-editor__repo-browser-row"
+                    onClick={() => handleSelectRepo(repo)}
+                  >
                     {repo.full_name}
                   </button>
                 </li>
@@ -210,22 +224,26 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
 
         {state.step === STEPS.BRANCHES && (
           <>
-            <p className="help-block">
-              {state.selectedRepo?.owner}/{state.selectedRepo?.name}
+            <p className="swagger-editor__repo-browser-step-heading">
+              <code>
+                {state.selectedRepo?.owner}/{state.selectedRepo?.name}
+              </code>
             </p>
             <input
               type="text"
-              className="form-control"
+              className="form-control swagger-editor__repo-browser-filter"
               placeholder="Filter branches…"
               value={state.branchFilter}
               onChange={(e) => setState((prev) => ({ ...prev, branchFilter: e.target.value }))}
             />
-            {state.isLoading && <p className="help-block">Loading branches…</p>}
+            {state.isLoading && (
+              <p className="swagger-editor__repo-browser-status">Loading branches…</p>
+            )}
             <ul className="swagger-editor__repo-browser-list">
               {filteredBranches.map((branch) => (
                 <li key={branch.name}>
                   {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                  <label>
+                  <label className="swagger-editor__repo-browser-branch-row">
                     <input
                       type="radio"
                       name="repo-browser-branch"
@@ -244,19 +262,27 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
 
         {state.step === STEPS.FILES && (
           <>
-            <p className="help-block">
-              {state.selectedRepo?.owner}/{state.selectedRepo?.name}@{state.selectedBranch}
+            <p className="swagger-editor__repo-browser-step-heading">
+              <code>
+                {state.selectedRepo?.owner}/{state.selectedRepo?.name}@{state.selectedBranch}
+              </code>
             </p>
-            {state.isLoading && <p className="help-block">Searching for spec files…</p>}
+            {state.isLoading && (
+              <p className="swagger-editor__repo-browser-status">Searching for spec files…</p>
+            )}
             {!state.isLoading && state.files?.length === 0 && (
-              <p className="help-block">
+              <p className="swagger-editor__repo-browser-status">
                 No swagger.(yaml|yml|json) or openapi.(yaml|yml|json) files found on this branch.
               </p>
             )}
             <ul className="swagger-editor__repo-browser-list">
               {(state.files || []).map((file) => (
                 <li key={file.path}>
-                  <button type="button" onClick={() => handleSelectFile(file)}>
+                  <button
+                    type="button"
+                    className="swagger-editor__repo-browser-row"
+                    onClick={() => handleSelectFile(file)}
+                  >
                     {file.path}
                   </button>
                 </li>
