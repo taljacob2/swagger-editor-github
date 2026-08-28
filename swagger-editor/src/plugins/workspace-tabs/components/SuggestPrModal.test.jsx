@@ -453,13 +453,17 @@ describe('SuggestPrModal', () => {
       fireEvent.click(screen.getByText('Link to repository file'));
 
       expect(screen.getByLabelText('GitHub file URL')).toBeInTheDocument();
-      // Re-linking shouldn't force typing the URL blind -- the empty input
-      // shows what's already linked as its placeholder, so the current
-      // target is still visible at a glance without leaving the form.
+      // Re-linking shouldn't force typing the URL blind -- the currently
+      // linked URL shows both as the empty input's placeholder (for anyone
+      // who can read that far) and spelled out below it, since the input
+      // itself is too narrow to show a long URL in full.
       expect(screen.getByLabelText('GitHub file URL')).toHaveAttribute(
         'placeholder',
         'https://github.com/octo-org/petstore/blob/main/openapi.yaml'
       );
+      expect(
+        screen.getByText('https://github.com/octo-org/petstore/blob/main/openapi.yaml')
+      ).toBeInTheDocument();
     });
 
     test('the footer button stays available during preview, which also shows the target inline', async () => {
@@ -532,6 +536,7 @@ describe('SuggestPrModal', () => {
         'placeholder',
         'https://github.com/owner/repo/blob/main/openapi.yaml'
       );
+      expect(screen.queryByText(/Currently linked to/)).not.toBeInTheDocument();
     });
 
     test('pasting a recognizable GitHub URL links the tab and continues straight into the suggest flow', async () => {

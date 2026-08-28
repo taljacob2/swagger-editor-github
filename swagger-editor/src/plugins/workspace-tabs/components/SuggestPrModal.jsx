@@ -388,10 +388,21 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
                   placeholder={
                     existingLinkedUrl || 'https://github.com/owner/repo/blob/main/openapi.yaml'
                   }
+                  title={existingLinkedUrl || undefined}
                   value={state.linkUrl}
                   onChange={(e) => setState((prev) => ({ ...prev, linkUrl: e.target.value }))}
                 />
               </div>
+              {/* The input above is too narrow to show a long URL in full
+                (as a placeholder or otherwise) -- spelled out here, in a
+                spot that wraps instead of clipping, so re-linking still
+                shows what's already linked without relying on a hover
+                tooltip (the input's title attribute, for anyone who can). */}
+              {existingLinkedUrl && (
+                <p className="help-block swagger-editor__suggest-pr-existing-link">
+                  Currently linked to <code>{existingLinkedUrl}</code>
+                </p>
+              )}
               {state.linkError && <p className="text-danger">{state.linkError}</p>}
             </>
           )}
