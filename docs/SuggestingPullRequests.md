@@ -33,8 +33,9 @@ Two ways to set it:
 Either way, the file is fetched once and that content becomes the tab's *baseline* — the "last
 known upstream state" this feature compares against later (see [Drift detection](#drift-detection)
 below). The link itself lives in this browser's `localStorage`, keyed by tab ID — it's local to
-your browser, not saved anywhere shared, and it belongs to the tab, not its content: closing a tab
-discards its link, and duplicating a tab does **not** carry the link over to the copy.
+your browser, not saved anywhere shared. Closing a tab discards its link; duplicating a tab copies
+it, since a duplicate is meant to be a copy of everything about the original, including where it's
+already linked.
 
 Already linked and want to point the tab at a different file instead? The modal's footer always has
 a **Link to repository file** button (except on the success screen, where there's nothing left to

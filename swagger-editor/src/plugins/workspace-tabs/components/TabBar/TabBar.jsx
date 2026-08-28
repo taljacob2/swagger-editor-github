@@ -16,7 +16,11 @@ import {
   setActiveTab,
   setTabContent,
 } from '../../workspace-tabs-service.js';
-import { getLinkedTarget, removeLinkedTarget } from '../../linked-target-service.js';
+import {
+  getLinkedTarget,
+  removeLinkedTarget,
+  setLinkedTarget,
+} from '../../linked-target-service.js';
 import SuggestPrModal from '../SuggestPrModal.jsx';
 
 const TabBar = ({
@@ -133,9 +137,17 @@ const TabBar = ({
   const handleDuplicate = (tabId) => {
     const current = getWorkspaceMeta();
     const sourceContent = getTabContent(tabId);
+    const sourceLinkedTarget = getLinkedTarget(tabId);
     const next = duplicateTab(current, tabId);
     if (next !== current) {
       setTabContent(next.activeTabId, sourceContent);
+      // A duplicate is a copy of the tab's content, including whatever it's
+      // linked to -- otherwise Suggest PR on the copy would open straight
+      // into the linking form instead of carrying over where the original
+      // was already pointed.
+      if (sourceLinkedTarget) {
+        setLinkedTarget(next.activeTabId, sourceLinkedTarget);
+      }
     }
     applyWorkspace(next, { activateContentFor: next.activeTabId });
   };

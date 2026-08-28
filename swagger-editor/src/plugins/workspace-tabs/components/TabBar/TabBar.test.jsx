@@ -20,6 +20,7 @@ vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
 vi.mock('../../linked-target-service.js', () => ({
   removeLinkedTarget: vi.fn(),
   getLinkedTarget: vi.fn(() => null),
+  setLinkedTarget: vi.fn(),
 }));
 
 // SuggestPrModal's own flow (fetch-fresh, drift, diff, PR creation, and the
@@ -209,6 +210,43 @@ describe('TabBar', () => {
       'a-content'
     );
     expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
+  });
+
+  test('duplicating a linked tab carries the link over to the new tab', () => {
+    const target = { owner: 'octo-org', repo: 'petstore', path: 'openapi.yaml' };
+    linkedTargetService.getLinkedTarget.mockImplementation((tabId) =>
+      tabId === 'a' ? target : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1", which is linked
+
+    expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(expect.any(String), target);
+  });
+
+  test('duplicating an unlinked tab does not invent a link for the new tab', () => {
+    linkedTargetService.getLinkedTarget.mockReturnValue(null);
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]);
+
+    expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
   });
 
   test('closing a background tab removes its stored content but does not touch the editor', () => {
