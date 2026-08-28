@@ -47,6 +47,22 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
       const connection = await getConnectionSettings();
+      // GET /user/repos only means something for an authenticated user --
+      // without a token it's billed against the requesting IP's 60/hour
+      // anonymous quota (shared by everyone on that IP), which is easy to
+      // exhaust and comes back as a confusing "rate limit exceeded for
+      // <ip>" rather than a clear "you need to sign in". Catch that case
+      // before spending a request on a call that can't succeed anyway.
+      if (!connection.token) {
+        setState((prev) => ({
+          ...prev,
+          connection,
+          isLoading: false,
+          error:
+            'Add a GitHub token in Connection Settings first — listing your repositories needs one.',
+        }));
+        return;
+      }
       const repos = await listRepos(connection);
       setState((prev) => ({ ...prev, connection, repos, isLoading: false }));
     } catch (error) {

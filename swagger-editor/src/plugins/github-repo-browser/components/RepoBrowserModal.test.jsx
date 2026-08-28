@@ -209,6 +209,29 @@ describe('RepoBrowserModal', () => {
     expect(screen.queryByLabelText('main')).not.toBeInTheDocument();
   });
 
+  test('without a configured token, surfaces a clear message instead of calling listRepos', async () => {
+    githubConnectionService.getConnectionSettings.mockResolvedValue({
+      apiBaseUrl: 'https://api.github.com',
+      token: '',
+    });
+
+    render(
+      <RepoBrowserModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        onFileSelected={vi.fn()}
+      />
+    );
+
+    expect(
+      await screen.findByText(
+        'Add a GitHub token in Connection Settings first — listing your repositories needs one.'
+      )
+    ).toBeInTheDocument();
+    expect(repoBrowserService.listRepos).not.toHaveBeenCalled();
+  });
+
   test('surfaces a fetch failure as an inline error, without retrying on its own', async () => {
     repoBrowserService.listRepos.mockRejectedValue(new Error('GitHub API /user/repos failed: 429'));
 
