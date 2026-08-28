@@ -143,6 +143,11 @@ const renderHandler = (ref, editorActions = { setContent: vi.fn() }) => {
 
 describe('AggregateMenuHandler', () => {
   beforeEach(() => {
+    // workspace-tabs' own services (getWorkspaceMeta, linked-target-service,
+    // aggregation-provenance-service) are real, unmocked localStorage-backed
+    // modules -- cleared so a leftover tab/link/provenance record from one
+    // test can't leak into the next.
+    localStorage.clear();
     githubConnectionService.getConnectionSettings.mockResolvedValue(CONNECTION_SETTINGS);
     githubConnectionService.deriveWebBaseUrl.mockImplementation((apiBaseUrl) =>
       apiBaseUrl.replace(/^https:\/\/api\./, 'https://')
@@ -899,6 +904,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [], tags: [], components: [] },
         errors: [],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -968,6 +975,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [], tags: [], components: [] },
         errors: [],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       const editorActions = renderHandler(ref);
@@ -991,6 +1000,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [{ path: '/x', services: ['A', 'B'] }], tags: [], components: [] },
         errors: [{ name: 'Broken', message: 'HTTP 500: Server Error' }],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -1026,6 +1037,8 @@ describe('AggregateMenuHandler', () => {
         },
         errors: [],
         specCount: 2,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -1048,6 +1061,75 @@ describe('AggregateMenuHandler', () => {
       fireEvent.click(toggle);
 
       expect(screen.queryByText('/users/profile')).not.toBeInTheDocument();
+    });
+
+    test('persists aggregation provenance for the active tab, clearing any single-file link', async () => {
+      const { getWorkspaceMeta } = await import('../../workspace-tabs/workspace-tabs-service.js');
+      const { setLinkedTarget, getLinkedTarget } = await import(
+        '../../workspace-tabs/linked-target-service.js'
+      );
+      const { getAggregationProvenance } = await import(
+        '../../workspace-tabs/aggregation-provenance-service.js'
+      );
+      const { activeTabId } = getWorkspaceMeta();
+      setLinkedTarget(activeTabId, {
+        apiBaseUrl: 'https://api.github.com',
+        owner: 'octo-org',
+        repo: 'other',
+        path: 'other.yaml',
+        ref: 'main',
+        baselineContent: 'openapi: 3.0.0\n',
+      });
+
+      aggregationMergeService.aggregateSet.mockResolvedValue({
+        yaml: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+        conflicts: { paths: [], tags: [], components: [] },
+        errors: [],
+        specCount: 1,
+        sources: [
+          {
+            name: 'Orders',
+            url: 'https://x/o.yaml',
+            rawContent: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+          },
+        ],
+        provenance: {
+          paths: { '/o': { service: 'Orders', originalKey: '/o' } },
+          tags: {},
+          components: {},
+        },
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Aggregate'));
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Aggregate'));
+      });
+
+      expect(getLinkedTarget(activeTabId)).toBeNull();
+      expect(getAggregationProvenance(activeTabId)).toEqual({
+        setName: 'Orders',
+        sources: [
+          {
+            name: 'Orders',
+            url: 'https://x/o.yaml',
+            apiBaseUrl: 'https://api.github.com',
+            owner: null,
+            repo: null,
+            path: null,
+            ref: null,
+            baselineContent: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+          },
+        ],
+        provenance: {
+          paths: { '/o': { service: 'Orders', originalKey: '/o' } },
+          tags: {},
+          components: {},
+        },
+        baselineMergedText: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+      });
     });
 
     test('reports an aggregation failure without crashing', async () => {

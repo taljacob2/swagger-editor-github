@@ -3,11 +3,15 @@ import PropTypes from 'prop-types';
 import YAML from 'js-yaml';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
+import parseGitHubFileUrl from '../../github-connection/github-file-url.js';
 import RepoBrowserModal from '../../github-repo-browser/components/RepoBrowserModal.jsx';
 import {
   buildBlobUrl,
   defaultNameFrom,
 } from '../../github-repo-browser/github-repo-browser-service.js';
+import { removeLinkedTarget } from '../../workspace-tabs/linked-target-service.js';
+import { setAggregationProvenance } from '../../workspace-tabs/aggregation-provenance-service.js';
+import { getWorkspaceMeta } from '../../workspace-tabs/workspace-tabs-service.js';
 import { aggregateSet } from '../aggregation-merge-service.js';
 import {
   BRANCH_PREFIX,
@@ -312,8 +316,36 @@ const AggregateMenuHandler = forwardRef(
       setStatus(null);
       setShowConflictDetails(false);
       try {
-        const result = await aggregateSet(set, await getConnectionSettings());
+        const connection = await getConnectionSettings();
+        const result = await aggregateSet(set, connection);
+        const { activeTabId } = getWorkspaceMeta();
         editorActions.setContent(result.yaml, EditorContentOrigin.Aggregation);
+
+        // Aggregation and single-file linking are mutually exclusive states
+        // for a tab (see docs/SuggestingPullRequests.md) -- clearing any
+        // stale single-file link here is what keeps that true, since this
+        // tab's content (and Suggest PR routing) now belongs to the set
+        // just loaded into it, not whatever file it may have been linked to
+        // before.
+        removeLinkedTarget(activeTabId);
+        setAggregationProvenance(activeTabId, {
+          setName: set.name,
+          sources: result.sources.map((source) => {
+            const parsed = parseGitHubFileUrl(source.url, connection.apiBaseUrl);
+            return {
+              name: source.name,
+              url: source.url,
+              apiBaseUrl: parsed?.apiBase ?? connection.apiBaseUrl,
+              owner: parsed?.owner ?? null,
+              repo: parsed?.repo ?? null,
+              path: parsed?.path ?? null,
+              ref: parsed?.ref ?? null,
+              baselineContent: source.rawContent,
+            };
+          }),
+          provenance: result.provenance,
+          baselineMergedText: result.yaml,
+        });
 
         const conflictCount =
           result.conflicts.paths.length +
