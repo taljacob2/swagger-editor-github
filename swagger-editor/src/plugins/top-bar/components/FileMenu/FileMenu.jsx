@@ -10,6 +10,7 @@ const FileMenu = (props) => {
   const DropdownMenuItemDivider = getComponent('DropdownMenuItemDivider');
   const ImportUrlMenuItem = getComponent('TopBarFileMenuImportUrlMenuItem', true);
   const ImportFileMenuItem = getComponent('TopBarFileMenuImportFileMenuItem', true);
+  const BrowseRepoMenuItem = getComponent('TopBarFileMenuBrowseRepoMenuItem', true);
   const LoadExampleNestedMenu = getComponent('TopBarFileMenuLoadExampleNestedMenu', true);
   const SaveAsMenuItem = getComponent('TopBarFileMenuSaveAsMenuItem', true);
   const ConvertAndSaveAsJSONMenuItem = getComponent(
@@ -35,6 +36,9 @@ const FileMenu = (props) => {
   const handleFileImportClick = useCallback(async (event) => {
     await fileMenuHandler.current.importFile(event);
   }, []);
+  const handleBrowseRepoClick = useCallback((event) => {
+    fileMenuHandler.current.browseRepo(event);
+  }, []);
   const handleSaveAsClick = useCallback(async (event) => {
     await fileMenuHandler.current.saveAs(event);
   }, []);
@@ -58,6 +62,7 @@ const FileMenu = (props) => {
       <DropdownMenu label="File">
         <ImportUrlMenuItem onClick={handleUrlImportClick} />
         <ImportFileMenuItem onClick={handleFileImportClick} />
+        <BrowseRepoMenuItem onClick={handleBrowseRepoClick} />
         <LoadExampleNestedMenu />
         <DropdownMenuItemDivider />
         <SaveAsMenuItem onClick={handleSaveAsClick} />

@@ -3,6 +3,7 @@ import Logo from './components/Logo/Logo.jsx';
 import FileMenu from './components/FileMenu/FileMenu.jsx';
 import ImportUrlMenuItem from './components/FileMenu/items/ImportUrlMenuItem.jsx';
 import ImportFileMenuItem from './components/FileMenu/items/ImportFileMenuItem.jsx';
+import BrowseRepoMenuItem from './components/FileMenu/items/BrowseRepoMenuItem.jsx';
 import LoadExampleNestedMenu from './components/FileMenu/items/LoadExampleNestedMenu/LoadExampleNestedMenu.jsx';
 import OpenAPI32PetstoreMenuItem from './components/FileMenu/items/LoadExampleNestedMenu/items/OpenAPI32PetstoreMenuItem.jsx';
 import OpenAPI31PetstoreMenuItem from './components/FileMenu/items/LoadExampleNestedMenu/items/OpenAPI31PetstoreMenuItem.jsx';
@@ -153,6 +154,7 @@ const TopBarPlugin = () => ({
     TopBarFileMenu: FileMenu,
     TopBarFileMenuImportUrlMenuItem: ImportUrlMenuItem,
     TopBarFileMenuImportFileMenuItem: ImportFileMenuItem,
+    TopBarFileMenuBrowseRepoMenuItem: BrowseRepoMenuItem,
     TopBarFileMenuLoadExampleNestedMenu: LoadExampleNestedMenu,
     TopBarFileMenuLoadExampleNestedMenuOpenAPI32PetstoreMenuItem: OpenAPI32PetstoreMenuItem,
     TopBarFileMenuLoadExampleNestedMenuOpenAPI31PetstoreMenuItem: OpenAPI31PetstoreMenuItem,
