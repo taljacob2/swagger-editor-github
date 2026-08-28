@@ -27,9 +27,12 @@ for the full story. The trade-off: a classic token can't be scoped to read-only 
 repos the way a fine-grained one can — every tier below now uses the same kind of token, just
 possibly more than one of them.
 
-Two things this app might need a token for — and, importantly, it might need *no* token at all:
+Three things this app might need a token for — and, importantly, it might need *no* token at all:
 - **Saving an aggregation set** — writing a file into this repo's `aggregation-data` branch. Always
   needs a token with write access.
+- **Suggesting a pull request** — linking a tab to a file in a GitHub repo and opening a PR back to
+  it with your edits. Always needs a token with write access (same requirement as saving a set,
+  just against whichever repo the tab is linked to instead of this one).
 - **Fetching a spec to aggregate, or just browsing what's saved** — reading a file from wherever an
   aggregation set points. Only needs a token at all if that content is private.
 
@@ -41,8 +44,8 @@ Most people fall into one of these, roughly in order of "most common, least setu
 |---|---|---|
 | **0 — zero config** | Just browsing/aggregating, and everything involved (this repo, every spec you aggregate) is public | Nothing. Open the site and go — no token, no Connection Settings visit needed. |
 | **1 — read-only** | Browsing/aggregating, but this repo or a spec you're aggregating is private | One classic personal access token (`repo` scope), pasted into the **GitHub token** field. |
-| **2 — maintainer, public specs** | You'll create/edit/delete sets, and everything you aggregate is public | Same — one classic personal access token (`repo` scope), in the **GitHub token** field. |
-| **3 — maintainer, private specs** | You'll create/edit/delete sets *and* aggregate private specs | Same again — one classic personal access token (`repo` scope). |
+| **2 — maintainer, public specs** | You'll create/edit/delete sets and/or suggest pull requests, and everything involved is public | Same — one classic personal access token (`repo` scope), in the **GitHub token** field. |
+| **3 — maintainer, private specs** | You'll create/edit/delete sets and/or suggest pull requests *and* work with private specs/repos | Same again — one classic personal access token (`repo` scope). |
 
 Tiers 1–3 all need the identical kind of token now — see the classic-vs-fine-grained note above for
 why. What still makes them worth telling apart is simply *whether* you need a token at all (Tier 0
@@ -54,9 +57,9 @@ editing controls aren't there. Nothing to configure for that; it just works base
 token you've entered (or haven't).
 
 Don't want to work out which tier you're in by hand? **Connection Settings** has a "What do you
-want to do?" picker — "public specs only" (no token) or "private specs, or creating/editing sets"
-(needs one) — with a pre-filled "Create a token →" link for the second option. The walkthrough
-below is for anyone who wants the full manual steps instead.
+want to do?" picker — "public specs only" (no token) or "private specs, creating/editing sets, or
+suggesting a PR" (needs one) — with a pre-filled "Create a token →" link for the second option. The
+walkthrough below is for anyone who wants the full manual steps instead.
 
 ## Step-by-step: creating a token
 

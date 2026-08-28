@@ -183,7 +183,9 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
     fireEvent.click(
-      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+      screen.getByRole('radio', {
+        name: /Private specs, creating\/editing sets, or suggesting a PR/,
+      })
     );
 
     expect(screen.getByText('Show')).toBeDisabled();
@@ -229,7 +231,9 @@ describe('GitHubMenuHandler', () => {
     await openModal(ref);
 
     expect(
-      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+      screen.getByRole('radio', {
+        name: /Private specs, creating\/editing sets, or suggesting a PR/,
+      })
     ).toBeChecked();
     expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
   });
@@ -250,7 +254,9 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
     fireEvent.click(
-      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+      screen.getByRole('radio', {
+        name: /Private specs, creating\/editing sets, or suggesting a PR/,
+      })
     );
 
     expect(screen.getByLabelText('GitHub token')).toBeInTheDocument();
@@ -272,7 +278,9 @@ describe('GitHubMenuHandler', () => {
 
     await openModal(ref);
     fireEvent.click(
-      screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+      screen.getByRole('radio', {
+        name: /Private specs, creating\/editing sets, or suggesting a PR/,
+      })
     );
 
     expect(githubConnectionService.buildClassicTokenCreationUrl).toHaveBeenCalledWith(
@@ -428,7 +436,9 @@ describe('GitHubMenuHandler', () => {
       fireEvent.click(screen.getByText('Cancel'));
 
       expect(
-        screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+        screen.getByRole('radio', {
+          name: /Private specs, creating\/editing sets, or suggesting a PR/,
+        })
       ).toBeChecked();
       expect(screen.getByLabelText('GitHub token')).toHaveValue('stored-token');
       expect(githubConnectionService.saveConnectionSettings).not.toHaveBeenCalled();
@@ -441,7 +451,9 @@ describe('GitHubMenuHandler', () => {
       await openModal(ref);
       switchToPublicOnly();
       fireEvent.click(
-        screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+        screen.getByRole('radio', {
+          name: /Private specs, creating\/editing sets, or suggesting a PR/,
+        })
       );
 
       expect(
@@ -517,7 +529,9 @@ describe('GitHubMenuHandler', () => {
       });
       expect(screen.getByText('Token re-enabled.')).toBeInTheDocument();
       expect(
-        screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+        screen.getByRole('radio', {
+          name: /Private specs, creating\/editing sets, or suggesting a PR/,
+        })
       ).toBeChecked();
       expect(screen.getByLabelText('GitHub token')).toHaveValue('stored-token');
     });

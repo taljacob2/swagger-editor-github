@@ -40,7 +40,7 @@ const INTENT_OPTIONS = [
   },
   {
     value: INTENTS.NEEDS_TOKEN,
-    title: 'Private specs, or creating/editing sets',
+    title: 'Private specs, creating/editing sets, or suggesting a PR',
     description: 'Needs one classic personal access token.',
   },
 ];
