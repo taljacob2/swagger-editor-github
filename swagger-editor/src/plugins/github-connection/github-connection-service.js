@@ -134,28 +134,54 @@ export function setCachedConnectionSettingsForWorkers(settings) {
   cachedConnectionSettingsForWorkers = settings;
 }
 
+// tokenDisabled ("silenced") lets a user keep a saved token in storage while
+// telling the app to act as if there were none -- e.g. to see how the app
+// behaves anonymously without having to retype the token afterwards. `token`
+// below is always the *effective* value every existing caller (ghRequest,
+// testConnection, the fetch interceptor, the ApiDOM worker, canWriteToStorage,
+// ...) already reads to decide what to send GitHub -- it comes back empty
+// while silenced, so none of those call sites need to know this feature
+// exists. `rawToken` is the actual stored value regardless of tokenDisabled,
+// and exists purely so Connection Settings can keep showing/re-enabling it.
 export async function getConnectionSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '', fetchToken: '' };
+      return {
+        apiBaseUrl: resolveDefaultApiBaseUrl(),
+        token: '',
+        rawToken: '',
+        fetchToken: '',
+        tokenDisabled: false,
+      };
     }
     const parsed = JSON.parse(raw);
+    const rawToken = await decryptToken(parsed.token || '');
+    const tokenDisabled = Boolean(parsed.tokenDisabled);
     return {
       apiBaseUrl: parsed.apiBaseUrl || resolveDefaultApiBaseUrl(),
-      token: await decryptToken(parsed.token || ''),
+      token: tokenDisabled ? '' : rawToken,
+      rawToken,
       fetchToken: await decryptToken(parsed.fetchToken || ''),
+      tokenDisabled,
     };
   } catch {
-    return { apiBaseUrl: resolveDefaultApiBaseUrl(), token: '', fetchToken: '' };
+    return {
+      apiBaseUrl: resolveDefaultApiBaseUrl(),
+      token: '',
+      rawToken: '',
+      fetchToken: '',
+      tokenDisabled: false,
+    };
   }
 }
 
-export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) {
+export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken, tokenDisabled }) {
   const settings = {
     apiBaseUrl: stripTrailingSlashes(apiBaseUrl || resolveDefaultApiBaseUrl()),
     token: token || '',
     fetchToken: fetchToken || '',
+    tokenDisabled: Boolean(tokenDisabled),
   };
   const encryptedToken = await encryptToken(settings.token);
   const encryptedFetchToken = await encryptToken(settings.fetchToken);
@@ -167,12 +193,20 @@ export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) 
       fetchToken: encryptedFetchToken.value,
     })
   );
-  setCachedConnectionSettingsForWorkers(settings);
+  // Cached for the ApiDOM worker (see the comment above cachedConnectionSettingsForWorkers)
+  // -- it reads .token the same way every other caller does, so this cache
+  // needs to carry the effective (silenced-aware) value too, not the raw one.
+  setCachedConnectionSettingsForWorkers({
+    ...settings,
+    token: settings.tokenDisabled ? '' : settings.token,
+  });
   // tokenEncrypted/fetchTokenEncrypted let callers (GitHubMenuHandler) warn
   // the user when encryption itself failed and the token was stored as
   // plain text -- true for an empty token, since there's nothing to warn about.
   return {
     ...settings,
+    token: settings.tokenDisabled ? '' : settings.token,
+    rawToken: settings.token,
     tokenEncrypted: encryptedToken.encrypted,
     fetchTokenEncrypted: encryptedFetchToken.encrypted,
   };
