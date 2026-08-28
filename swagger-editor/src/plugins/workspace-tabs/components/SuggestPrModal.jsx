@@ -99,6 +99,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
           ...emptyState,
           phase: 'drift',
           driftSummary: summarizeDrift(target.baselineContent, freshContent),
+          target,
           freshContent,
         });
         return;
@@ -156,8 +157,22 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, tabId]);
 
-  const handleContinueAfterDrift = () =>
+  const handleContinueAfterDrift = () => {
+    // Persisted immediately, independent of whatever happens next in this
+    // run (the user may still cancel out of the preview without opening a
+    // PR) -- "Continue anyway" is itself an acknowledgment of what upstream
+    // actually has now, and without this the corrected baseline only ever
+    // got saved as a side effect of successfully creating another PR. Leave
+    // this warning unresolved (e.g. by closing the modal instead) and it
+    // reappeared identically on every subsequent attempt, with no way to
+    // clear it short of opening a PR you might not have wanted to open.
+    setLinkedTarget(tabId, {
+      ...state.target,
+      baselineContent: state.freshContent,
+      baselineFetchedAt: new Date().toISOString(),
+    });
     run({ skipDriftCheck: true, baseContentOverride: state.freshContent });
+  };
 
   const handleConfirmCreate = async () => {
     const { target, targetConnection, contentToCommit, freshContent } = state;

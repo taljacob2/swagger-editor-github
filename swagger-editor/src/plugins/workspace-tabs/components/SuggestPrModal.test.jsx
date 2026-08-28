@@ -228,6 +228,44 @@ describe('SuggestPrModal', () => {
     );
   });
 
+  test('"Continue anyway" repairs the stored baseline immediately, even if the PR is never created', async () => {
+    // Regression: previously the baseline was only corrected as a side
+    // effect of successfully creating another PR -- clicking "Continue
+    // anyway" and then Cancel (never opening a PR) left the stale baseline
+    // in place, so the exact same false-positive drift warning reappeared
+    // on every subsequent attempt with no way to clear it.
+    const freshContent = 'openapi: 3.0.0\ninfo:\n  title: Changed upstream\n';
+    repoBrowserService.getFileContent.mockResolvedValue({ content: freshContent });
+    workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: My edit\n');
+
+    render(
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        tabId="a"
+        editorActions={editorActions}
+      />
+    );
+
+    await screen.findByText(/changed since you started editing/);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Continue anyway'));
+    });
+
+    expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
+      'a',
+      expect.objectContaining({ baselineContent: freshContent })
+    );
+
+    await screen.findByText('Open pull request');
+    fireEvent.click(screen.getByText('Cancel'));
+
+    expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
+    expect(suggestPrService.createPullRequest).not.toHaveBeenCalled();
+  });
+
   test('surfaces a no-write-access message and never attempts the branch/commit sequence', async () => {
     repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
     workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
