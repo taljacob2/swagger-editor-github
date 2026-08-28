@@ -9,7 +9,7 @@ import {
 } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
-import parseGitHubFileUrl from '../../github-connection/github-file-url.js';
+import parseGitHubFileUrl, { buildGitHubFileUrl } from '../../github-connection/github-file-url.js';
 import RepoBrowserModal from '../../github-repo-browser/components/RepoBrowserModal.jsx';
 import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
 import {
@@ -333,6 +333,13 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
   const prNumberMatch = state.prUrl?.match(/\/pull\/(\d+)/);
   const prNumber = prNumberMatch ? prNumberMatch[1] : null;
 
+  // Re-read directly from storage (not state.target, which the "Link to
+  // repository file" button clears via emptyState) so a re-link still shows
+  // what's already linked -- a quick way to check the current target before
+  // deciding whether to replace it, without leaving the form.
+  const existingLinkedTarget = state.phase === 'link' ? getLinkedTarget(tabId) : null;
+  const existingLinkedUrl = existingLinkedTarget ? buildGitHubFileUrl(existingLinkedTarget) : null;
+
   return (
     <>
       <Modal isOpen={isOpen} contentLabel="Suggest pull request" onRequestClose={resetAndClose}>
@@ -378,7 +385,9 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
                   id="input-suggest-pr-link-url"
                   type="text"
                   className="form-control"
-                  placeholder="https://github.com/owner/repo/blob/main/openapi.yaml"
+                  placeholder={
+                    existingLinkedUrl || 'https://github.com/owner/repo/blob/main/openapi.yaml'
+                  }
                   value={state.linkUrl}
                   onChange={(e) => setState((prev) => ({ ...prev, linkUrl: e.target.value }))}
                 />
