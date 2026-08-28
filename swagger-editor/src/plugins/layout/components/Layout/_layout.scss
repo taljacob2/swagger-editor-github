@@ -47,6 +47,15 @@
     .Pane {
       overflow-y: scroll;
       background-color: var(--se-color-surface);
+      // 100svh above stops the layout resizing once mobile browser chrome
+      // (address bar) actually collapses -- this stops the collapse from
+      // being *triggered* in the first place by a scroll gesture in here.
+      // Without it, swiping past this pane's own scroll extent (reaching
+      // the top/bottom of its content while still swiping) rubber-bands
+      // into the page itself on iOS/Android, which is what the browser
+      // reads as "the page is scrolling" and animates its chrome for --
+      // contain keeps that overscroll from ever leaving this element.
+      overscroll-behavior-y: contain;
     }
 
     .dropzone {
