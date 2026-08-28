@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { XIcon } from '@primer/octicons-react';
+import { FileCodeIcon, GitBranchIcon, LockIcon, RepoIcon, XIcon } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import {
@@ -11,6 +11,21 @@ import {
 } from '../github-repo-browser-service.js';
 
 const STEPS = { REPOS: 'repos', BRANCHES: 'branches', FILES: 'files' };
+
+// Fixed left-to-right order, also driving the step header below -- each
+// entry's `value(state)` returns what to show once that step is behind the
+// user (null while it's still current/upcoming, which the header reads as
+// "nothing chosen yet").
+const STEP_ORDER = [
+  {
+    step: STEPS.REPOS,
+    label: 'Repository',
+    value: (state) =>
+      state.selectedRepo && `${state.selectedRepo.owner}/${state.selectedRepo.name}`,
+  },
+  { step: STEPS.BRANCHES, label: 'Branch', value: (state) => state.selectedBranch },
+  { step: STEPS.FILES, label: 'File', value: () => null },
+];
 
 const emptyState = {
   step: STEPS.REPOS,
@@ -170,6 +185,7 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
   const filteredBranches = (state.branches || []).filter((branch) =>
     branch.name.toLowerCase().includes(state.branchFilter.toLowerCase())
   );
+  const currentStepIndex = STEP_ORDER.findIndex((entry) => entry.step === state.step);
 
   return (
     <Modal isOpen={isOpen} contentLabel="Browse GitHub repositories" onRequestClose={resetAndClose}>
@@ -180,6 +196,33 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
         <ModalTitle>Browse GitHub repositories</ModalTitle>
       </ModalHeader>
       <ModalBody>
+        <div className="swagger-editor__repo-browser-steps">
+          {STEP_ORDER.map(({ step, label, value }, index) => {
+            const isCurrent = step === state.step;
+            const isDone = index < currentStepIndex;
+            const doneValue = isDone ? value(state) : null;
+            return (
+              <span
+                key={step}
+                className={[
+                  'swagger-editor__repo-browser-step',
+                  isCurrent && 'swagger-editor__repo-browser-step--current',
+                  isDone && 'swagger-editor__repo-browser-step--done',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {label}
+                {doneValue && (
+                  <>
+                    : <code>{doneValue}</code>
+                  </>
+                )}
+              </span>
+            );
+          })}
+        </div>
+
         {state.error && (
           <div className="swagger-editor__repo-browser-alert swagger-editor__repo-browser-alert--error">
             <span className="swagger-editor__repo-browser-alert-message">{state.error}</span>
@@ -215,7 +258,18 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
                     className="swagger-editor__repo-browser-row"
                     onClick={() => handleSelectRepo(repo)}
                   >
-                    {repo.full_name}
+                    <RepoIcon
+                      size={16}
+                      className="swagger-editor__repo-browser-row-icon"
+                      aria-hidden="true"
+                    />
+                    <span className="swagger-editor__repo-browser-row-label">{repo.full_name}</span>
+                    {repo.private && (
+                      <span className="swagger-editor__repo-browser-row-badge">
+                        <LockIcon size={12} aria-hidden="true" />
+                        Private
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -225,11 +279,6 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
 
         {state.step === STEPS.BRANCHES && (
           <>
-            <p className="swagger-editor__repo-browser-step-heading">
-              <code>
-                {state.selectedRepo?.owner}/{state.selectedRepo?.name}
-              </code>
-            </p>
             <input
               type="text"
               className="form-control swagger-editor__repo-browser-filter"
@@ -253,6 +302,7 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
                         setState((prev) => ({ ...prev, selectedBranch: branch.name }))
                       }
                     />
+                    <GitBranchIcon size={16} aria-hidden="true" />
                     {branch.name}
                   </label>
                 </li>
@@ -263,11 +313,6 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
 
         {state.step === STEPS.FILES && (
           <>
-            <p className="swagger-editor__repo-browser-step-heading">
-              <code>
-                {state.selectedRepo?.owner}/{state.selectedRepo?.name}@{state.selectedBranch}
-              </code>
-            </p>
             {state.isLoading && (
               <p className="swagger-editor__repo-browser-status">Searching for spec files…</p>
             )}
@@ -284,7 +329,12 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
                     className="swagger-editor__repo-browser-row"
                     onClick={() => handleSelectFile(file)}
                   >
-                    {file.path}
+                    <FileCodeIcon
+                      size={16}
+                      className="swagger-editor__repo-browser-row-icon"
+                      aria-hidden="true"
+                    />
+                    <span className="swagger-editor__repo-browser-row-label">{file.path}</span>
                   </button>
                 </li>
               ))}

@@ -40,13 +40,36 @@
     margin-bottom: 0.6rem;
   }
 
-  &__repo-browser-step-heading {
-    margin: 0 0 0.6rem 0;
-    font-size: 0.8rem;
+  // The 3-step "where am I" header (Repository -> Branch -> File), replacing
+  // the old single bare `owner/repo` line -- distinct from __repo-browser-status
+  // below both in role (orientation, not a transient loading/empty message)
+  // and in type scale, so the two don't read as the same kind of text.
+  &__repo-browser-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 0.9rem;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--se-color-border);
+  }
+
+  &__repo-browser-step {
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--se-color-text-muted);
 
     code {
-      font-size: 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 400;
+    }
+
+    &--current {
+      color: var(--se-color-text);
+    }
+
+    &--done {
+      font-weight: 400;
     }
   }
 
@@ -75,7 +98,9 @@
   }
 
   &__repo-browser-row {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     width: 100%;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--se-color-border);
@@ -90,6 +115,34 @@
       border-color: #00a0b4;
       background-color: var(--se-color-hover);
     }
+  }
+
+  &__repo-browser-row-icon {
+    // Never squashed by a long repo full_name/file path sharing the same
+    // flex row.
+    flex-shrink: 0;
+    color: var(--se-color-text-muted);
+  }
+
+  &__repo-browser-row-label {
+    // min-width: 0 overrides a flex item's default auto, which otherwise
+    // refuses to shrink below its content size and defeats the ellipsis
+    // below entirely. Long paths/full_names ellipsize instead of pushing a
+    // private badge (or just the row's own edge) off to the side.
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__repo-browser-row-badge {
+    flex-shrink: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--se-color-text-muted);
   }
 
   // The branch list's rows are <label>s wrapping a radio, not buttons --

@@ -258,6 +258,57 @@ describe('RepoBrowserModal', () => {
     expect(repoBrowserService.listRepos).toHaveBeenCalledTimes(1);
   });
 
+  test('the step header shows where you are and fills in what you already chose', async () => {
+    render(
+      <RepoBrowserModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        onFileSelected={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('owner/repo-a')).toBeInTheDocument());
+    expect(screen.getByText('Repository')).toBeInTheDocument();
+    expect(screen.getByText('Branch')).toBeInTheDocument();
+    expect(screen.getByText('File')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('owner/repo-a'));
+    await waitFor(() => expect(screen.getByLabelText('main')).toBeChecked());
+
+    // Now past the Repository step -- its choice is filled in.
+    expect(screen.getByText('owner/repo-a', { selector: 'code' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Continue'));
+    await screen.findByText('openapi.yaml');
+
+    // Now past Branch too.
+    expect(screen.getByText('main', { selector: 'code' })).toBeInTheDocument();
+  });
+
+  test('a private repo is badged; a public one carries no badge', async () => {
+    repoBrowserService.listRepos.mockResolvedValue([
+      { full_name: 'owner/private-repo', default_branch: 'main', private: true },
+      { full_name: 'owner/public-repo', default_branch: 'main', private: false },
+    ]);
+
+    render(
+      <RepoBrowserModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        onFileSelected={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('owner/private-repo')).toBeInTheDocument());
+    const privateRow = screen.getByText('owner/private-repo').closest('button');
+    const publicRow = screen.getByText('owner/public-repo').closest('button');
+
+    expect(privateRow).toHaveTextContent('Private');
+    expect(publicRow).not.toHaveTextContent('Private');
+  });
+
   test('Retry re-attempts the fetch after a failure, and stops again on success', async () => {
     repoBrowserService.listRepos.mockRejectedValueOnce(
       new Error('GitHub API /user/repos failed: 429')
