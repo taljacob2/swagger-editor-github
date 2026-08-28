@@ -14,6 +14,31 @@ vi.mock('../../github-repo-browser/github-repo-browser-service.js');
 vi.mock('../suggest-pr-service.js');
 vi.mock('../linked-target-service.js');
 vi.mock('../workspace-tabs-service.js');
+// github-file-url.js is NOT mocked -- it's a pure URL parser with its own
+// dedicated coverage, so tests below use real github.com URLs the real
+// implementation actually recognizes rather than reimplementing its logic
+// as a mock.
+
+vi.mock('../../github-repo-browser/components/RepoBrowserModal.jsx', () => ({
+  default: ({ isOpen, onFileSelected }) =>
+    isOpen ? (
+      <button
+        type="button"
+        onClick={() =>
+          onFileSelected({
+            owner: 'octo-org',
+            repo: 'petstore',
+            path: 'openapi.yaml',
+            ref: 'main',
+            apiBaseUrl: 'https://api.github.com',
+            content: 'openapi: 3.0.0\n',
+          })
+        }
+      >
+        Pick browsed file
+      </button>
+    ) : null,
+}));
 
 // diffLines is a pure function with its own dedicated coverage in
 // suggest-pr-service.test.js -- importActual (rather than a hand-copied
@@ -406,14 +431,10 @@ describe('SuggestPrModal', () => {
     expect(await screen.findByText('GitHub API GET failed: 404')).toBeInTheDocument();
   });
 
-  describe('changing the link', () => {
-    // Linking has no UI of its own outside this modal (see TabBar.jsx) --
-    // the footer's "Link to repository file" button is how a first-time or
-    // already-linked tab ever reaches it.
-    test('shows what the tab is linked to, and the footer button reaches back to linking', async () => {
+  describe('showing what the tab is linked to', () => {
+    test('shows it outside preview/success, and the footer button reaches back to linking', async () => {
       repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
       workspaceTabsService.getTabContent.mockReturnValue(TARGET.baselineContent);
-      const onChangeLink = vi.fn();
 
       render(
         <SuggestPrModal
@@ -422,7 +443,6 @@ describe('SuggestPrModal', () => {
           onClose={vi.fn()}
           tabId="a"
           editorActions={editorActions}
-          onChangeLink={onChangeLink}
         />
       );
 
@@ -432,13 +452,12 @@ describe('SuggestPrModal', () => {
 
       fireEvent.click(screen.getByText('Link to repository file'));
 
-      expect(onChangeLink).toHaveBeenCalled();
+      expect(screen.getByLabelText('GitHub file URL')).toBeInTheDocument();
     });
 
     test('the footer button stays available during preview, which also shows the target inline', async () => {
       repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
       workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
-      const onChangeLink = vi.fn();
 
       render(
         <SuggestPrModal
@@ -447,38 +466,16 @@ describe('SuggestPrModal', () => {
           onClose={vi.fn()}
           tabId="a"
           editorActions={editorActions}
-          onChangeLink={onChangeLink}
         />
       );
 
       await screen.findByText('Open pull request');
 
       fireEvent.click(screen.getByText('Link to repository file'));
-      expect(onChangeLink).toHaveBeenCalled();
+      expect(screen.getByLabelText('GitHub file URL')).toBeInTheDocument();
     });
 
-    test('a broken link can still reach linking via the footer button, not a dead end', async () => {
-      linkedTargetService.getLinkedTarget.mockReturnValue(null);
-      const onChangeLink = vi.fn();
-
-      render(
-        <SuggestPrModal
-          getComponent={getComponent}
-          isOpen
-          onClose={vi.fn()}
-          tabId="a"
-          editorActions={editorActions}
-          onChangeLink={onChangeLink}
-        />
-      );
-
-      await screen.findByText('This tab is no longer linked.');
-      fireEvent.click(screen.getByText('Link to repository file'));
-
-      expect(onChangeLink).toHaveBeenCalled();
-    });
-
-    test('the footer button is not shown once a pull request has been opened', async () => {
+    test('is not shown once a pull request has been opened', async () => {
       repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
       workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
 
@@ -489,7 +486,6 @@ describe('SuggestPrModal', () => {
           onClose={vi.fn()}
           tabId="a"
           editorActions={editorActions}
-          onChangeLink={vi.fn()}
         />
       );
 
@@ -500,6 +496,205 @@ describe('SuggestPrModal', () => {
       await waitFor(() => expect(screen.getByText('Pull request opened.')).toBeInTheDocument());
 
       expect(screen.queryByText('Link to repository file')).not.toBeInTheDocument();
+    });
+  });
+
+  // Linking has no modal of its own -- it's a phase of this same state
+  // machine (see SuggestPrModal.jsx), entered automatically when the tab
+  // isn't linked yet, or via the "Link to repository file" footer button
+  // (covered above) to point an already-linked tab at a different file.
+  describe('linking (no modal of its own)', () => {
+    test('an unlinked tab opens straight into the linking form, not an error', async () => {
+      linkedTargetService.getLinkedTarget.mockReturnValue(null);
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      expect(await screen.findByLabelText('GitHub file URL')).toBeInTheDocument();
+      expect(screen.queryByText(/no longer linked/)).not.toBeInTheDocument();
+    });
+
+    test('pasting a recognizable GitHub URL links the tab and continues straight into the suggest flow', async () => {
+      // run() re-reads getLinkedTarget(tabId) right after finishLinking's
+      // setLinkedTarget call, so the mock needs to behave like real storage
+      // (read back what was just written) rather than staying null forever.
+      let storedTarget = null;
+      linkedTargetService.getLinkedTarget.mockImplementation(() => storedTarget);
+      linkedTargetService.setLinkedTarget.mockImplementation((_, target) => {
+        storedTarget = target;
+      });
+      repoBrowserService.getFileContent.mockResolvedValue({ content: 'openapi: 3.0.0\n' });
+      workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\n');
+      const onClose = vi.fn();
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={onClose}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      fireEvent.change(await screen.findByLabelText('GitHub file URL'), {
+        target: { value: 'https://github.com/octo-org/petstore/blob/main/openapi.yaml' },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Link'));
+      });
+
+      expect(repoBrowserService.getFileContent).toHaveBeenCalledWith(
+        'octo-org',
+        'petstore',
+        'openapi.yaml',
+        'main',
+        expect.objectContaining({ apiBaseUrl: 'https://api.github.com' })
+      );
+      expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({
+          apiBaseUrl: 'https://api.github.com',
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'openapi.yaml',
+          ref: 'main',
+          baselineContent: 'openapi: 3.0.0\n',
+        })
+      );
+      // Never closes -- it's the same modal, continuing straight into the
+      // suggest flow on the content just fetched (no second network call).
+      expect(onClose).not.toHaveBeenCalled();
+      expect(await screen.findByText(/No changes to suggest/)).toBeInTheDocument();
+      expect(repoBrowserService.getFileContent).toHaveBeenCalledTimes(1);
+    });
+
+    test('an unrecognizable URL surfaces an inline error and links nothing', async () => {
+      linkedTargetService.getLinkedTarget.mockReturnValue(null);
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      fireEvent.change(await screen.findByLabelText('GitHub file URL'), {
+        target: { value: 'https://example.com/not-github' },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Link'));
+      });
+
+      expect(await screen.findByText(/Doesn't look like a GitHub file URL/)).toBeInTheDocument();
+      expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
+    });
+
+    test('a fetch failure for a recognized URL surfaces the error message', async () => {
+      linkedTargetService.getLinkedTarget.mockReturnValue(null);
+      repoBrowserService.getFileContent.mockRejectedValue(new Error('GitHub API GET failed: 404'));
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      fireEvent.change(await screen.findByLabelText('GitHub file URL'), {
+        target: { value: 'https://github.com/octo-org/petstore/blob/main/openapi.yaml' },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Link'));
+      });
+
+      expect(await screen.findByText('GitHub API GET failed: 404')).toBeInTheDocument();
+      expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
+    });
+
+    test('browsing GitHub and picking a file links the tab the same way', async () => {
+      let storedTarget = null;
+      linkedTargetService.getLinkedTarget.mockImplementation(() => storedTarget);
+      linkedTargetService.setLinkedTarget.mockImplementation((_, target) => {
+        storedTarget = target;
+      });
+      workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\n');
+      const onClose = vi.fn();
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={onClose}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      fireEvent.click(await screen.findByText('Browse GitHub repositories…'));
+      await act(async () => {
+        fireEvent.click(screen.getByText('Pick browsed file'));
+      });
+
+      expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'openapi.yaml',
+          ref: 'main',
+          baselineContent: 'openapi: 3.0.0\n',
+        })
+      );
+      expect(onClose).not.toHaveBeenCalled();
+      expect(await screen.findByText(/No changes to suggest/)).toBeInTheDocument();
+    });
+
+    test('re-linking an already-linked tab via the footer button works the same way', async () => {
+      // TARGET (from the default getLinkedTarget mock) stays linked; the
+      // user just wants to point this tab at a different file.
+      repoBrowserService.getFileContent
+        .mockResolvedValueOnce({ content: TARGET.baselineContent }) // initial open
+        .mockResolvedValueOnce({ content: 'openapi: 3.0.0\n' }); // re-link fetch
+      workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\n');
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      await screen.findByText(/Linked to/);
+      fireEvent.click(screen.getByText('Link to repository file'));
+
+      fireEvent.change(await screen.findByLabelText('GitHub file URL'), {
+        target: { value: 'https://github.com/octo-org/new-repo/blob/main/openapi.yaml' },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Link'));
+      });
+
+      expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(
+        'a',
+        expect.objectContaining({ owner: 'octo-org', repo: 'new-repo' })
+      );
     });
   });
 });

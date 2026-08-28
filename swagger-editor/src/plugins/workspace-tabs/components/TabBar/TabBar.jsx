@@ -17,7 +17,6 @@ import {
   setTabContent,
 } from '../../workspace-tabs-service.js';
 import { getLinkedTarget, removeLinkedTarget } from '../../linked-target-service.js';
-import LinkTabModal from '../LinkTabModal.jsx';
 import SuggestPrModal from '../SuggestPrModal.jsx';
 
 const TabBar = ({
@@ -29,11 +28,10 @@ const TabBar = ({
   const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
-  // Linking is only ever a step on the way to suggesting a PR (see
-  // handleSuggestPr/handleChangeLink below) -- there's no standalone "link
-  // this tab" action, so a successful link always continues straight into
-  // Suggest PR for the same tab.
-  const [linkingTabId, setLinkingTabId] = useState(null);
+  // Linking has no modal of its own -- SuggestPrModal handles it as a phase
+  // of its own state machine (entering it automatically when the tab isn't
+  // linked yet), so this is the only piece of state this bar needs for the
+  // whole feature.
   const [suggestingTabId, setSuggestingTabId] = useState(null);
   const [draggedTabId, setDraggedTabId] = useState(null);
   // Which tab is currently being dragged over, and which side of it (the
@@ -131,25 +129,6 @@ const TabBar = ({
     const next = addTab(getWorkspaceMeta());
     applyWorkspace(next, { activateContentFor: next.activeTabId });
   };
-
-  const handleSuggestPr = (tabId) => {
-    if (getLinkedTarget(tabId)) {
-      setSuggestingTabId(tabId);
-    } else {
-      setLinkingTabId(tabId);
-    }
-  };
-
-  // Reached only from inside SuggestPrModal ("Change…"/"Link this tab…") --
-  // linking is otherwise never its own destination, only ever a step on the
-  // way to suggesting a PR, so this swaps one modal for the other rather
-  // than closing back out to the tab bar.
-  const handleChangeLink = (tabId) => {
-    setSuggestingTabId(null);
-    setLinkingTabId(tabId);
-  };
-
-  const handleCloseLinkModal = () => setLinkingTabId(null);
 
   const handleDuplicate = (tabId) => {
     const current = getWorkspaceMeta();
@@ -360,7 +339,7 @@ const TabBar = ({
                       }`
                     : 'Link to a repository file & suggest a pull request'
                 }
-                onClick={() => handleSuggestPr(tab.id)}
+                onClick={() => setSuggestingTabId(tab.id)}
               >
                 <GitPullRequestIcon size={14} aria-hidden="true" />
               </button>
@@ -399,20 +378,12 @@ const TabBar = ({
       <button type="button" className="swagger-editor__tab-add" title="New tab" onClick={handleAdd}>
         +
       </button>
-      <LinkTabModal
-        getComponent={getComponent}
-        isOpen={linkingTabId !== null}
-        tabId={linkingTabId}
-        onClose={handleCloseLinkModal}
-        onLinked={() => setSuggestingTabId(linkingTabId)}
-      />
       <SuggestPrModal
         getComponent={getComponent}
         isOpen={suggestingTabId !== null}
         tabId={suggestingTabId}
         editorActions={editorActions}
         onClose={() => setSuggestingTabId(null)}
-        onChangeLink={() => handleChangeLink(suggestingTabId)}
       />
     </div>
   );
