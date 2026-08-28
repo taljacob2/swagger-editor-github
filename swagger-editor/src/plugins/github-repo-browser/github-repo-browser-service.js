@@ -4,12 +4,16 @@ import { base64ToUtf8 } from '../aggregation-storage/aggregation-storage-service
 
 const PER_PAGE = 100;
 
-// A basename-only match, deliberately broader than
-// aggregation-storage-service.js's SPEC_FILE_EXTENSION_RE (which only checks
-// the extension, for validating a manually-typed URL) -- here we're
-// filtering thousands of tree entries down to plausible spec files, so the
-// filename itself is worth checking too.
-const SPEC_FILENAME_RE = /^(swagger|openapi)\.(ya?ml|json)$/i;
+// An extension-only match, same rule aggregation-storage-service.js's
+// SPEC_FILE_EXTENSION_RE already uses to validate a manually-typed URL.
+// A stricter swagger.*/openapi.* basename check used to gate this too, but
+// real repos name their specs all sorts of ways (orders.yaml, ref-user.yaml,
+// api/v1.yml, ...) -- narrowing to one filename convention just meant the
+// browser came up empty on repos that have specs under any other name, with
+// no way to see them at all. The filter box already lets the user narrow a
+// long list down by path, so there's little value left in filtering by name
+// server-side too.
+const SPEC_FILE_EXTENSION_RE = /\.(ya?ml|json)$/i;
 
 // GitHub's list endpoints don't expose a total count without parsing the
 // Link header (which ghRequest doesn't surface), so pages are fetched until
@@ -53,7 +57,7 @@ export async function listSpecFiles(owner, repo, ref, connection) {
     { connection }
   );
   return tree.tree
-    .filter((entry) => entry.type === 'blob' && SPEC_FILENAME_RE.test(entry.path.split('/').pop()))
+    .filter((entry) => entry.type === 'blob' && SPEC_FILE_EXTENSION_RE.test(entry.path))
     .map((entry) => ({ path: entry.path, ref }));
 }
 

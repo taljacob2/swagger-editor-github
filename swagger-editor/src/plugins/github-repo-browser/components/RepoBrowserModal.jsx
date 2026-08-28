@@ -272,7 +272,7 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
             )}
             {!state.isLoading && state.files?.length === 0 && (
               <p className="swagger-editor__repo-browser-status">
-                No swagger.(yaml|yml|json) or openapi.(yaml|yml|json) files found on this branch.
+                No .yaml, .yml, or .json files found on this branch.
               </p>
             )}
             <ul className="swagger-editor__repo-browser-list">

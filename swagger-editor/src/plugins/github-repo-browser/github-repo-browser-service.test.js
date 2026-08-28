@@ -64,7 +64,7 @@ describe('listBranches', () => {
 });
 
 describe('listSpecFiles', () => {
-  test('filters the recursive tree to swagger/openapi filenames only', async () => {
+  test('filters the recursive tree to any .yaml/.yml/.json blob, regardless of filename', async () => {
     mockFetch([
       {
         test: (u) => u.includes('/git/trees/main'),
@@ -72,6 +72,10 @@ describe('listSpecFiles', () => {
           tree: [
             { path: 'openapi.yaml', type: 'blob' },
             { path: 'services/billing/swagger.json', type: 'blob' },
+            // Real repos name specs all sorts of ways -- not just
+            // swagger.*/openapi.* -- so these must be included too.
+            { path: 'orders.yaml', type: 'blob' },
+            { path: 'ref-user.yaml', type: 'blob' },
             { path: 'README.md', type: 'blob' },
             { path: 'src', type: 'tree' },
             { path: 'openapi.yml', type: 'blob' },
@@ -85,6 +89,8 @@ describe('listSpecFiles', () => {
     expect(files).toEqual([
       { path: 'openapi.yaml', ref: 'main' },
       { path: 'services/billing/swagger.json', ref: 'main' },
+      { path: 'orders.yaml', ref: 'main' },
+      { path: 'ref-user.yaml', ref: 'main' },
       { path: 'openapi.yml', ref: 'main' },
     ]);
   });
