@@ -40,11 +40,15 @@ vi.mock('../../github-repo-browser/components/RepoBrowserModal.jsx', () => ({
     ) : null,
 }));
 
-// diffLines is a pure function with its own dedicated coverage in
-// suggest-pr-service.test.js -- importActual (rather than a hand-copied
-// reimplementation) keeps that single real implementation as the source of
-// truth for what the preview actually renders.
-const { diffLines: realDiffLines } = await vi.importActual('../suggest-pr-service.js');
+// diffLines/numberDiffLines/summarizeDrift are pure functions with their own
+// dedicated coverage in suggest-pr-service.test.js -- importActual (rather
+// than hand-copied reimplementations) keeps those real implementations as
+// the source of truth for what the preview/drift phases actually render.
+const {
+  diffLines: realDiffLines,
+  numberDiffLines: realNumberDiffLines,
+  summarizeDrift: realSummarizeDrift,
+} = await vi.importActual('../suggest-pr-service.js');
 
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
 StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.node.isRequired };
@@ -92,6 +96,8 @@ describe('SuggestPrModal', () => {
       'https://github.com/octo-org/petstore/pull/7'
     );
     suggestPrService.diffLines.mockImplementation(realDiffLines);
+    suggestPrService.numberDiffLines.mockImplementation(realNumberDiffLines);
+    suggestPrService.summarizeDrift.mockImplementation(realSummarizeDrift);
   });
 
   test('renders nothing when closed', () => {

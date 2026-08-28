@@ -7,6 +7,8 @@ import {
   createSuggestionBranch,
   diffLines,
   MAX_DIFFABLE_LINES,
+  numberDiffLines,
+  summarizeDrift,
 } from './suggest-pr-service.js';
 
 const CONNECTION = { apiBaseUrl: 'https://api.github.com', token: 'test-token' };
@@ -186,5 +188,50 @@ describe('createPullRequest', () => {
       base: 'main',
       head: 'branch',
     });
+  });
+});
+
+describe('summarizeDrift', () => {
+  test('reports identical line counts and no divergence for identical texts', () => {
+    const text = 'a\nb\nc\n';
+    expect(summarizeDrift(text, text)).toEqual({
+      baseLineCount: 4,
+      freshLineCount: 4,
+      firstDiffLine: 5,
+    });
+  });
+
+  test('reports the first line where the texts diverge, 1-indexed', () => {
+    const baseline = 'a\nb\nc\n';
+    const fresh = 'a\nX\nc\n';
+    expect(summarizeDrift(baseline, fresh)).toEqual({
+      baseLineCount: 4,
+      freshLineCount: 4,
+      firstDiffLine: 2,
+    });
+  });
+
+  test('handles texts of different lengths', () => {
+    const baseline = 'a\nb\n';
+    const fresh = 'a\nb\nc\n';
+    expect(summarizeDrift(baseline, fresh)).toEqual({
+      baseLineCount: 3,
+      freshLineCount: 4,
+      firstDiffLine: 3,
+    });
+  });
+});
+
+describe('numberDiffLines', () => {
+  test('advances both counters on a context line, only one on added/removed', () => {
+    const diff = diffLines('a\nb\nc\n', 'a\nX\nc\n');
+
+    expect(numberDiffLines(diff)).toEqual([
+      { type: 'context', text: 'a', oldNo: 1, newNo: 1 },
+      { type: 'removed', text: 'b', oldNo: 2, newNo: null },
+      { type: 'added', text: 'X', oldNo: null, newNo: 2 },
+      { type: 'context', text: 'c', oldNo: 3, newNo: 3 },
+      { type: 'context', text: '', oldNo: 4, newNo: 4 },
+    ]);
   });
 });

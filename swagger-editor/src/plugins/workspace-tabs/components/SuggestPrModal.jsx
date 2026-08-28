@@ -18,55 +18,14 @@ import {
   createPullRequest,
   createSuggestionBranch,
   diffLines,
+  numberDiffLines,
+  summarizeDrift,
 } from '../suggest-pr-service.js';
 import { getLinkedTarget, setLinkedTarget } from '../linked-target-service.js';
 import { getTabContent } from '../workspace-tabs-service.js';
 
 const isJsonPath = (path) => /\.json$/i.test(path);
 const looksLikeJson = (content) => /^\s*[[{]/.test(content);
-
-// Best-effort, not a byte-for-byte diff engine -- js-yaml's own re-dump does
-// not preserve comments/formatting either, so a fancier diff here would just
-// dress up numbers this feature can't act on precisely anyway. Reports where
-// the two texts first diverge and how their line counts compare, enough for
-// a human to judge whether it's worth reviewing further before continuing.
-function summarizeDrift(baseline, fresh) {
-  const baseLines = baseline.split('\n');
-  const freshLines = fresh.split('\n');
-  const maxLen = Math.max(baseLines.length, freshLines.length);
-  let firstDiffLine = 0;
-  while (firstDiffLine < maxLen && baseLines[firstDiffLine] === freshLines[firstDiffLine]) {
-    firstDiffLine += 1;
-  }
-  return {
-    baseLineCount: baseLines.length,
-    freshLineCount: freshLines.length,
-    firstDiffLine: firstDiffLine + 1,
-  };
-}
-
-// A simple running counter per side (old/new), not full unified-diff hunk
-// math -- diffLines is a plain LCS line diff with no hunk headers to begin
-// with, so there's nothing more precise to number against. A context line
-// advances both counters (it exists on both sides); a removed line only the
-// old one, an added line only the new one.
-function numberDiffLines(diff) {
-  let oldNo = 0;
-  let newNo = 0;
-  return diff.map((line) => {
-    if (line.type === 'removed') {
-      oldNo += 1;
-      return { ...line, oldNo, newNo: null };
-    }
-    if (line.type === 'added') {
-      newNo += 1;
-      return { ...line, oldNo: null, newNo };
-    }
-    oldNo += 1;
-    newNo += 1;
-    return { ...line, oldNo, newNo };
-  });
-}
 
 const emptyState = {
   phase: 'working',
