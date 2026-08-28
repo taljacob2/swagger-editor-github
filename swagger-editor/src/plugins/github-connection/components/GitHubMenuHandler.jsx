@@ -113,6 +113,11 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   // use one again.
   const handleIntentChange = (event) => {
     const nextIntent = event.target.value;
+    // Any direct radio change resolves a decision still pending from an
+    // earlier click -- e.g. clicking straight back to "Private specs"
+    // instead of using the panel's own Cancel button. Re-set below when
+    // this particular change is the one that raises a new decision.
+    setPendingIntentSwitch(false);
     if (
       nextIntent === INTENTS.PUBLIC_ONLY &&
       intent === INTENTS.NEEDS_TOKEN &&

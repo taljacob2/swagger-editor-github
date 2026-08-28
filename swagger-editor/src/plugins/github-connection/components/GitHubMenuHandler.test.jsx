@@ -409,6 +409,22 @@ describe('GitHubMenuHandler', () => {
       expect(githubConnectionService.saveConnectionSettings).not.toHaveBeenCalled();
     });
 
+    test('clicking straight back to "Private specs" (not the panel\'s Cancel) also closes the decision', async () => {
+      const ref = createRef();
+      render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+      await openModal(ref);
+      switchToPublicOnly();
+      fireEvent.click(
+        screen.getByRole('radio', { name: /Private specs, or creating\/editing sets/ })
+      );
+
+      expect(
+        screen.queryByText('You still have a saved GitHub token. What should happen to it?')
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText('GitHub token')).toHaveValue('stored-token');
+    });
+
     test('"Delete the token" from the decision deletes it immediately and closes the prompt', async () => {
       const ref = createRef();
       render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
