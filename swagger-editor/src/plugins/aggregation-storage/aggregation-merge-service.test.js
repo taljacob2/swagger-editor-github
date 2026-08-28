@@ -455,6 +455,41 @@ describe('mergeSpecs', () => {
     expect(merged.info.title).toBe('Aggregated API');
   });
 
+  test('drops a path literally named "__proto__" instead of polluting the merged object', () => {
+    // A plain `{ __proto__: ... }` object-literal key sets the prototype at
+    // parse time rather than creating an own property (Annex B.3.1) -- using
+    // JSON.parse instead reproduces how a real fetched/parsed spec actually
+    // carries an own enumerable "__proto__" key, which is what Object.keys/
+    // Object.entries (and thus the vulnerable code path) would see.
+    const evilSpec = JSON.parse('{"paths": {"__proto__": {"get": {}}, "/safe": {"get": {}}}}');
+    const a = { name: 'Evil', spec: evilSpec };
+
+    const { merged } = mergeSpecs([a, { name: 'Other', spec: { paths: { '/other': {} } } }]);
+
+    expect(Object.getPrototypeOf(merged.paths)).toBe(Object.prototype);
+    expect(Object.keys(merged.paths).sort()).toEqual(['/other', '/safe']);
+  });
+
+  test('drops a component literally named "constructor"/"prototype" instead of shadowing them', () => {
+    const a = {
+      name: 'Evil',
+      spec: {
+        components: {
+          schemas: { constructor: { type: 'object' }, prototype: { type: 'object' }, Ok: {} },
+        },
+      },
+    };
+
+    const { merged, conflicts } = mergeSpecs([
+      a,
+      { name: 'Other', spec: { components: { schemas: { Other: {} } } } },
+    ]);
+
+    expect(Object.getPrototypeOf(merged.components.schemas)).toBe(Object.prototype);
+    expect(Object.keys(merged.components.schemas).sort()).toEqual(['Ok', 'Other']);
+    expect(conflicts.components).toEqual([]);
+  });
+
   test('honors an info title override and omits empty sections entirely', () => {
     const a = { name: 'Users', spec: {} };
     const b = { name: 'Orders', spec: {} };

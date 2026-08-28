@@ -520,6 +520,32 @@ describe('aggregation-storage-service', () => {
       const putCall = calls.find((c) => c.method === 'PUT');
       expect(putCall.body.sha).toBe('old-sha');
     });
+
+    test('a stale sha throws a friendlier message instead of a raw 409', async () => {
+      const existing = { name: 'Orders', swaggerUrls: [], createdAt: '2020-01-01T00:00:00.000Z' };
+      mockFetch([
+        { method: 'GET', test: (u) => u.includes('/git/refs/heads/'), status: 200, json: {} },
+        {
+          method: 'GET',
+          test: (u) => u.includes('/contents/aggregation-sets/'),
+          json: { content: utf8ToBase64(JSON.stringify(existing)), sha: 'old-sha' },
+        },
+        {
+          method: 'PUT',
+          test: (u) => u.includes('/contents/aggregation-sets/'),
+          status: 409,
+          statusText: 'Conflict',
+        },
+      ]);
+
+      await expect(
+        saveAggregationSet({ id: 'set-1', name: 'Orders v2', swaggerUrls: [] }, STORAGE, CONNECTION)
+      ).rejects.toMatchObject({
+        status: 409,
+        message:
+          'This set was updated elsewhere since you loaded it. Reload it and reapply your changes before saving again.',
+      });
+    });
   });
 
   describe('deleteAggregationSet', () => {

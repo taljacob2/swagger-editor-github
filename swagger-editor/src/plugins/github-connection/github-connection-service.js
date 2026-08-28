@@ -50,9 +50,21 @@ async function getEncryptionKey() {
   }
 }
 
+// Marks a value as this module's own encrypted format, rather than inferring
+// it from shape (base64-decodability, minimum length) -- a real GitHub PAT
+// could plausibly satisfy those heuristics by coincidence. Absence of the
+// prefix means plain text, which covers both a legacy pre-encryption token
+// and a token that fell back to plain text because encryptToken below
+// failed -- both cases should be read back as-is, not run through decrypt.
+const ENCRYPTED_PREFIX = 'enc:v1:';
+
+// Encrypts the PAT and returns { value, encrypted } rather than a bare
+// string, so callers (saveConnectionSettings) can tell a plain-text *value*
+// (still the correct thing to store) apart from a plain-text *fallback*
+// (encryption itself failed) and warn the user about the latter.
 async function encryptToken(token) {
   if (!token) {
-    return '';
+    return { value: '', encrypted: true };
   }
   try {
     const key = await getEncryptionKey();
@@ -67,25 +79,18 @@ async function encryptToken(token) {
     combined.forEach((byte) => {
       binary += String.fromCharCode(byte);
     });
-    return btoa(binary);
-  } catch {
-    return token; // fall back to plain text rather than losing the value
+    return { value: ENCRYPTED_PREFIX + btoa(binary), encrypted: true };
+  } catch (error) {
+    // Keep the token usable rather than losing it, but make the failure
+    // observable -- silently persisting a PAT as plain text is worth a warning.
+    // eslint-disable-next-line no-console
+    console.warn('Failed to encrypt token; storing it unencrypted in localStorage.', error);
+    return { value: token, encrypted: false };
   }
 }
 
-// Encrypted tokens are base64 and much longer than a raw PAT — used to tell
-// an encrypted value apart from a plain-text one (e.g. left over from before
-// this was added), so existing unencrypted tokens keep working.
 function looksEncrypted(value) {
-  if (value.length < 40) {
-    return false;
-  }
-  try {
-    atob(value);
-    return true;
-  } catch {
-    return false;
-  }
+  return value.startsWith(ENCRYPTED_PREFIX);
 }
 
 async function decryptToken(value) {
@@ -97,14 +102,16 @@ async function decryptToken(value) {
   }
   try {
     const key = await getEncryptionKey();
-    const binary = atob(value);
+    const binary = atob(value.slice(ENCRYPTED_PREFIX.length));
     const combined = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     const iv = combined.slice(0, 12);
     const encrypted = combined.slice(12);
     const decrypted = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
     return new TextDecoder().decode(decrypted);
   } catch {
-    return value; // fall back to treating it as plain text
+    // Fall back to treating it as plain text, stripping the marker so it
+    // doesn't leak into the "plain text" value callers then use as a token.
+    return value.slice(ENCRYPTED_PREFIX.length);
   }
 }
 
@@ -150,16 +157,25 @@ export async function saveConnectionSettings({ apiBaseUrl, token, fetchToken }) 
     token: token || '',
     fetchToken: fetchToken || '',
   };
+  const encryptedToken = await encryptToken(settings.token);
+  const encryptedFetchToken = await encryptToken(settings.fetchToken);
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
       ...settings,
-      token: await encryptToken(settings.token),
-      fetchToken: await encryptToken(settings.fetchToken),
+      token: encryptedToken.value,
+      fetchToken: encryptedFetchToken.value,
     })
   );
   setCachedConnectionSettingsForWorkers(settings);
-  return settings;
+  // tokenEncrypted/fetchTokenEncrypted let callers (GitHubMenuHandler) warn
+  // the user when encryption itself failed and the token was stored as
+  // plain text -- true for an empty token, since there's nothing to warn about.
+  return {
+    ...settings,
+    tokenEncrypted: encryptedToken.encrypted,
+    fetchTokenEncrypted: encryptedFetchToken.encrypted,
+  };
 }
 
 // GitHub's web host is the API host with a leading "api." stripped, matching

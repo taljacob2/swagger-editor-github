@@ -94,6 +94,27 @@ describe('GitHubMenuHandler', () => {
     expect(screen.getByText('Saved.')).toBeInTheDocument();
   });
 
+  test('Save surfaces a warning when the token could not be encrypted', async () => {
+    githubConnectionService.saveConnectionSettings.mockResolvedValue({
+      apiBaseUrl: 'https://api.github.com',
+      token: 'new-token',
+      tokenEncrypted: false,
+    });
+    const ref = createRef();
+    render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+    await openModal(ref);
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
+
+    expect(
+      screen.getByText(
+        'Saved (warning: could not encrypt the token in this browser — it is stored as plain text).'
+      )
+    ).toBeInTheDocument();
+  });
+
   test('Connection reports the result from testConnection', async () => {
     const ref = createRef();
     render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
