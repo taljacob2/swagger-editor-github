@@ -1,8 +1,16 @@
 .swagger-editor {
   &__suggest-pr-target {
+    // Not pure --se-color-text-muted -- this is the one piece of context
+    // present on almost every phase of this modal (which file, which repo),
+    // not a footnote, so it reads a shade closer to body text.
     margin: 0 0 0.75rem 0;
     font-size: 0.8rem;
-    color: var(--se-color-text-muted);
+    color: var(--se-color-text);
+
+    svg {
+      margin-right: 0.35rem;
+      color: var(--se-color-text-muted);
+    }
   }
 
   &__link-button {
@@ -92,5 +100,51 @@
   &__suggest-pr-diff-line-text {
     flex: 1 1 auto;
     white-space: pre;
+  }
+
+  // The payoff of the entire feature -- styled like one, not like every
+  // other status sentence in this modal (drift warning, no-access, etc).
+  &__suggest-pr-success {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  &__suggest-pr-success-message {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1a7f37;
+
+    svg {
+      margin-right: 0.4rem;
+      vertical-align: text-bottom;
+    }
+  }
+
+  // A small chip (repo + PR number), not a raw URL in a sentence -- the
+  // link itself is the destination worth going to, so it gets to look like
+  // one.
+  &__suggest-pr-success-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 999px;
+    background-color: var(--se-color-surface);
+    color: var(--se-color-text);
+    font-size: 0.8rem;
+    text-decoration: none;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+
+  &__suggest-pr-success-chip-number {
+    color: var(--se-color-text-muted);
   }
 }

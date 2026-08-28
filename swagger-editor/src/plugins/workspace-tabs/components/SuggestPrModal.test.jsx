@@ -116,8 +116,12 @@ describe('SuggestPrModal', () => {
       fireEvent.click(screen.getByText('Open pull request'));
     });
 
-    await waitFor(() =>
-      expect(screen.getByText('https://github.com/octo-org/petstore/pull/7')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Pull request opened.')).toBeInTheDocument());
+    expect(screen.getByText('octo-org/petstore')).toBeInTheDocument();
+    expect(screen.getByText('#7')).toBeInTheDocument();
+    expect(screen.getByText('#7').closest('a')).toHaveAttribute(
+      'href',
+      'https://github.com/octo-org/petstore/pull/7'
     );
     expect(suggestPrService.createSuggestionBranch).toHaveBeenCalledWith(
       expect.objectContaining({

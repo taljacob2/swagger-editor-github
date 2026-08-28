@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { XIcon } from '@primer/octicons-react';
+import { CheckCircleFillIcon, GitPullRequestIcon, RepoIcon, XIcon } from '@primer/octicons-react';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
@@ -253,11 +253,17 @@ const SuggestPrModal = ({
         baselineFetchedAt: new Date().toISOString(),
       });
 
-      setState({ ...emptyState, phase: 'success', prUrl });
+      setState({ ...emptyState, phase: 'success', prUrl, target });
     } catch (error) {
       setState({ ...emptyState, phase: 'error', message: error.message, target });
     }
   };
+
+  // The number is the one piece of a GitHub PR URL worth pulling out on its
+  // own for the success chip below -- everything else about the URL
+  // (owner/repo) is already known from state.target, no need to reparse it.
+  const prNumberMatch = state.prUrl?.match(/\/pull\/(\d+)/);
+  const prNumber = prNumberMatch ? prNumberMatch[1] : null;
 
   return (
     <Modal isOpen={isOpen} contentLabel="Suggest pull request" onRequestClose={resetAndClose}>
@@ -275,6 +281,7 @@ const SuggestPrModal = ({
             and 'success', which already show the target inline. */}
         {state.target && state.phase !== 'preview' && state.phase !== 'success' && (
           <p className="swagger-editor__suggest-pr-target">
+            <RepoIcon size={14} aria-hidden="true" />
             Linked to{' '}
             <code>
               {state.target.owner}/{state.target.repo}
@@ -386,13 +393,28 @@ const SuggestPrModal = ({
         )}
 
         {state.phase === 'success' && state.prUrl && (
-          <p className="text-success">
-            Opened{' '}
-            <a href={state.prUrl} target="_blank" rel="noreferrer">
-              {state.prUrl}
+          <div className="swagger-editor__suggest-pr-success">
+            <p className="swagger-editor__suggest-pr-success-message">
+              <CheckCircleFillIcon size={16} aria-hidden="true" />
+              Pull request opened.
+            </p>
+            <a
+              className="swagger-editor__suggest-pr-success-chip"
+              href={state.prUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <GitPullRequestIcon size={16} aria-hidden="true" />
+              {state.target && (
+                <span>
+                  {state.target.owner}/{state.target.repo}
+                </span>
+              )}
+              {prNumber && (
+                <span className="swagger-editor__suggest-pr-success-chip-number">#{prNumber}</span>
+              )}
             </a>
-            .
-          </p>
+          </div>
         )}
       </ModalBody>
       <ModalFooter>
