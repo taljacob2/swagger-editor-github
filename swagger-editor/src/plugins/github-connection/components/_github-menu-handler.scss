@@ -111,6 +111,58 @@
   box-shadow: inset 0 0 0 3px var(--se-color-surface);
 }
 
+// Wraps the token <input> together with its Show/Hide and Delete buttons on
+// one row -- .input-group is a flex column (see _modal.scss), so this needs
+// its own row-direction flex context rather than inheriting the column one.
+.swagger-editor__token-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  // .input-group input (see _modal.scss) has no width of its own; it only
+  // ever filled the row by being a lone flex-column child stretched to full
+  // width. Now that it shares this row with two buttons, it needs an
+  // explicit flex-grow so it -- not the buttons -- absorbs the remaining
+  // space.
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .btn {
+    flex: 0 0 auto;
+  }
+}
+
+// The pending-switch decision and the silenced-token banner (see
+// GitHubMenuHandler.jsx) share this box styling -- a warm border for the
+// decision (something needs resolving) and a plain muted one for the banner
+// (informational, already resolved), via the --muted modifier.
+.swagger-editor__token-decision {
+  margin: 0 0 1.5rem 0;
+  padding: 0.75rem;
+  border: 1px solid #d1a336;
+  border-radius: 4px;
+  background-color: rgba(209, 163, 54, 0.08);
+
+  &--muted {
+    border-color: var(--se-color-border);
+    background-color: var(--se-color-surface-muted);
+  }
+}
+
+.swagger-editor__token-decision-title {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.8rem;
+  color: var(--se-color-text);
+}
+
+.swagger-editor__token-decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .swagger-editor {
   &__intent-picker {
     border: none;

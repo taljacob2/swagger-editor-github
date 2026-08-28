@@ -60,6 +60,14 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [token, setToken] = useState('');
+  const [isTokenVisible, setIsTokenVisible] = useState(false);
+  // A silenced token stays saved (so it isn't lost) but is never sent to
+  // GitHub -- lets someone check how the app behaves without a token
+  // without having to delete and later retype it.
+  const [isTokenDisabled, setIsTokenDisabled] = useState(false);
+  // True while asking what to do with an existing token after switching the
+  // picker away from "needs a token" -- see handleIntentChange.
+  const [pendingIntentSwitch, setPendingIntentSwitch] = useState(false);
   const [status, setStatus] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
   const [intent, setIntent] = useState(INTENTS.PUBLIC_ONLY);
@@ -76,10 +84,16 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
     async openModal() {
       const settings = await getConnectionSettings();
       setApiBaseUrl(settings.apiBaseUrl);
-      setToken(settings.token);
+      // The raw stored value, not settings.token -- that comes back empty
+      // while silenced, and this field needs to keep showing/managing the
+      // actual saved token regardless of whether it's currently in use.
+      setToken(settings.rawToken);
+      setIsTokenDisabled(settings.tokenDisabled);
       setIntent(inferInitialIntent(settings));
       setStorage(getStorageSettings());
       setStatus(null);
+      setIsTokenVisible(false);
+      setPendingIntentSwitch(false);
       setIsOpen(true);
     },
   }));
@@ -88,10 +102,77 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
 
   const handleApiBaseUrlChange = (event) => setApiBaseUrl(event.target.value);
   const handleTokenChange = (event) => setToken(event.target.value);
-  const handleIntentChange = (event) => setIntent(event.target.value);
+  const handleToggleTokenVisibility = () => setIsTokenVisible((prev) => !prev);
+
+  // Switching away from "needs a token" while a token is still saved and
+  // active needs a decision, not a silent no-op -- otherwise the token just
+  // keeps being used regardless of which option is selected (a classic PAT's
+  // repo scope is all-or-nothing, so the picker alone was never what gated
+  // whether it got sent -- see the big comment above). Switching back always
+  // reactivates it, since picking "needs a token" is itself the request to
+  // use one again.
+  const handleIntentChange = (event) => {
+    const nextIntent = event.target.value;
+    if (
+      nextIntent === INTENTS.PUBLIC_ONLY &&
+      intent === INTENTS.NEEDS_TOKEN &&
+      token &&
+      !isTokenDisabled
+    ) {
+      setPendingIntentSwitch(true);
+    } else if (nextIntent === INTENTS.NEEDS_TOKEN) {
+      setIsTokenDisabled(false);
+    }
+    setIntent(nextIntent);
+  };
+
+  // Clears the token both on screen and in storage immediately, rather than
+  // just emptying the field and waiting for a separate Save click -- "delete"
+  // should mean the token is actually gone, not "gone once you remember to
+  // also click Save". Also used from the pending-switch decision and the
+  // silenced-token banner below, both of which resolve into this same
+  // end state.
+  const handleDeleteTokenClick = async () => {
+    await saveConnectionSettings({ apiBaseUrl, token: '', tokenDisabled: false });
+    setToken('');
+    setIsTokenDisabled(false);
+    setIsTokenVisible(false);
+    setPendingIntentSwitch(false);
+    setStatus({ ok: true, message: 'Token deleted.' });
+  };
+
+  // Persists immediately, like Delete above -- this is a deliberate,
+  // confirmed decision from the pending-switch prompt, not a form field the
+  // user might still be editing, so it shouldn't be lost by closing without
+  // hitting Save.
+  const handleSilenceTokenClick = async () => {
+    await saveConnectionSettings({ apiBaseUrl, token, tokenDisabled: true });
+    setIsTokenDisabled(true);
+    setPendingIntentSwitch(false);
+    setStatus({
+      ok: true,
+      message: 'Token silenced — kept saved, but not sent to GitHub for now.',
+    });
+  };
+
+  const handleCancelIntentSwitch = () => {
+    setIntent(INTENTS.NEEDS_TOKEN);
+    setPendingIntentSwitch(false);
+  };
+
+  const handleReenableTokenClick = async () => {
+    await saveConnectionSettings({ apiBaseUrl, token, tokenDisabled: false });
+    setIsTokenDisabled(false);
+    setIntent(INTENTS.NEEDS_TOKEN);
+    setStatus({ ok: true, message: 'Token re-enabled.' });
+  };
 
   const handleSaveClick = async () => {
-    const result = await saveConnectionSettings({ apiBaseUrl, token });
+    const result = await saveConnectionSettings({
+      apiBaseUrl,
+      token,
+      tokenDisabled: isTokenDisabled,
+    });
     const savedAsPlainText = result.tokenEncrypted === false;
     setStatus({
       ok: true,
@@ -104,10 +185,17 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const handleTestClick = async () => {
     setIsTesting(true);
     setStatus(null);
-    let result = await testConnection({ apiBaseUrl, token });
+    // Tests the same effective token the rest of the app would actually
+    // use -- silenced means "act as if there's no token", so Test
+    // Connection should show exactly that, not the token hidden behind it.
+    const effectiveToken = isTokenDisabled ? '' : token;
+    let result = await testConnection({ apiBaseUrl, token: effectiveToken });
 
-    if (result.ok && token && storage.owner && storage.repo) {
-      const hasWriteAccess = await canWriteToStorage(storage, { apiBaseUrl, token });
+    if (result.ok && effectiveToken && storage.owner && storage.repo) {
+      const hasWriteAccess = await canWriteToStorage(storage, {
+        apiBaseUrl,
+        token: effectiveToken,
+      });
       const repoLabel = `${storage.owner}/${storage.repo}`;
       result = {
         ...result,
@@ -194,6 +282,47 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             .
           </p>
         </fieldset>
+        {pendingIntentSwitch && (
+          <div className="swagger-editor__token-decision">
+            <p className="swagger-editor__token-decision-title">
+              You still have a saved GitHub token. What should happen to it?
+            </p>
+            <div className="swagger-editor__token-decision-actions">
+              <button type="button" className="btn btn-secondary" onClick={handleSilenceTokenClick}>
+                Keep it, but silence it for now
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={handleDeleteTokenClick}>
+                Delete the token
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCancelIntentSwitch}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {!pendingIntentSwitch && intent === INTENTS.PUBLIC_ONLY && token && isTokenDisabled && (
+          <div className="swagger-editor__token-decision swagger-editor__token-decision--muted">
+            <p className="swagger-editor__token-decision-title">
+              Your GitHub token is saved but silenced — it won&apos;t be sent to GitHub right now.
+            </p>
+            <div className="swagger-editor__token-decision-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleReenableTokenClick}
+              >
+                Re-enable
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={handleDeleteTokenClick}>
+                Delete permanently
+              </button>
+            </div>
+          </div>
+        )}
         <div className="input-group">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label htmlFor="input-github-api-base-url" aria-labelledby="input-github-api-base-url">
@@ -218,14 +347,32 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
             <label htmlFor="input-github-token" aria-labelledby="input-github-token">
               GitHub token
             </label>
-            <input
-              id="input-github-token"
-              type="password"
-              className="form-control"
-              placeholder="ghp_..."
-              value={token}
-              onChange={handleTokenChange}
-            />
+            <div className="swagger-editor__token-input-row">
+              <input
+                id="input-github-token"
+                type={isTokenVisible ? 'text' : 'password'}
+                className="form-control"
+                placeholder="ghp_..."
+                value={token}
+                onChange={handleTokenChange}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleToggleTokenVisibility}
+                disabled={!token}
+              >
+                {isTokenVisible ? 'Hide' : 'Show'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleDeleteTokenClick}
+                disabled={!token}
+              >
+                Delete
+              </button>
+            </div>
             <p className="help-block">
               Stored in this browser&apos;s local storage only, and sent only to the API base URL
               above.

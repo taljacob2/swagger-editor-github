@@ -27,7 +27,9 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        rawToken: '',
         fetchToken: '',
+        tokenDisabled: false,
       });
     });
 
@@ -36,7 +38,9 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        rawToken: '',
         fetchToken: '',
+        tokenDisabled: false,
       });
     });
 
@@ -49,7 +53,9 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: 'legacy-plain-token',
+        rawToken: 'legacy-plain-token',
         fetchToken: '',
+        tokenDisabled: false,
       });
     });
 
@@ -59,7 +65,25 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: 'https://api.mycompany.ghe.com',
         token: '',
+        rawToken: '',
         fetchToken: '',
+        tokenDisabled: false,
+      });
+    });
+
+    test('a silenced token is hidden from token but still readable via rawToken', async () => {
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'silenced-token',
+        tokenDisabled: true,
+      });
+
+      expect(await getConnectionSettings()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: '',
+        rawToken: 'silenced-token',
+        fetchToken: '',
+        tokenDisabled: true,
       });
     });
 
@@ -81,7 +105,9 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: 'https://api.mycompany.ghe.com',
         token: 'good-token',
+        rawToken: 'good-token',
         fetchToken: '',
+        tokenDisabled: false,
       });
     });
 
@@ -101,7 +127,9 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: '',
+        rawToken: '',
         fetchToken: '',
+        tokenDisabled: false,
       });
     });
 
@@ -192,8 +220,34 @@ describe('github-connection-service', () => {
       expect(await getConnectionSettings()).toEqual({
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: 'second-token',
+        rawToken: 'second-token',
         fetchToken: 'first-fetch-token',
+        tokenDisabled: false,
       });
+    });
+
+    test('silencing keeps the stored token but zeroes the effective one; re-enabling restores it', async () => {
+      await saveConnectionSettings({ apiBaseUrl: DEFAULT_API_BASE_URL, token: 'a-pat' });
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'a-pat',
+        tokenDisabled: true,
+      });
+
+      let settings = await getConnectionSettings();
+      expect(settings.token).toBe('');
+      expect(settings.rawToken).toBe('a-pat');
+      expect(settings.tokenDisabled).toBe(true);
+
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'a-pat',
+        tokenDisabled: false,
+      });
+
+      settings = await getConnectionSettings();
+      expect(settings.token).toBe('a-pat');
+      expect(settings.tokenDisabled).toBe(false);
     });
   });
 
@@ -215,6 +269,22 @@ describe('github-connection-service', () => {
         apiBaseUrl: DEFAULT_API_BASE_URL,
         token: 'plain-token',
         fetchToken: '',
+        tokenDisabled: false,
+      });
+    });
+
+    test('caches the effective (empty) token, not the raw one, while silenced', async () => {
+      await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'plain-token',
+        tokenDisabled: true,
+      });
+
+      expect(getCachedConnectionSettingsForWorkers()).toEqual({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: '',
+        fetchToken: '',
+        tokenDisabled: true,
       });
     });
 
