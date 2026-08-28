@@ -209,8 +209,8 @@ describe('RepoBrowserModal', () => {
     expect(screen.queryByLabelText('main')).not.toBeInTheDocument();
   });
 
-  test('surfaces a fetch failure as an inline error', async () => {
-    repoBrowserService.listRepos.mockRejectedValue(new Error('GitHub API /user/repos failed: 401'));
+  test('surfaces a fetch failure as an inline error, without retrying on its own', async () => {
+    repoBrowserService.listRepos.mockRejectedValue(new Error('GitHub API /user/repos failed: 429'));
 
     render(
       <RepoBrowserModal
@@ -221,6 +221,42 @@ describe('RepoBrowserModal', () => {
       />
     );
 
-    expect(await screen.findByText('GitHub API /user/repos failed: 401')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub API /user/repos failed: 429')).toBeInTheDocument();
+    // Regression: a failed fetch used to leave repos===null and
+    // isLoading===false exactly as before the attempt, so the fetch-on-open
+    // effect re-fired immediately and looped forever, hammering the API
+    // (this is what produced a flood of 429s in practice). Give any such
+    // loop a few ticks to manifest, then confirm it only ever ran once.
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+    expect(repoBrowserService.listRepos).toHaveBeenCalledTimes(1);
+  });
+
+  test('Retry re-attempts the fetch after a failure, and stops again on success', async () => {
+    repoBrowserService.listRepos.mockRejectedValueOnce(
+      new Error('GitHub API /user/repos failed: 429')
+    );
+
+    render(
+      <RepoBrowserModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        onFileSelected={vi.fn()}
+      />
+    );
+
+    await screen.findByText('GitHub API /user/repos failed: 429');
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Retry'));
+    });
+
+    await waitFor(() => expect(screen.getByText('owner/repo-a')).toBeInTheDocument());
+    expect(repoBrowserService.listRepos).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Retry')).not.toBeInTheDocument();
   });
 });

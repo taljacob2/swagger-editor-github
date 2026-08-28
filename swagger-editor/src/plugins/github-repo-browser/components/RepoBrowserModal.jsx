@@ -56,12 +56,26 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
 
   // Fetches on open (not on mount) so a modal that's rendered but not open
   // yet never hits the network, and a reopen always starts from a fresh list.
+  // Gated on !state.error too -- loadRepos's failure path clears isLoading
+  // without ever setting repos, so without this guard a failed fetch (e.g.
+  // a 429) left repos === null and isLoading === false exactly as before the
+  // attempt, and this effect would immediately re-fire and retry forever,
+  // hammering the endpoint into a worse rate limit. A real retry now needs
+  // an explicit click (see handleRetryClick below).
   useEffect(() => {
-    if (isOpen && state.step === STEPS.REPOS && state.repos === null && !state.isLoading) {
+    if (
+      isOpen &&
+      state.step === STEPS.REPOS &&
+      state.repos === null &&
+      !state.isLoading &&
+      !state.error
+    ) {
       loadRepos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, state.step, state.repos, state.isLoading]);
+  }, [isOpen, state.step, state.repos, state.isLoading, state.error]);
+
+  const handleRetryClick = () => loadRepos();
 
   const handleSelectRepo = async (repo) => {
     const [owner, name] = repo.full_name.split('/');
@@ -150,6 +164,11 @@ const RepoBrowserModal = ({ getComponent, isOpen, onClose, onFileSelected }) => 
       </ModalHeader>
       <ModalBody>
         {state.error && <p className="text-danger">{state.error}</p>}
+        {state.error && state.step === STEPS.REPOS && state.repos === null && (
+          <button type="button" className="btn btn-secondary" onClick={handleRetryClick}>
+            Retry
+          </button>
+        )}
 
         {state.step === STEPS.REPOS && (
           <>
