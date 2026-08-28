@@ -133,7 +133,8 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vscode": "npm:@codingame/monaco-vscode-extension-api@=36.0.0",
     "vscode-languageclient": "=10.0.0-next.7",
-    "vscode-languageserver-textdocument": "^1.0.12"
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "yaml": "^2.9.0"
   },
   "overrides": {
     "@swagger-api/apidom-core": "$@swagger-api/apidom-core",
