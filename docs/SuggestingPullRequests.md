@@ -1,11 +1,19 @@
 # Suggesting a pull request
 
-This is a different feature from [aggregation](Aggregation.md) — aggregation merges several
-independent specs together and loads the result into a tab. Suggesting a pull request goes the
-other direction: it takes whatever's in **one** tab and proposes it back as a change to a single
-file in a GitHub repo, via a real pull request. It doesn't touch the Aggregate menu or aggregation
-set storage at all — any tab can be linked and suggested, whether or not it came from an
-aggregation.
+Suggesting a pull request takes whatever's in a tab and proposes it back as a change to GitHub,
+via a real pull request. There are two flavors, and the tab bar's pull-request icon (or **File →
+Suggest pull request…**) opens whichever one applies to the active tab:
+
+- **A tab linked to a single file** — the change goes back to that one file, in that one repo. This
+  is the flow described below.
+- **A tab loaded from an [aggregation](Aggregation.md) set** — an edit anywhere in the merged view
+  gets traced back to whichever source file it came from, and proposed there instead. See
+  [Suggesting pull requests from an aggregated view](#suggesting-pull-requests-from-an-aggregated-view)
+  below.
+
+A tab is always one or the other, never both — aggregating a set into a tab clears any single-file
+link it had, and linking a tab to a single file only happens on a tab nothing was ever aggregated
+into.
 
 ## Using it
 
@@ -91,11 +99,49 @@ suggested content only exists on the new branch until the PR is merged. That kee
 check comparing against what upstream genuinely has, rather than misreporting a huge "drift" for a
 PR that just hasn't merged yet.
 
+## Suggesting pull requests from an aggregated view
+
+A tab loaded via [Aggregate](Aggregation.md) merges several services' specs into one — this feature
+lets an edit made *in that merged view* still make it back to whichever service actually owns the
+part you changed, as a pull request against that service's own repo. It's a separate modal
+(**Suggest pull requests**, plural) rather than the single-file flow above, since the shape is
+genuinely different: several sources, each with its own drift check and diff, in one review.
+
+**What can be traced back automatically:** adding, editing, or removing a field inside a path,
+tag, or component entry that already existed — in both the set's last aggregation and your current
+edit — under the same name. An array field that changed anywhere in it (e.g. one more item in a
+`parameters` list) is proposed as a whole replacement for that array, not a line-by-line patch.
+
+**What can't:** renaming or deleting an existing entry, or adding a brand-new one. A rename looks
+identical to "delete the old one, add a new one" in a plain diff, and guessing wrong here would
+silently corrupt someone else's file — not worth the risk. Anything like this is shown up front,
+before any pull request preview, as a "won't be included" list naming each entry and why — never
+silently dropped.
+
+The rest of the flow mirrors the single-file version above, generalized to a list:
+
+1. **Per-source drift check.** Every touched source (any service with a change traced back to it)
+   is fetched fresh and compared against its own baseline, the same way the single-file flow checks
+   one file. A source that changed upstream shows the same first-difference summary; **Continue
+   anyway** rebases onto the fresh content and updates that source's own saved baseline.
+2. **A source you can't write to, or that can't be fetched, is skipped** — reported plainly, same as
+   an untraceable change — while everything else that can still go ahead does.
+3. **Review**, one diff per touched source, each showing exactly what would be committed there.
+4. **Open pull request(s)** creates one pull request per touched source, sequentially — a failure on
+   one doesn't stop the rest, and the result says plainly how many of how many succeeded, and why
+   any failure happened.
+
+Changing a source file's own formatting is avoided as much as possible: the patch is applied with a
+format-preserving YAML editor rather than a full parse-and-redump, so comments, anchors/aliases, and
+flow-vs-block style elsewhere in that file survive untouched. The one cosmetic exception is comment
+spacing on a line the patch didn't touch, which can get minorly renormalized as a side effect of
+re-serializing the file — semantically identical, just not always byte-identical.
+
 ## Permissions
 
 Suggesting a pull request always needs a classic personal access token with write access — same
-requirement as saving an aggregation set, just checked against whichever repo the tab happens to be
-linked to instead of this app's own repo. If the connected token can read but not write to that
-repo, the modal tells you so instead of offering a preview. See [Permissions.md](Permissions.md)
-for how to create a token and what "write access" means for a repo you don't own directly (e.g. via
-a fork).
+requirement as saving an aggregation set, just checked against whichever repo the tab (or, for an
+aggregated tab, each touched source) happens to be linked to instead of this app's own repo. If the
+connected token can read but not write to that repo, the modal tells you so instead of offering a
+preview. See [Permissions.md](Permissions.md) for how to create a token and what "write access"
+means for a repo you don't own directly (e.g. via a fork).

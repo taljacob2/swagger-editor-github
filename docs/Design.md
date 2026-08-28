@@ -89,6 +89,29 @@ Develop against this personal github.com repo, then point the API base URL and s
   bar's own icon (works on a background tab without switching to it) or **File → Suggest pull
   request…** (acts on the active tab). See [docs/SuggestingPullRequests.md](SuggestingPullRequests.md)
   for the user-facing walkthrough.
+- [x] Suggest-PR flow extended to the aggregated view — an edit made in a tab loaded via `Aggregate`
+  gets traced back to whichever source file it belongs to and proposed there, instead of only being
+  suggestible for a tab linked to a single file. `mergeSpecs` (`aggregation-merge-service.js`) now
+  also returns a `provenance` map (which service/original key each merged path, tag, and
+  `components/*` entry came from), persisted per tab alongside the merge's own baseline text
+  (`workspace-tabs/aggregation-provenance-service.js`). A structural walker
+  (`aggregation-diff-service.js`) diffs the tab's current content against that baseline down to leaf
+  fields — an array is replaced as a whole unit rather than diffed element-by-element, and a
+  renamed/added/removed *entry* (as opposed to a changed *field* inside one) is deliberately left
+  unresolved rather than guessed at, since that's structurally indistinguishable from a plain diff
+  and a wrong guess would silently corrupt someone else's file. Resolved changes are grouped back to
+  their source (`aggregated-pr-planning-service.js`) and applied with a new **format-preserving**
+  patch step (`source-patch-service.js`, using the `yaml` package's CST-based `Document` API instead
+  of this app's usual `js-yaml` parse/dump round trip) — so a source file's comments and
+  anchors/aliases survive an automated edit intact, something `js-yaml` can't do by design. A
+  separate modal, `SuggestAggregatedPrsModal.jsx`, generalizes `SuggestPrModal.jsx`'s phase machine
+  to several sources at once (per-source drift check, one diff preview per touched source, pull
+  requests opened sequentially so a failure partway through still reports a clear "N of M" result);
+  `TabBar.jsx`/`SuggestPrMenuItemHandler.jsx` route to it instead of `SuggestPrModal.jsx` purely by
+  presence of a tab's `AggregationProvenance` record, since a tab is always aggregated or
+  singly-linked, never both. See
+  [docs/SuggestingPullRequests.md](SuggestingPullRequests.md#suggesting-pull-requests-from-an-aggregated-view)
+  for the user-facing walkthrough.
 - [x] Code generation — no port needed; vendored Swagger Editor's built-in "Generate Client"/"Generate Server" menus already call the public generator services directly (see [Code generation](#code-generation)). The custom `codegen.yml` GitHub Actions workflow this repo scaffolded early on was redundant with that and has been removed.
 
 ## Open items — not yet decided
