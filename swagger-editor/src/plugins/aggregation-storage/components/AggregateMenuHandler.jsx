@@ -1,7 +1,13 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import PropTypes from 'prop-types';
+import YAML from 'js-yaml';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
+import RepoBrowserModal from '../../github-repo-browser/components/RepoBrowserModal.jsx';
+import {
+  buildBlobUrl,
+  defaultNameFrom,
+} from '../../github-repo-browser/github-repo-browser-service.js';
 import { aggregateSet } from '../aggregation-merge-service.js';
 import {
   BRANCH_PREFIX,
@@ -44,6 +50,7 @@ const AggregateMenuHandler = forwardRef(
     const [newUrlName, setNewUrlName] = useState('');
     const [newUrlValue, setNewUrlValue] = useState('');
     const [isAddingUrl, setIsAddingUrl] = useState(false);
+    const [isRepoBrowserOpen, setIsRepoBrowserOpen] = useState(false);
     const [editingUrlIndex, setEditingUrlIndex] = useState(null);
     const [editUrlDraft, setEditUrlDraft] = useState({ name: '', url: '' });
     const [isSaving, setIsSaving] = useState(false);
@@ -180,6 +187,34 @@ const AggregateMenuHandler = forwardRef(
     };
 
     const handleStartAddUrlClick = () => setIsAddingUrl(true);
+
+    const handleOpenRepoBrowserClick = () => setIsRepoBrowserOpen(true);
+    const handleCloseRepoBrowserClick = () => setIsRepoBrowserOpen(false);
+
+    // A real improvement over getSwaggerUrlWarning below, which only checks
+    // the URL's file extension on a manually-typed entry -- here the actual
+    // fetched content is in hand, so it's checked for real instead. Thrown
+    // (not just set as local state) so RepoBrowserModal keeps its file list
+    // open on the failure rather than closing over a broken selection.
+    const handleRepoFileSelected = async ({
+      owner,
+      repo,
+      path,
+      ref: fileRef,
+      apiBaseUrl,
+      content,
+    }) => {
+      try {
+        YAML.load(content);
+      } catch {
+        throw new Error(`"${path}" doesn't parse as valid YAML/JSON — nothing was added.`);
+      }
+      const url = buildBlobUrl({ owner, repo, path, ref: fileRef, apiBaseUrl });
+      setForm((prev) => ({
+        ...prev,
+        swaggerUrls: [...prev.swaggerUrls, { name: defaultNameFrom(repo), url }],
+      }));
+    };
 
     const handleDoneAddingUrlClick = () => {
       setIsAddingUrl(false);
@@ -801,6 +836,14 @@ const AggregateMenuHandler = forwardRef(
                     <button
                       type="button"
                       className="btn btn-secondary"
+                      disabled={editingUrlIndex !== null}
+                      onClick={handleOpenRepoBrowserClick}
+                    >
+                      Browse GitHub repositories…
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
                       aria-label="Hide add-service fields"
                       title="Hide add-service fields"
                       disabled={editingUrlIndex !== null}
@@ -853,6 +896,12 @@ const AggregateMenuHandler = forwardRef(
         >
           Delete this aggregation set? This removes its file from the storage branch.
         </ConfirmDialog>
+        <RepoBrowserModal
+          getComponent={getComponent}
+          isOpen={isRepoBrowserOpen}
+          onClose={handleCloseRepoBrowserClick}
+          onFileSelected={handleRepoFileSelected}
+        />
       </>
     );
   }

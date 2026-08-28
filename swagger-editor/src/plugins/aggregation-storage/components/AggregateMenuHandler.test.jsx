@@ -11,6 +11,67 @@ vi.mock('../../github-connection/github-connection-service.js');
 vi.mock('../aggregation-storage-service.js');
 vi.mock('../aggregation-merge-service.js');
 
+// RepoBrowserModal's own repo/branch/file-picking behavior is covered by its
+// own dedicated tests -- stubbed here down to just "open and call
+// onFileSelected", so this file can focus on what AggregateMenuHandler does
+// with a selection (or a rejection of one) without re-driving the whole
+// browse flow.
+const MockRepoBrowserModal = ({ isOpen, onFileSelected }) => {
+  const [result, setResult] = React.useState(null);
+  if (!isOpen) return null;
+
+  const pick = (file) => async () => {
+    try {
+      await onFileSelected(file);
+      setResult('ok');
+    } catch (error) {
+      setResult(error.message);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={pick({
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'openapi.yaml',
+          ref: 'main',
+          apiBaseUrl: 'https://api.github.com',
+          content: 'openapi: 3.0.0\ninfo:\n  title: X\n',
+        })}
+      >
+        Pick valid file
+      </button>
+      <button
+        type="button"
+        onClick={pick({
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'broken.yaml',
+          ref: 'main',
+          apiBaseUrl: 'https://api.github.com',
+          content: '{ not: valid: yaml: [',
+        })}
+      >
+        Pick invalid file
+      </button>
+      {result && <p>{result}</p>}
+    </div>
+  );
+};
+MockRepoBrowserModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onFileSelected: PropTypes.func.isRequired,
+};
+
+vi.mock('../../github-repo-browser/components/RepoBrowserModal.jsx', () => ({
+  default: ({ isOpen, onFileSelected }) => (
+    <MockRepoBrowserModal isOpen={isOpen} onFileSelected={onFileSelected} />
+  ),
+}));
+
 const { getSwaggerUrlWarning: realGetSwaggerUrlWarning } = await vi.importActual(
   '../aggregation-storage-service.js'
 );
@@ -83,6 +144,9 @@ const renderHandler = (ref, editorActions = { setContent: vi.fn() }) => {
 describe('AggregateMenuHandler', () => {
   beforeEach(() => {
     githubConnectionService.getConnectionSettings.mockResolvedValue(CONNECTION_SETTINGS);
+    githubConnectionService.deriveWebBaseUrl.mockImplementation((apiBaseUrl) =>
+      apiBaseUrl.replace(/^https:\/\/api\./, 'https://')
+    );
     aggregationStorageService.getStorageSettings.mockReturnValue(STORAGE_SETTINGS);
     aggregationStorageService.saveStorageSettings.mockImplementation((s) => s);
     aggregationStorageService.listAggregationSets.mockResolvedValue([]);
@@ -267,6 +331,57 @@ describe('AggregateMenuHandler', () => {
       STORAGE_SETTINGS,
       CONNECTION_SETTINGS
     );
+  });
+
+  test('browsing GitHub and picking a valid file appends it with a prefilled, editable name', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+
+    await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
+    expect(screen.getByText('petstore')).toBeInTheDocument();
+    expect(
+      screen.getByText('https://github.com/octo-org/petstore/blob/main/openapi.yaml')
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Set'));
+    });
+
+    expect(aggregationStorageService.saveAggregationSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swaggerUrls: [
+          {
+            name: 'petstore',
+            url: 'https://github.com/octo-org/petstore/blob/main/openapi.yaml',
+          },
+        ],
+      }),
+      STORAGE_SETTINGS,
+      CONNECTION_SETTINGS
+    );
+  });
+
+  test('browsing GitHub and picking a file that fails to parse surfaces an error and adds nothing', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick invalid file'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('"broken.yaml" doesn\'t parse as valid YAML/JSON — nothing was added.')
+      ).toBeInTheDocument()
+    );
+    expect(screen.queryByText('petstore')).not.toBeInTheDocument();
   });
 
   test('rejects saving a set with no name', async () => {
