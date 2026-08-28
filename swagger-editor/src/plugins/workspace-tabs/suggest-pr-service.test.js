@@ -5,6 +5,8 @@ import {
   canWriteToRepo,
   createPullRequest,
   createSuggestionBranch,
+  diffLines,
+  MAX_DIFFABLE_LINES,
 } from './suggest-pr-service.js';
 
 const CONNECTION = { apiBaseUrl: 'https://api.github.com', token: 'test-token' };
@@ -31,6 +33,50 @@ function mockFetch(routes) {
   });
   return calls;
 }
+
+describe('diffLines', () => {
+  test('an unchanged file is all context lines', () => {
+    const text = 'a\nb\nc';
+
+    expect(diffLines(text, text)).toEqual([
+      { type: 'context', text: 'a' },
+      { type: 'context', text: 'b' },
+      { type: 'context', text: 'c' },
+    ]);
+  });
+
+  test('a single changed line shows as a removal plus an addition', () => {
+    expect(diffLines('a\nb\nc', 'a\nB\nc')).toEqual([
+      { type: 'context', text: 'a' },
+      { type: 'removed', text: 'b' },
+      { type: 'added', text: 'B' },
+      { type: 'context', text: 'c' },
+    ]);
+  });
+
+  test('an appended line shows as a trailing addition', () => {
+    expect(diffLines('a\nb', 'a\nb\nc')).toEqual([
+      { type: 'context', text: 'a' },
+      { type: 'context', text: 'b' },
+      { type: 'added', text: 'c' },
+    ]);
+  });
+
+  test('a removed line shows as a removal with nothing added in its place', () => {
+    expect(diffLines('a\nb\nc', 'a\nc')).toEqual([
+      { type: 'context', text: 'a' },
+      { type: 'removed', text: 'b' },
+      { type: 'context', text: 'c' },
+    ]);
+  });
+
+  test('returns null instead of diffing when either side exceeds the line cap', () => {
+    const huge = new Array(MAX_DIFFABLE_LINES + 1).fill('x').join('\n');
+
+    expect(diffLines(huge, 'a')).toBeNull();
+    expect(diffLines('a', huge)).toBeNull();
+  });
+});
 
 describe('buildSuggestionBranchName', () => {
   test('is prefixed distinctly and unique across calls', () => {

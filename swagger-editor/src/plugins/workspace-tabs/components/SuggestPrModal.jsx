@@ -8,6 +8,7 @@ import {
   canWriteToRepo,
   createPullRequest,
   createSuggestionBranch,
+  diffLines,
 } from '../suggest-pr-service.js';
 import { getLinkedTarget, setLinkedTarget } from '../linked-target-service.js';
 import { getTabContent } from '../workspace-tabs-service.js';
@@ -35,13 +36,26 @@ function summarizeDrift(baseline, fresh) {
   };
 }
 
-const emptyState = { phase: 'working', message: null, driftSummary: null, prUrl: null };
+const emptyState = {
+  phase: 'working',
+  workingLabel: 'Checking for changes…',
+  message: null,
+  driftSummary: null,
+  freshContent: null,
+  target: null,
+  targetConnection: null,
+  contentToCommit: null,
+  diff: null,
+  prUrl: null,
+};
 
 // Fetches the linked target fresh, warns on drift, diffs against the tab's
-// current content, converts format if needed, and opens a PR -- see
-// docs' "Suggest PR flow" spec (§6.2). Assumes a link already exists for
-// tabId; the tab action that opens this modal is responsible for running
-// the linking dialog first when it doesn't (see TabBar.jsx).
+// current content, converts format if needed, and shows a preview of the
+// exact commit -- creating nothing yet. Only handleConfirmCreate (fired by
+// the explicit "Open pull request" button below) actually writes anything
+// to GitHub. Assumes a link already exists for tabId; the tab action that
+// opens this modal is responsible for running the linking dialog first when
+// it doesn't (see TabBar.jsx).
 const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorActions }) => {
   const [state, setState] = useState(emptyState);
 
@@ -57,7 +71,12 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
   };
 
   const run = async ({ skipDriftCheck = false, baseContentOverride = null } = {}) => {
-    setState((prev) => ({ ...prev, phase: 'working', message: null }));
+    setState((prev) => ({
+      ...prev,
+      phase: 'working',
+      workingLabel: 'Checking for changes…',
+      message: null,
+    }));
     const target = getLinkedTarget(tabId);
     if (!target) {
       setState({ ...emptyState, phase: 'error', message: 'This tab is no longer linked.' });
@@ -77,10 +96,9 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
       if (!skipDriftCheck && freshContent !== target.baselineContent) {
         setState({
+          ...emptyState,
           phase: 'drift',
-          message: null,
           driftSummary: summarizeDrift(target.baselineContent, freshContent),
-          prUrl: null,
           freshContent,
         });
         return;
@@ -115,6 +133,35 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         return;
       }
 
+      // Stop here and let the user review exactly what would be committed --
+      // nothing is written to GitHub until they explicitly confirm below.
+      setState({
+        ...emptyState,
+        phase: 'preview',
+        target,
+        targetConnection,
+        contentToCommit,
+        diff: diffLines(freshContent, contentToCommit),
+      });
+    } catch (error) {
+      setState({ ...emptyState, phase: 'error', message: error.message });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      run();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, tabId]);
+
+  const handleContinueAfterDrift = () =>
+    run({ skipDriftCheck: true, baseContentOverride: state.freshContent });
+
+  const handleConfirmCreate = async () => {
+    const { target, targetConnection, contentToCommit } = state;
+    setState((prev) => ({ ...prev, phase: 'working', workingLabel: 'Opening pull request…' }));
+    try {
       const branchName = buildSuggestionBranchName();
       await createSuggestionBranch(
         {
@@ -154,16 +201,6 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      run();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, tabId]);
-
-  const handleContinueAfterDrift = () =>
-    run({ skipDriftCheck: true, baseContentOverride: state.freshContent });
-
   return (
     <Modal isOpen={isOpen} contentLabel="Suggest pull request" onRequestClose={resetAndClose}>
       <ModalHeader>
@@ -173,7 +210,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         <ModalTitle>Suggest pull request</ModalTitle>
       </ModalHeader>
       <ModalBody>
-        {state.phase === 'working' && <p className="help-block">Working…</p>}
+        {state.phase === 'working' && <p className="help-block">{state.workingLabel}</p>}
 
         {state.phase === 'drift' && state.driftSummary && (
           <>
@@ -203,6 +240,40 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
         {state.phase === 'error' && <p className="text-danger">{state.message}</p>}
 
+        {state.phase === 'preview' && state.target && (
+          <>
+            <p className="swagger-editor__suggest-pr-summary">
+              Open a pull request updating{' '}
+              <code>
+                {state.target.owner}/{state.target.repo}
+              </code>
+              &apos;s <code>{state.target.path}</code> (base branch <code>{state.target.ref}</code>)
+              with this change?
+            </p>
+            {state.diff ? (
+              <pre className="swagger-editor__suggest-pr-diff">
+                {/* Diff lines have no stable identity of their own -- index is
+                    fine since this list is never reordered, only replaced whole. */}
+                {state.diff.map((line, index) => (
+                  <div
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={index}
+                    className={`swagger-editor__suggest-pr-diff-line swagger-editor__suggest-pr-diff-line--${line.type}`}
+                  >
+                    {line.type === 'added' ? '+ ' : line.type === 'removed' ? '- ' : '  '}
+                    {line.text}
+                  </div>
+                ))}
+              </pre>
+            ) : (
+              <p className="help-block">
+                This file is too large to preview line-by-line here, but the change will be
+                committed to <code>{state.target.path}</code> as shown above.
+              </p>
+            )}
+          </>
+        )}
+
         {state.phase === 'success' && state.prUrl && (
           <p className="text-success">
             Opened{' '}
@@ -217,6 +288,11 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         {state.phase === 'drift' && (
           <button type="button" className="btn btn-primary" onClick={handleContinueAfterDrift}>
             Continue anyway
+          </button>
+        )}
+        {state.phase === 'preview' && (
+          <button type="button" className="btn btn-primary" onClick={handleConfirmCreate}>
+            Open pull request
           </button>
         )}
         <button type="button" className="btn btn-secondary" onClick={resetAndClose}>

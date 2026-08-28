@@ -1,0 +1,38 @@
+.swagger-editor {
+  &__suggest-pr-summary {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+  }
+
+  &__suggest-pr-diff {
+    margin: 0;
+    padding: 0.5rem 0;
+    max-height: 40vh;
+    overflow: auto;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    background-color: var(--se-color-surface-muted);
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    white-space: pre;
+  }
+
+  &__suggest-pr-diff-line {
+    padding: 0 0.75rem;
+
+    &--added {
+      color: #1a7f37;
+      background-color: rgba(26, 127, 55, 0.1);
+    }
+
+    &--removed {
+      color: #d1242f;
+      background-color: rgba(209, 36, 47, 0.1);
+    }
+
+    &--context {
+      color: var(--se-color-text-muted);
+    }
+  }
+}

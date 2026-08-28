@@ -15,6 +15,12 @@ vi.mock('../suggest-pr-service.js');
 vi.mock('../linked-target-service.js');
 vi.mock('../workspace-tabs-service.js');
 
+// diffLines is a pure function with its own dedicated coverage in
+// suggest-pr-service.test.js -- importActual (rather than a hand-copied
+// reimplementation) keeps that single real implementation as the source of
+// truth for what the preview actually renders.
+const { diffLines: realDiffLines } = await vi.importActual('../suggest-pr-service.js');
+
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
 StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.node.isRequired };
 
@@ -60,6 +66,7 @@ describe('SuggestPrModal', () => {
     suggestPrService.createPullRequest.mockResolvedValue(
       'https://github.com/octo-org/petstore/pull/7'
     );
+    suggestPrService.diffLines.mockImplementation(realDiffLines);
   });
 
   test('renders nothing when closed', () => {
@@ -76,7 +83,7 @@ describe('SuggestPrModal', () => {
     expect(screen.queryByText('Suggest pull request')).not.toBeInTheDocument();
   });
 
-  test('no drift, real changes: fetches fresh, diffs against the tab content, and opens a PR', async () => {
+  test('no drift, real changes: shows a preview and creates nothing until confirmed', async () => {
     repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
     workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
 
@@ -90,10 +97,21 @@ describe('SuggestPrModal', () => {
       />
     );
 
+    expect(await screen.findByText('Open pull request')).toBeInTheDocument();
+    expect(screen.getByText(/Open a pull request updating/)).toBeInTheDocument();
+    // The actual line-level diff: "title: X" removed, "title: Y" added.
+    expect(screen.getByText('- title: X')).toBeInTheDocument();
+    expect(screen.getByText('+ title: Y')).toBeInTheDocument();
+    expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
+    expect(suggestPrService.createPullRequest).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Open pull request'));
+    });
+
     await waitFor(() =>
       expect(screen.getByText('https://github.com/octo-org/petstore/pull/7')).toBeInTheDocument()
     );
-
     expect(suggestPrService.createSuggestionBranch).toHaveBeenCalledWith(
       expect.objectContaining({
         owner: 'octo-org',
@@ -120,6 +138,29 @@ describe('SuggestPrModal', () => {
     );
   });
 
+  test('Cancel from the preview closes without creating anything', async () => {
+    repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+    workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+    const onClose = vi.fn();
+
+    render(
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen
+        onClose={onClose}
+        tabId="a"
+        editorActions={editorActions}
+      />
+    );
+
+    await screen.findByText('Open pull request');
+    fireEvent.click(screen.getByText('Cancel'));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
+    expect(suggestPrService.createPullRequest).not.toHaveBeenCalled();
+  });
+
   test('no changes to suggest when the tab matches the fresh upstream content', async () => {
     repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
     workspaceTabsService.getTabContent.mockReturnValue(TARGET.baselineContent);
@@ -138,7 +179,7 @@ describe('SuggestPrModal', () => {
     expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
   });
 
-  test('drift: warns and waits, then "Continue anyway" diffs against the fresh content', async () => {
+  test('drift: warns and waits, then "Continue anyway" previews against the fresh content', async () => {
     const freshContent = 'openapi: 3.0.0\ninfo:\n  title: Changed upstream\n';
     repoBrowserService.getFileContent.mockResolvedValue({ content: freshContent });
     workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: My edit\n');
@@ -158,6 +199,14 @@ describe('SuggestPrModal', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByText('Continue anyway'));
+    });
+
+    // Lands on the preview, still without creating anything.
+    expect(await screen.findByText('Open pull request')).toBeInTheDocument();
+    expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Open pull request'));
     });
 
     await waitFor(() => expect(suggestPrService.createSuggestionBranch).toHaveBeenCalled());
@@ -186,7 +235,7 @@ describe('SuggestPrModal', () => {
     expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
   });
 
-  test('converts JSON tab content to YAML when the target file is YAML', async () => {
+  test('converts JSON tab content to YAML when the target file is YAML, previewing the converted content', async () => {
     const jsonContent = '{\n  "openapi": "3.0.0"\n}';
     repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
     workspaceTabsService.getTabContent.mockReturnValue(jsonContent);
@@ -205,12 +254,37 @@ describe('SuggestPrModal', () => {
       />
     );
 
-    await waitFor(() => expect(suggestPrService.createSuggestionBranch).toHaveBeenCalled());
+    await screen.findByText('Open pull request');
     expect(editorActions.convertContentToYAML).toHaveBeenCalledWith(jsonContent);
+    expect(suggestPrService.createSuggestionBranch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Open pull request'));
+    });
+
+    await waitFor(() => expect(suggestPrService.createSuggestionBranch).toHaveBeenCalled());
     expect(suggestPrService.createSuggestionBranch).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'openapi: 3.0.0\n' }),
       expect.anything()
     );
+  });
+
+  test('a file too large to diff falls back to a plain message instead of a line-by-line preview', async () => {
+    repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+    workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+    suggestPrService.diffLines.mockReturnValue(null);
+
+    render(
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen
+        onClose={vi.fn()}
+        tabId="a"
+        editorActions={editorActions}
+      />
+    );
+
+    expect(await screen.findByText(/too large to preview line-by-line/)).toBeInTheDocument();
   });
 
   test('surfaces an error when fetching the target fails', async () => {
