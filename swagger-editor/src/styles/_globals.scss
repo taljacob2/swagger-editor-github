@@ -56,6 +56,15 @@ body {
   sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  // The app is always sized to exactly fill the viewport (see
+  // .swagger-editor__layout's 100svh) -- the page itself is never meant to
+  // scroll. `none` is a backstop alongside the `overscroll-behavior-y:
+  // contain` on the preview/editor panes themselves (_layout.scss): if a
+  // swipe gesture ever does reach past an inner pane's own scroll extent,
+  // this stops it rubber-banding the page on mobile instead of just doing
+  // nothing, which is what was making the split-pane boundary visibly jump
+  // around while scrolling the preview.
+  overscroll-behavior: none;
 }
 
 code {
