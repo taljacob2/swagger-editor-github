@@ -352,4 +352,73 @@ describe('SuggestPrModal', () => {
 
     expect(await screen.findByText('GitHub API GET failed: 404')).toBeInTheDocument();
   });
+
+  describe('changing the link', () => {
+    // Linking has no UI of its own outside this modal (see TabBar.jsx) --
+    // "Change…" is how a first-time or already-linked tab ever reaches it.
+    test('shows what the tab is linked to, with a "Change…" affordance, outside preview/success', async () => {
+      repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+      workspaceTabsService.getTabContent.mockReturnValue(TARGET.baselineContent);
+      const onChangeLink = vi.fn();
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+          onChangeLink={onChangeLink}
+        />
+      );
+
+      expect(await screen.findByText(/No changes to suggest/)).toBeInTheDocument();
+      expect(screen.getByText('octo-org/petstore')).toBeInTheDocument();
+      expect(screen.getByText('openapi.yaml')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Change…'));
+
+      expect(onChangeLink).toHaveBeenCalled();
+    });
+
+    test('is hidden during preview, which already shows the target inline', async () => {
+      repoBrowserService.getFileContent.mockResolvedValue({ content: TARGET.baselineContent });
+      workspaceTabsService.getTabContent.mockReturnValue('openapi: 3.0.0\ninfo:\n  title: Y\n');
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+        />
+      );
+
+      await screen.findByText('Open pull request');
+
+      expect(screen.queryByText('Change…')).not.toBeInTheDocument();
+    });
+
+    test('a broken link offers to link the tab instead of dead-ending on the error', async () => {
+      linkedTargetService.getLinkedTarget.mockReturnValue(null);
+      const onChangeLink = vi.fn();
+
+      render(
+        <SuggestPrModal
+          getComponent={getComponent}
+          isOpen
+          onClose={vi.fn()}
+          tabId="a"
+          editorActions={editorActions}
+          onChangeLink={onChangeLink}
+        />
+      );
+
+      const linkButton = await screen.findByText('Link this tab to a repository file…');
+      fireEvent.click(linkButton);
+
+      expect(onChangeLink).toHaveBeenCalled();
+    });
+  });
 });

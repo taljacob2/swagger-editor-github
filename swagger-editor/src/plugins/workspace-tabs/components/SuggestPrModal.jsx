@@ -55,8 +55,17 @@ const emptyState = {
 // the explicit "Open pull request" button below) actually writes anything
 // to GitHub. Assumes a link already exists for tabId; the tab action that
 // opens this modal is responsible for running the linking dialog first when
-// it doesn't (see TabBar.jsx).
-const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorActions }) => {
+// it doesn't (see TabBar.jsx). Linking has no UI of its own elsewhere --
+// onChangeLink is this modal's only way back to it, for a first-time link or
+// to point an already-linked tab at a different file.
+const SuggestPrModal = ({
+  getComponent,
+  isOpen,
+  onClose,
+  tabId = null,
+  editorActions,
+  onChangeLink = undefined,
+}) => {
   const [state, setState] = useState(emptyState);
 
   const Modal = getComponent('Modal', true);
@@ -82,6 +91,10 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
       setState({ ...emptyState, phase: 'error', message: 'This tab is no longer linked.' });
       return;
     }
+    // Set as soon as it's known, not only on the phases below that already
+    // needed it for their own display -- the "Linked to…/Change…" line near
+    // the top of the modal (see the JSX below) reads it on every phase.
+    setState((prev) => ({ ...prev, target }));
     try {
       const connection = await getConnectionSettings();
       const targetConnection = { ...connection, apiBaseUrl: target.apiBaseUrl };
@@ -107,7 +120,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
       const currentContent = getTabContent(tabId);
       if (currentContent === freshContent) {
-        setState({ ...emptyState, phase: 'nothing-to-suggest' });
+        setState({ ...emptyState, phase: 'nothing-to-suggest', target });
         return;
       }
 
@@ -130,7 +143,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
       const hasWriteAccess = await canWriteToRepo(target.owner, target.repo, targetConnection);
       if (!hasWriteAccess) {
-        setState({ ...emptyState, phase: 'no-access' });
+        setState({ ...emptyState, phase: 'no-access', target });
         return;
       }
 
@@ -146,7 +159,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         diff: diffLines(freshContent, contentToCommit),
       });
     } catch (error) {
-      setState({ ...emptyState, phase: 'error', message: error.message });
+      setState({ ...emptyState, phase: 'error', message: error.message, target });
     }
   };
 
@@ -218,7 +231,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
       setState({ ...emptyState, phase: 'success', prUrl });
     } catch (error) {
-      setState({ ...emptyState, phase: 'error', message: error.message });
+      setState({ ...emptyState, phase: 'error', message: error.message, target });
     }
   };
 
@@ -231,6 +244,40 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
         <ModalTitle>Suggest pull request</ModalTitle>
       </ModalHeader>
       <ModalBody>
+        {/* Linking has no persistent UI of its own elsewhere in the tab bar
+            -- this is the only place it's ever reachable from, both for a
+            first-time link (below, when there isn't one yet) and to repoint
+            an already-linked tab at a different file. Hidden on 'preview'
+            and 'success', which already show the target inline. */}
+        {state.target && state.phase !== 'preview' && state.phase !== 'success' && (
+          <p className="swagger-editor__suggest-pr-target">
+            Linked to{' '}
+            <code>
+              {state.target.owner}/{state.target.repo}
+            </code>
+            &apos;s <code>{state.target.path}</code>.{' '}
+            <button
+              type="button"
+              className="swagger-editor__link-button"
+              onClick={() => onChangeLink?.()}
+            >
+              Change…
+            </button>
+          </p>
+        )}
+
+        {state.phase === 'error' && !state.target && (
+          <p className="swagger-editor__suggest-pr-target">
+            <button
+              type="button"
+              className="swagger-editor__link-button"
+              onClick={() => onChangeLink?.()}
+            >
+              Link this tab to a repository file…
+            </button>
+          </p>
+        )}
+
         {state.phase === 'working' && <p className="help-block">{state.workingLabel}</p>}
 
         {state.phase === 'drift' && state.driftSummary && (
@@ -333,6 +380,7 @@ SuggestPrModal.propTypes = {
     convertContentToJSON: PropTypes.func.isRequired,
     convertContentToYAML: PropTypes.func.isRequired,
   }).isRequired,
+  onChangeLink: PropTypes.func,
 };
 
 export default SuggestPrModal;

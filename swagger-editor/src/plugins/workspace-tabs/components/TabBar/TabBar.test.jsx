@@ -50,9 +50,18 @@ vi.mock('../LinkTabModal.jsx', () => ({
 
 // SuggestPrModal's own flow (fetch-fresh, drift, diff, PR creation) is
 // covered by its own dedicated tests -- stubbed here down to just reporting
-// which tab it was opened for, same reasoning as the LinkTabModal stub above.
+// which tab it was opened for and exposing its "Change link" affordance,
+// same reasoning as the LinkTabModal stub above.
 vi.mock('../SuggestPrModal.jsx', () => ({
-  default: ({ isOpen, tabId }) => (isOpen ? <div>Suggest PR modal open for {tabId}</div> : null),
+  default: ({ isOpen, tabId, onChangeLink }) =>
+    isOpen ? (
+      <div>
+        Suggest PR modal open for {tabId}
+        <button type="button" onClick={() => onChangeLink?.()}>
+          simulate change link
+        </button>
+      </div>
+    ) : null,
 }));
 
 const getComponent = vi.fn();
@@ -272,23 +281,10 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
   });
 
-  test("clicking a tab's link button opens LinkTabModal for that tab", () => {
-    render(
-      <TabBar
-        getComponent={getComponent}
-        editorActions={editorActions}
-        EditorContentOrigin={EditorContentOrigin}
-      />
-    );
-
-    expect(screen.queryByText(/Link modal open for/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getAllByTitle('Link to repository file…')[1]); // Tab 2
-
-    expect(screen.getByText('Link modal open for b')).toBeInTheDocument();
-  });
-
-  test("a linked tab's link button shows what it is linked to", () => {
+  // Linking has no button of its own -- it's only ever reached on the way to
+  // suggesting a PR (below), either because the tab isn't linked yet or via
+  // SuggestPrModal's own "Change link" affordance (also below).
+  test('the single tab action reflects whether the tab is linked yet', () => {
     linkedTargetService.getLinkedTarget.mockImplementation((tabId) =>
       tabId === 'a' ? { owner: 'octo-org', repo: 'petstore' } : null
     );
@@ -301,8 +297,10 @@ describe('TabBar', () => {
       />
     );
 
-    expect(screen.getByTitle('Linked to octo-org/petstore')).toBeInTheDocument();
-    expect(screen.getAllByTitle('Link to repository file…')).toHaveLength(2);
+    expect(screen.getByTitle('Suggest pull request to octo-org/petstore')).toBeInTheDocument();
+    expect(screen.getAllByTitle('Link to a repository file & suggest a pull request')).toHaveLength(
+      2
+    );
   });
 
   test('Suggest PR on an already-linked tab opens SuggestPrModal directly', () => {
@@ -315,7 +313,7 @@ describe('TabBar', () => {
         EditorContentOrigin={EditorContentOrigin}
       />
     );
-    fireEvent.click(screen.getAllByTitle('Suggest pull request')[1]); // Tab 2
+    fireEvent.click(screen.getAllByTitle('Suggest pull request to octo-org/petstore')[1]); // Tab 2
 
     expect(screen.getByText('Suggest PR modal open for b')).toBeInTheDocument();
     expect(screen.queryByText(/Link modal open for/)).not.toBeInTheDocument();
@@ -331,7 +329,7 @@ describe('TabBar', () => {
         EditorContentOrigin={EditorContentOrigin}
       />
     );
-    fireEvent.click(screen.getAllByTitle('Suggest pull request')[1]); // Tab 2
+    fireEvent.click(screen.getAllByTitle('Link to a repository file & suggest a pull request')[1]); // Tab 2
 
     expect(screen.getByText('Link modal open for b')).toBeInTheDocument();
     expect(screen.queryByText(/Suggest PR modal open for/)).not.toBeInTheDocument();
@@ -342,7 +340,9 @@ describe('TabBar', () => {
     expect(screen.queryByText(/Link modal open for/)).not.toBeInTheDocument();
   });
 
-  test('a plain Link (not on the way to Suggest PR) does not auto-open Suggest PR when it succeeds', () => {
+  test('"Change link" from Suggest PR swaps to the linking dialog, then back to Suggest PR once relinked', () => {
+    linkedTargetService.getLinkedTarget.mockReturnValue({ owner: 'octo-org', repo: 'petstore' });
+
     render(
       <TabBar
         getComponent={getComponent}
@@ -350,11 +350,16 @@ describe('TabBar', () => {
         EditorContentOrigin={EditorContentOrigin}
       />
     );
-    fireEvent.click(screen.getAllByTitle('Link to repository file…')[1]); // Tab 2, via the plain Link button
+    fireEvent.click(screen.getAllByTitle('Suggest pull request to octo-org/petstore')[1]); // Tab 2
+    fireEvent.click(screen.getByText('simulate change link'));
+
+    expect(screen.getByText('Link modal open for b')).toBeInTheDocument();
+    expect(screen.queryByText(/Suggest PR modal open for/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('simulate link success'));
 
-    expect(screen.queryByText(/Suggest PR modal open for/)).not.toBeInTheDocument();
+    expect(screen.getByText('Suggest PR modal open for b')).toBeInTheDocument();
+    expect(screen.queryByText(/Link modal open for/)).not.toBeInTheDocument();
   });
 
   test('the close button is hidden when only one tab remains', () => {

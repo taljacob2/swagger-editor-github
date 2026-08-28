@@ -1,4 +1,20 @@
 .swagger-editor {
+  &__suggest-pr-target {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+  }
+
+  &__link-button {
+    padding: 0;
+    border: none;
+    background: none;
+    color: #00a0b4;
+    font-size: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
   &__suggest-pr-summary {
     margin: 0 0 0.75rem 0;
     font-size: 0.8rem;
