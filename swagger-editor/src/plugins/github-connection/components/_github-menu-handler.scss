@@ -163,6 +163,13 @@
   gap: 0.5rem;
 }
 
+.swagger-editor__token-decision-hint {
+  margin: 0.6rem 0 0 0;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--se-color-text-muted);
+}
+
 .swagger-editor {
   &__intent-picker {
     border: none;

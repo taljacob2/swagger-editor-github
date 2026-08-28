@@ -394,6 +394,31 @@ describe('GitHubMenuHandler', () => {
       expect(screen.queryByLabelText('GitHub token')).not.toBeInTheDocument();
     });
 
+    test('Save and Test Connection are disabled while the decision is unresolved', async () => {
+      const ref = createRef();
+      render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+      await openModal(ref);
+      switchToPublicOnly();
+
+      expect(screen.getByText('Save')).toBeDisabled();
+      expect(screen.getByText('Test Connection')).toBeDisabled();
+      expect(githubConnectionService.saveConnectionSettings).not.toHaveBeenCalled();
+      expect(githubConnectionService.testConnection).not.toHaveBeenCalled();
+    });
+
+    test('Save and Test Connection re-enable once the decision is resolved', async () => {
+      const ref = createRef();
+      render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);
+
+      await openModal(ref);
+      switchToPublicOnly();
+      fireEvent.click(screen.getByText('Cancel'));
+
+      expect(screen.getByText('Save')).not.toBeDisabled();
+      expect(screen.getByText('Test Connection')).not.toBeDisabled();
+    });
+
     test('Cancel on the decision reverts back to "needs a token" with nothing persisted', async () => {
       const ref = createRef();
       render(<GitHubMenuHandler ref={ref} getComponent={getComponent} />);

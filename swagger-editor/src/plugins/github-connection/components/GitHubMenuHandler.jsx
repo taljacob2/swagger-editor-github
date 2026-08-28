@@ -307,6 +307,9 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
                 Cancel
               </button>
             </div>
+            <p className="swagger-editor__token-decision-hint">
+              Save and Test Connection are disabled until you choose one of the above.
+            </p>
           </div>
         )}
         {!pendingIntentSwitch && intent === INTENTS.PUBLIC_ONLY && token && isTokenDisabled && (
@@ -417,14 +420,25 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
           type="button"
           className="btn btn-secondary"
           onClick={handleTestClick}
-          disabled={isTesting}
+          disabled={isTesting || pendingIntentSwitch}
+          title={
+            pendingIntentSwitch ? 'Choose what to do with the saved token above first' : undefined
+          }
         >
           {isTesting ? 'Testing…' : 'Test Connection'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={handleClose}>
           Close
         </button>
-        <button type="button" className="btn btn-primary" onClick={handleSaveClick}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleSaveClick}
+          disabled={pendingIntentSwitch}
+          title={
+            pendingIntentSwitch ? 'Choose what to do with the saved token above first' : undefined
+          }
+        >
           Save
         </button>
       </ModalFooter>
