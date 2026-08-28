@@ -1,8 +1,24 @@
 const STORAGE_KEY = 'workspace-tabs';
 const LEGACY_CONTENT_STORAGE_KEY = 'swagger-editor-content';
+const WORKSPACE_CHANGED_EVENT = 'workspace-tabs:changed';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// TabBar.jsx is the sole owner of the workspace's React state, read from
+// localStorage on mount and updated only through its own handlers -- there's
+// no Redux for tabs. A caller elsewhere (e.g. the repo browser adding a new
+// tab) that writes tabs/content straight to localStorage has no way to make
+// TabBar notice on its own, so it announces the change here instead;
+// TabBar listens via onWorkspaceChanged and re-reads getWorkspaceMeta().
+export function notifyWorkspaceChanged() {
+  window.dispatchEvent(new Event(WORKSPACE_CHANGED_EVENT));
+}
+
+export function onWorkspaceChanged(handler) {
+  window.addEventListener(WORKSPACE_CHANGED_EVENT, handler);
+  return () => window.removeEventListener(WORKSPACE_CHANGED_EVENT, handler);
 }
 
 function contentStorageKey(tabId) {

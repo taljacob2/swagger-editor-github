@@ -1,0 +1,241 @@
+import React, { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
+
+import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
+import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
+import {
+  buildSuggestionBranchName,
+  canWriteToRepo,
+  createPullRequest,
+  createSuggestionBranch,
+} from '../suggest-pr-service.js';
+import { getLinkedTarget, setLinkedTarget } from '../linked-target-service.js';
+import { getTabContent } from '../workspace-tabs-service.js';
+
+const isJsonPath = (path) => /\.json$/i.test(path);
+const looksLikeJson = (content) => /^\s*[[{]/.test(content);
+
+// Best-effort, not a byte-for-byte diff engine -- js-yaml's own re-dump does
+// not preserve comments/formatting either, so a fancier diff here would just
+// dress up numbers this feature can't act on precisely anyway. Reports where
+// the two texts first diverge and how their line counts compare, enough for
+// a human to judge whether it's worth reviewing further before continuing.
+function summarizeDrift(baseline, fresh) {
+  const baseLines = baseline.split('\n');
+  const freshLines = fresh.split('\n');
+  const maxLen = Math.max(baseLines.length, freshLines.length);
+  let firstDiffLine = 0;
+  while (firstDiffLine < maxLen && baseLines[firstDiffLine] === freshLines[firstDiffLine]) {
+    firstDiffLine += 1;
+  }
+  return {
+    baseLineCount: baseLines.length,
+    freshLineCount: freshLines.length,
+    firstDiffLine: firstDiffLine + 1,
+  };
+}
+
+const emptyState = { phase: 'working', message: null, driftSummary: null, prUrl: null };
+
+// Fetches the linked target fresh, warns on drift, diffs against the tab's
+// current content, converts format if needed, and opens a PR -- see
+// docs' "Suggest PR flow" spec (§6.2). Assumes a link already exists for
+// tabId; the tab action that opens this modal is responsible for running
+// the linking dialog first when it doesn't (see TabBar.jsx).
+const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorActions }) => {
+  const [state, setState] = useState(emptyState);
+
+  const Modal = getComponent('Modal', true);
+  const ModalHeader = getComponent('ModalHeader');
+  const ModalTitle = getComponent('ModalTitle');
+  const ModalBody = getComponent('ModalBody');
+  const ModalFooter = getComponent('ModalFooter');
+
+  const resetAndClose = () => {
+    setState(emptyState);
+    onClose();
+  };
+
+  const run = async ({ skipDriftCheck = false, baseContentOverride = null } = {}) => {
+    setState((prev) => ({ ...prev, phase: 'working', message: null }));
+    const target = getLinkedTarget(tabId);
+    if (!target) {
+      setState({ ...emptyState, phase: 'error', message: 'This tab is no longer linked.' });
+      return;
+    }
+    try {
+      const connection = await getConnectionSettings();
+      const targetConnection = { ...connection, apiBaseUrl: target.apiBaseUrl };
+
+      // Never reuse baselineContent for the diff itself -- only for the
+      // drift comparison below. The base used for the actual diff/commit is
+      // always this fresh fetch.
+      const freshContent =
+        baseContentOverride ??
+        (await getFileContent(target.owner, target.repo, target.path, target.ref, targetConnection))
+          .content;
+
+      if (!skipDriftCheck && freshContent !== target.baselineContent) {
+        setState({
+          phase: 'drift',
+          message: null,
+          driftSummary: summarizeDrift(target.baselineContent, freshContent),
+          prUrl: null,
+          freshContent,
+        });
+        return;
+      }
+
+      const currentContent = getTabContent(tabId);
+      if (currentContent === freshContent) {
+        setState({ ...emptyState, phase: 'nothing-to-suggest' });
+        return;
+      }
+
+      let contentToCommit = currentContent;
+      const targetIsJson = isJsonPath(target.path);
+      const currentIsJson = looksLikeJson(currentContent);
+      if (currentIsJson && !targetIsJson) {
+        const fsa = await editorActions.convertContentToYAML(currentContent);
+        if (fsa.error) {
+          throw new Error(fsa.meta.errorMessage);
+        }
+        contentToCommit = fsa.payload;
+      } else if (!currentIsJson && targetIsJson) {
+        const fsa = await editorActions.convertContentToJSON(currentContent);
+        if (fsa.error) {
+          throw new Error(fsa.meta.errorMessage);
+        }
+        contentToCommit = fsa.payload;
+      }
+
+      const hasWriteAccess = await canWriteToRepo(target.owner, target.repo, targetConnection);
+      if (!hasWriteAccess) {
+        setState({ ...emptyState, phase: 'no-access' });
+        return;
+      }
+
+      const branchName = buildSuggestionBranchName();
+      await createSuggestionBranch(
+        {
+          owner: target.owner,
+          repo: target.repo,
+          baseRef: target.ref,
+          path: target.path,
+          content: contentToCommit,
+          branchName,
+          commitMessage: `Update ${target.path} via Swagger Editor`,
+        },
+        targetConnection
+      );
+      const prUrl = await createPullRequest(
+        {
+          owner: target.owner,
+          repo: target.repo,
+          title: `Update ${target.path}`,
+          body: 'Suggested from a tab in Swagger Editor.',
+          base: target.ref,
+          head: branchName,
+        },
+        targetConnection
+      );
+
+      // The suggestion is now upstream-of-record for this tab -- next time,
+      // drift is measured against what was actually suggested.
+      setLinkedTarget(tabId, {
+        ...target,
+        baselineContent: contentToCommit,
+        baselineFetchedAt: new Date().toISOString(),
+      });
+
+      setState({ ...emptyState, phase: 'success', prUrl });
+    } catch (error) {
+      setState({ ...emptyState, phase: 'error', message: error.message });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      run();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, tabId]);
+
+  const handleContinueAfterDrift = () =>
+    run({ skipDriftCheck: true, baseContentOverride: state.freshContent });
+
+  return (
+    <Modal isOpen={isOpen} contentLabel="Suggest pull request" onRequestClose={resetAndClose}>
+      <ModalHeader>
+        <button type="button" className="close" onClick={resetAndClose}>
+          <span aria-hidden="true">x</span>
+        </button>
+        <ModalTitle>Suggest pull request</ModalTitle>
+      </ModalHeader>
+      <ModalBody>
+        {state.phase === 'working' && <p className="help-block">Working…</p>}
+
+        {state.phase === 'drift' && state.driftSummary && (
+          <>
+            <p className="text-danger">
+              This file changed since you started editing — review before we open a PR.
+            </p>
+            <p className="help-block">
+              First difference at line {state.driftSummary.firstDiffLine} (
+              {state.driftSummary.baseLineCount} lines you started from vs.{' '}
+              {state.driftSummary.freshLineCount} lines upstream now).
+            </p>
+          </>
+        )}
+
+        {state.phase === 'nothing-to-suggest' && (
+          <p className="help-block">
+            No changes to suggest — this tab matches the linked file already.
+          </p>
+        )}
+
+        {state.phase === 'no-access' && (
+          <p className="text-danger">
+            You don&apos;t have write access to this repo — see docs/Permissions.md for how to get a
+            token that can open pull requests.
+          </p>
+        )}
+
+        {state.phase === 'error' && <p className="text-danger">{state.message}</p>}
+
+        {state.phase === 'success' && state.prUrl && (
+          <p className="text-success">
+            Opened{' '}
+            <a href={state.prUrl} target="_blank" rel="noreferrer">
+              {state.prUrl}
+            </a>
+            .
+          </p>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        {state.phase === 'drift' && (
+          <button type="button" className="btn btn-primary" onClick={handleContinueAfterDrift}>
+            Continue anyway
+          </button>
+        )}
+        <button type="button" className="btn btn-secondary" onClick={resetAndClose}>
+          {state.phase === 'success' ? 'Close' : 'Cancel'}
+        </button>
+      </ModalFooter>
+    </Modal>
+  );
+};
+
+SuggestPrModal.propTypes = {
+  getComponent: PropTypes.func.isRequired,
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  tabId: PropTypes.string,
+  editorActions: PropTypes.shape({
+    convertContentToJSON: PropTypes.func.isRequired,
+    convertContentToYAML: PropTypes.func.isRequired,
+  }).isRequired,
+};
+
+export default SuggestPrModal;

@@ -5,6 +5,8 @@ import {
   getActiveTab,
   getTabContent,
   getWorkspaceMeta,
+  notifyWorkspaceChanged,
+  onWorkspaceChanged,
   removeTabContent,
   renameTab,
   reorderTab,
@@ -243,6 +245,28 @@ describe('workspace-tabs-service', () => {
       const meta = { tabs: [{ id: 'a', name: 'Tab 1' }], activeTabId: 'a' };
 
       expect(setActiveTab(meta, 'missing')).toBe(meta);
+    });
+  });
+
+  describe('notifyWorkspaceChanged / onWorkspaceChanged', () => {
+    test('a subscribed handler fires when the change is announced', () => {
+      const handler = vi.fn();
+      const unsubscribe = onWorkspaceChanged(handler);
+
+      notifyWorkspaceChanged();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
+
+    test('the returned unsubscribe function stops further notifications', () => {
+      const handler = vi.fn();
+      const unsubscribe = onWorkspaceChanged(handler);
+      unsubscribe();
+
+      notifyWorkspaceChanged();
+
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 

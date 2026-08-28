@@ -7,6 +7,7 @@ import {
   duplicateTab,
   getTabContent,
   getWorkspaceMeta,
+  onWorkspaceChanged,
   removeTabContent,
   renameTab,
   reorderTab,
@@ -14,11 +15,27 @@ import {
   setActiveTab,
   setTabContent,
 } from '../../workspace-tabs-service.js';
+import { getLinkedTarget, removeLinkedTarget } from '../../linked-target-service.js';
+import LinkTabModal from '../LinkTabModal.jsx';
+import SuggestPrModal from '../SuggestPrModal.jsx';
 
-const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent }) => {
+const TabBar = ({
+  getComponent,
+  editorActions,
+  EditorContentOrigin,
+  flushPendingEditorContent,
+}) => {
   const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [linkingTabId, setLinkingTabId] = useState(null);
+  const [suggestingTabId, setSuggestingTabId] = useState(null);
+  // Set only when Link was opened on the way to Suggest PR (no link existed
+  // yet) -- see handleSuggestPr below -- so LinkTabModal's onLinked knows
+  // whether to continue straight into Suggest PR or just close, without
+  // conflating that with the plain "Link to repository file…" button, which
+  // never wants an automatic follow-up.
+  const pendingSuggestAfterLinkRef = useRef(null);
   const [draggedTabId, setDraggedTabId] = useState(null);
   // Which tab is currently being dragged over, and which side of it (the
   // reorder target/position pair `reorderTab` expects) -- drives both the
@@ -65,6 +82,12 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A tab created/linked by something outside this component (e.g. the repo
+  // browser, wired in from FileMenu) writes straight to localStorage and
+  // then calls notifyWorkspaceChanged() -- re-read so the new tab shows up
+  // here without this component having caused the change itself.
+  useEffect(() => onWorkspaceChanged(() => setWorkspace(getWorkspaceMeta())), []);
+
   useEffect(() => {
     tabRefs.current[workspace.activeTabId]?.scrollIntoView({
       inline: 'nearest',
@@ -110,6 +133,27 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     applyWorkspace(next, { activateContentFor: next.activeTabId });
   };
 
+  const handleLinked = (tabId) => {
+    if (pendingSuggestAfterLinkRef.current === tabId) {
+      pendingSuggestAfterLinkRef.current = null;
+      setSuggestingTabId(tabId);
+    }
+  };
+
+  const handleSuggestPr = (tabId) => {
+    if (getLinkedTarget(tabId)) {
+      setSuggestingTabId(tabId);
+    } else {
+      pendingSuggestAfterLinkRef.current = tabId;
+      setLinkingTabId(tabId);
+    }
+  };
+
+  const handleCloseLinkModal = () => {
+    pendingSuggestAfterLinkRef.current = null;
+    setLinkingTabId(null);
+  };
+
   const handleDuplicate = (tabId) => {
     const current = getWorkspaceMeta();
     const sourceContent = getTabContent(tabId);
@@ -126,6 +170,7 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     const next = closeTab(current, tabId);
     if (next !== current) {
       removeTabContent(tabId);
+      removeLinkedTarget(tabId);
       editorActions.disposeDocument?.(tabId);
     }
     applyWorkspace(next, wasActive ? { activateContentFor: next.activeTabId } : {});
@@ -311,6 +356,26 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
               <button
                 type="button"
                 className="swagger-editor__tab-action"
+                title={
+                  getLinkedTarget(tab.id)
+                    ? `Linked to ${getLinkedTarget(tab.id).owner}/${getLinkedTarget(tab.id).repo}`
+                    : 'Link to repository file…'
+                }
+                onClick={() => setLinkingTabId(tab.id)}
+              >
+                🔗
+              </button>
+              <button
+                type="button"
+                className="swagger-editor__tab-action"
+                title="Suggest pull request"
+                onClick={() => handleSuggestPr(tab.id)}
+              >
+                ⇪
+              </button>
+              <button
+                type="button"
+                className="swagger-editor__tab-action"
                 title="Duplicate tab"
                 onClick={() => handleDuplicate(tab.id)}
               >
@@ -343,11 +408,26 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
       <button type="button" className="swagger-editor__tab-add" title="New tab" onClick={handleAdd}>
         +
       </button>
+      <LinkTabModal
+        getComponent={getComponent}
+        isOpen={linkingTabId !== null}
+        tabId={linkingTabId}
+        onClose={handleCloseLinkModal}
+        onLinked={() => handleLinked(linkingTabId)}
+      />
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen={suggestingTabId !== null}
+        tabId={suggestingTabId}
+        editorActions={editorActions}
+        onClose={() => setSuggestingTabId(null)}
+      />
     </div>
   );
 };
 
 TabBar.propTypes = {
+  getComponent: PropTypes.func.isRequired,
   editorActions: PropTypes.shape({
     setContent: PropTypes.func.isRequired,
     setActiveDocument: PropTypes.func,
