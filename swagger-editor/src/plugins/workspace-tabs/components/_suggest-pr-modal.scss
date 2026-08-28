@@ -18,6 +18,15 @@
     font-size: 0.8rem;
   }
 
+  // .help-block is normally pulled tight *under* an input (an attached
+  // note), but this one introduces the linking form instead -- it needs
+  // its own breathing room below, separating it from the "GitHub file URL"
+  // label and input that follow, rather than reading like it belongs to
+  // whatever came before it.
+  &__suggest-pr-link-intro {
+    margin-bottom: 1.25rem;
+  }
+
   // GitHub's own PR-page convention: a compact "+N -M" count above the
   // diff, giving the size of the change its own visual weight before the
   // reader even scans a single line.

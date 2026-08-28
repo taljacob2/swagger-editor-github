@@ -369,7 +369,7 @@ const SuggestPrModal = ({ getComponent, isOpen, onClose, tabId = null, editorAct
 
           {state.phase === 'link' && (
             <>
-              <p className="help-block">
+              <p className="help-block swagger-editor__suggest-pr-link-intro">
                 Link this tab to a file in a GitHub repo so it can suggest a pull request back to
                 it.
               </p>
