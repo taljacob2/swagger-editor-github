@@ -4,6 +4,17 @@ import { parseSsoAuthorizationUrl } from '../github-connection/github-connection
 import parseGitHubFileUrl from '../github-connection/github-file-url.js';
 import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
 
+// Remote specs can name a path or component literally "__proto__" --
+// merged.paths[finalPath] = ... / merged.components[type][finalName] = ...
+// below write attacker-influenced keys into plain object literals, and
+// "__proto__" is special-cased by every JS engine to reassign the object's
+// own prototype instead of storing a normal entry. constructor/prototype
+// aren't exploitable through this single-level bracket write the same way,
+// but are excluded too as cheap defense-in-depth. Scoped to the one merged
+// object -- not global Object.prototype -- but still worth rejecting
+// outright rather than serializing a corrupted merged.paths/components.
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 // Component sub-collections that can each independently collide by name
 // across services — mirrors OpenAPI 3's components object.
 const COMPONENT_TYPES = [
@@ -200,6 +211,9 @@ export function mergeSpecs(specs, infoOverrides = {}) {
     });
 
     Object.entries(spec.paths || {}).forEach(([path, pathItem]) => {
+      if (UNSAFE_OBJECT_KEYS.has(path)) {
+        return;
+      }
       const hasConflict = pathOwners.get(path)?.length > 1;
       const finalPath = hasConflict ? `/${prefix}${path}` : path;
 
@@ -219,6 +233,9 @@ export function mergeSpecs(specs, infoOverrides = {}) {
 
     COMPONENT_TYPES.forEach((type) => {
       Object.entries(spec.components?.[type] || {}).forEach(([componentName, componentDef]) => {
+        if (UNSAFE_OBJECT_KEYS.has(componentName)) {
+          return;
+        }
         const hasConflict = componentOwners.get(`${type}:${componentName}`)?.length > 1;
         const finalName = hasConflict ? `${name}${componentName}` : componentName;
         merged.components[type][finalName] = componentDef;

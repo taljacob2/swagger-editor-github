@@ -122,6 +122,60 @@ describe('github-connection-service', () => {
       expect(settings.fetchToken).toBe('fetch-token-value');
     });
 
+    // Never guessed from length/base64-decodability (a real PAT could satisfy
+    // that by coincidence) -- only this module's own "enc:v1:" prefix marks a
+    // stored value as encrypted, so a realistic PAT is always read back as-is.
+    test.each([
+      ['classic', 'ghp_1234567890abcdefghijklmnopqrstuvwxyz12'],
+      ['fine-grained', 'github_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'],
+      ['OAuth', 'gho_1234567890abcdefghijklmnopqrstuvwxyz12'],
+    ])(
+      'round-trips a realistic-looking %s PAT as plain text, unmisidentified as encrypted',
+      async (_kind, pat) => {
+        localStorage.setItem(
+          'github-editor:connection',
+          JSON.stringify({ apiBaseUrl: DEFAULT_API_BASE_URL, token: pat })
+        );
+        expect((await getConnectionSettings()).token).toBe(pat);
+      }
+    );
+
+    test('encryption failure is logged and surfaced via the returned tokenEncrypted flag, not silent', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const encryptSpy = vi
+        .spyOn(window.crypto.subtle, 'encrypt')
+        .mockRejectedValue(new Error('key unavailable'));
+
+      const result = await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'super-secret-pat',
+      });
+
+      expect(result.tokenEncrypted).toBe(false);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('unencrypted'),
+        expect.any(Error)
+      );
+      // Still usable -- the token itself isn't lost, just unencrypted at rest.
+      expect((await getConnectionSettings()).token).toBe('super-secret-pat');
+      const stored = JSON.parse(localStorage.getItem('github-editor:connection'));
+      expect(stored.token).toBe('super-secret-pat');
+
+      encryptSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    test('a successful encryption reports tokenEncrypted/fetchTokenEncrypted as true', async () => {
+      const result = await saveConnectionSettings({
+        apiBaseUrl: DEFAULT_API_BASE_URL,
+        token: 'a-token',
+        fetchToken: 'a-fetch-token',
+      });
+
+      expect(result.tokenEncrypted).toBe(true);
+      expect(result.fetchTokenEncrypted).toBe(true);
+    });
+
     test('saving a new token does not clobber a previously saved fetchToken, or vice versa', async () => {
       await saveConnectionSettings({
         apiBaseUrl: DEFAULT_API_BASE_URL,

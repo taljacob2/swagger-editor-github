@@ -185,10 +185,17 @@ async function ghRequest(path, { connection, method = 'GET', body, allow404 = fa
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
     const ssoUrl = parseSsoAuthorizationUrl(response);
+    // saveAggregationSet's read-then-write-with-sha check makes GitHub return
+    // 409 when the file changed since it was last read (a real conflict, not
+    // a bug) -- worth a specific, actionable message instead of the generic
+    // one below, which just reads as an opaque API error.
+    const isSaveConflict = response.status === 409;
     const error = new Error(
       ssoUrl
         ? "This token is valid, but hasn't been authorized for single sign-on on this organization."
-        : `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
+        : isSaveConflict
+          ? 'This set was updated elsewhere since you loaded it. Reload it and reapply your changes before saving again.'
+          : `GitHub API ${method} ${path} failed: ${response.status} ${response.statusText} ${detail}`
     );
     // Attached so callers can tell "no permission" apart from other failures
     // without string-matching the message.

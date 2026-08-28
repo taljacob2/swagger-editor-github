@@ -91,8 +91,14 @@ const GitHubMenuHandler = forwardRef(({ getComponent }, ref) => {
   const handleIntentChange = (event) => setIntent(event.target.value);
 
   const handleSaveClick = async () => {
-    await saveConnectionSettings({ apiBaseUrl, token });
-    setStatus({ ok: true, message: 'Saved.' });
+    const result = await saveConnectionSettings({ apiBaseUrl, token });
+    const savedAsPlainText = result.tokenEncrypted === false;
+    setStatus({
+      ok: true,
+      message: savedAsPlainText
+        ? 'Saved (warning: could not encrypt the token in this browser — it is stored as plain text).'
+        : 'Saved.',
+    });
   };
 
   const handleTestClick = async () => {
