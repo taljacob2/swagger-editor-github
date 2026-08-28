@@ -32,7 +32,8 @@ Three things this app might need a token for — and, importantly, it might need
   needs a token with write access.
 - **Suggesting a pull request** — linking a tab to a file in a GitHub repo and opening a PR back to
   it with your edits. Always needs a token with write access (same requirement as saving a set,
-  just against whichever repo the tab is linked to instead of this one).
+  just against whichever repo the tab is linked to instead of this one). See
+  [SuggestingPullRequests.md](SuggestingPullRequests.md) for the full walkthrough.
 - **Fetching a spec to aggregate, or just browsing what's saved** — reading a file from wherever an
   aggregation set points. Only needs a token at all if that content is private.
 
