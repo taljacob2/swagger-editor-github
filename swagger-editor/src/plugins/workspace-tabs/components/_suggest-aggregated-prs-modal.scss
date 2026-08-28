@@ -1,0 +1,47 @@
+.swagger-editor {
+  // A source's own diff preview, repeated once per touched source -- reuses
+  // .swagger-editor__suggest-pr-* for the diff itself (identical rendering
+  // to the single-file modal), just needs a bit of separation between one
+  // source's block and the next.
+  &__suggest-aggregated-pr-source {
+    margin: 0 0 1.5rem 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  // "N changes won't be included" / "N sources skipped" -- shown before
+  // anything else on both the review and nothing-to-suggest phases, so
+  // nothing is ever silently dropped without the user seeing why.
+  &__suggest-aggregated-pr-callout {
+    margin: 0 0 1rem 0;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    background-color: var(--se-color-surface-muted);
+  }
+
+  &__suggest-aggregated-pr-callout-title {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #9a6700;
+
+    svg {
+      margin-right: 0.35rem;
+      vertical-align: text-bottom;
+    }
+  }
+
+  &__suggest-aggregated-pr-callout-list {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+
+    li {
+      margin: 0.2rem 0;
+    }
+  }
+}
