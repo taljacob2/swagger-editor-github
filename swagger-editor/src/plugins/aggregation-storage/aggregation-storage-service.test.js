@@ -543,7 +543,7 @@ describe('aggregation-storage-service', () => {
       ).rejects.toMatchObject({
         status: 409,
         message:
-          'This set was updated elsewhere since you loaded it. Reload it and reapply your changes before saving again.',
+          'This was updated elsewhere since you loaded it. Reload it and reapply your changes before saving again.',
       });
     });
   });
