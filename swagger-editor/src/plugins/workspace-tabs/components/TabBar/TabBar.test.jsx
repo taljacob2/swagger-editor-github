@@ -4,6 +4,7 @@ import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 import TabBar from './TabBar.jsx';
 import * as workspaceTabsService from '../../workspace-tabs-service.js';
 import * as linkedTargetService from '../../linked-target-service.js';
+import * as aggregationProvenanceService from '../../aggregation-provenance-service.js';
 
 vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -23,6 +24,13 @@ vi.mock('../../linked-target-service.js', () => ({
   setLinkedTarget: vi.fn(),
 }));
 
+// No tab in these tests has an AggregationProvenance record unless a test
+// says otherwise -- routing (covered by its own test below) always falls
+// through to SuggestPrModal by default.
+vi.mock('../../aggregation-provenance-service.js', () => ({
+  getAggregationProvenance: vi.fn(() => null),
+}));
+
 // SuggestPrModal's own flow (fetch-fresh, drift, diff, PR creation, and the
 // linking phase it now handles internally) is covered by its own dedicated
 // tests -- stubbed here down to just reporting which tab it was opened for,
@@ -30,6 +38,12 @@ vi.mock('../../linked-target-service.js', () => ({
 // open/close) without re-driving the whole linking/suggest flow.
 vi.mock('../SuggestPrModal.jsx', () => ({
   default: ({ isOpen, tabId }) => (isOpen ? <div>Suggest PR modal open for {tabId}</div> : null),
+}));
+// Likewise for the aggregated-set counterpart -- its own routing condition
+// is exercised in the "routes to the aggregated modal" test below.
+vi.mock('../SuggestAggregatedPrsModal.jsx', () => ({
+  default: ({ isOpen, tabId }) =>
+    isOpen ? <div>Suggest aggregated PRs modal open for {tabId}</div> : null,
 }));
 
 const getComponent = vi.fn();
@@ -323,6 +337,24 @@ describe('TabBar', () => {
     fireEvent.click(screen.getAllByTitle('Suggest pull request to octo-org/petstore')[0]); // Tab 2
 
     expect(screen.getByText('Suggest PR modal open for b')).toBeInTheDocument();
+  });
+
+  test('Suggest PR routes to the aggregated-set modal when the tab has an AggregationProvenance record', () => {
+    aggregationProvenanceService.getAggregationProvenance.mockImplementation((tabId) =>
+      tabId === 'b' ? { setName: 'My Set' } : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+    fireEvent.click(screen.getByTitle('Suggest pull requests from the aggregated set "My Set"'));
+
+    expect(screen.getByText('Suggest aggregated PRs modal open for b')).toBeInTheDocument();
+    expect(screen.queryByText(/^Suggest PR modal open for/)).not.toBeInTheDocument();
   });
 
   test('Suggest PR on an unlinked tab also opens SuggestPrModal, which handles linking as its own phase', () => {

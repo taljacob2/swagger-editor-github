@@ -21,6 +21,8 @@ import {
   removeLinkedTarget,
   setLinkedTarget,
 } from '../../linked-target-service.js';
+import { getAggregationProvenance } from '../../aggregation-provenance-service.js';
+import SuggestAggregatedPrsModal from '../SuggestAggregatedPrsModal.jsx';
 import SuggestPrModal from '../SuggestPrModal.jsx';
 
 const TabBar = ({
@@ -290,6 +292,17 @@ const TabBar = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const suggestPrTooltip = (tabId) => {
+    const provenance = getAggregationProvenance(tabId);
+    if (provenance) {
+      return `Suggest pull requests from the aggregated set "${provenance.setName}"`;
+    }
+    const target = getLinkedTarget(tabId);
+    return target
+      ? `Suggest pull request to ${target.owner}/${target.repo}`
+      : 'Link to a repository file & suggest a pull request';
+  };
+
   return (
     <div className="swagger-editor__tab-bar">
       {/* Wraps just the scrollable region (not the ever-visible + button
@@ -344,13 +357,7 @@ const TabBar = ({
               <button
                 type="button"
                 className="swagger-editor__tab-action"
-                title={
-                  getLinkedTarget(tab.id)
-                    ? `Suggest pull request to ${getLinkedTarget(tab.id).owner}/${
-                        getLinkedTarget(tab.id).repo
-                      }`
-                    : 'Link to a repository file & suggest a pull request'
-                }
+                title={suggestPrTooltip(tab.id)}
                 onClick={() => setSuggestingTabId(tab.id)}
               >
                 <GitPullRequestIcon size={14} aria-hidden="true" />
@@ -390,9 +397,20 @@ const TabBar = ({
       <button type="button" className="swagger-editor__tab-add" title="New tab" onClick={handleAdd}>
         +
       </button>
+      {/* A tab is aggregated or singly-linked, never both (see
+          AggregateMenuHandler.jsx, which clears any single-file link the
+          moment a set is aggregated into a tab) -- so which record exists
+          is enough to route to the right modal, with no precedence rule
+          needed. */}
+      <SuggestAggregatedPrsModal
+        getComponent={getComponent}
+        isOpen={suggestingTabId !== null && Boolean(getAggregationProvenance(suggestingTabId))}
+        tabId={suggestingTabId}
+        onClose={() => setSuggestingTabId(null)}
+      />
       <SuggestPrModal
         getComponent={getComponent}
-        isOpen={suggestingTabId !== null}
+        isOpen={suggestingTabId !== null && !getAggregationProvenance(suggestingTabId)}
         tabId={suggestingTabId}
         editorActions={editorActions}
         onClose={() => setSuggestingTabId(null)}
