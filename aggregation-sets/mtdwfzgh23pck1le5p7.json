@@ -1,0 +1,11 @@
+{
+  "name": "Development Aggregation Test",
+  "swaggerUrls": [
+    {
+      "name": "swagger-aggregation-test-fixtures",
+      "url": "https://github.com/taljacob2/swagger-aggregation-test-fixtures/blob/main/ref-main.yaml"
+    }
+  ],
+  "createdAt": "2026-08-29T04:47:31.978Z",
+  "updatedAt": "2026-08-29T04:47:31.978Z"
+}
