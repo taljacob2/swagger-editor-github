@@ -28,7 +28,7 @@
   // .ReactModalPortal, at 2-class specificity and loaded after this file in
   // main.scss, so a single-class override here would silently lose to it.
   &__suggest-pr-link-intro.help-block {
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
   }
 
   // GitHub's own PR-page convention: a compact "+N -M" count above the
