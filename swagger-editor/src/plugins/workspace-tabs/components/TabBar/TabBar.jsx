@@ -21,7 +21,10 @@ import {
   removeLinkedTarget,
   setLinkedTarget,
 } from '../../linked-target-service.js';
-import { getAggregationProvenance } from '../../aggregation-provenance-service.js';
+import {
+  getAggregationProvenance,
+  setAggregationProvenance,
+} from '../../aggregation-provenance-service.js';
 import SuggestAggregatedPrsModal from '../SuggestAggregatedPrsModal.jsx';
 import SuggestPrModal from '../SuggestPrModal.jsx';
 
@@ -139,15 +142,21 @@ const TabBar = ({
   const handleDuplicate = (tabId) => {
     const current = getWorkspaceMeta();
     const sourceContent = getTabContent(tabId);
-    const sourceLinkedTarget = getLinkedTarget(tabId);
+    const sourceProvenance = getAggregationProvenance(tabId);
+    const sourceLinkedTarget = sourceProvenance ? null : getLinkedTarget(tabId);
     const next = duplicateTab(current, tabId);
     if (next !== current) {
       setTabContent(next.activeTabId, sourceContent);
       // A duplicate is a copy of the tab's content, including whatever it's
       // linked to -- otherwise Suggest PR on the copy would open straight
       // into the linking form instead of carrying over where the original
-      // was already pointed.
-      if (sourceLinkedTarget) {
+      // was already pointed. An aggregated tab's "link" is its provenance
+      // record (which source file(s) it was merged from), not a single
+      // linked target -- same mutual exclusivity AggregateMenuHandler
+      // enforces when a plain link is replaced by an aggregation.
+      if (sourceProvenance) {
+        setAggregationProvenance(next.activeTabId, sourceProvenance);
+      } else if (sourceLinkedTarget) {
         setLinkedTarget(next.activeTabId, sourceLinkedTarget);
       }
     }

@@ -29,6 +29,7 @@ vi.mock('../../linked-target-service.js', () => ({
 // through to SuggestPrModal by default.
 vi.mock('../../aggregation-provenance-service.js', () => ({
   getAggregationProvenance: vi.fn(() => null),
+  setAggregationProvenance: vi.fn(),
 }));
 
 // SuggestPrModal's own flow (fetch-fresh, drift, diff, PR creation, and the
@@ -260,6 +261,34 @@ describe('TabBar', () => {
     const duplicateButtons = screen.getAllByTitle('Duplicate tab');
     fireEvent.click(duplicateButtons[0]);
 
+    expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
+  });
+
+  test('duplicating an aggregated tab carries its provenance record over to the new tab', () => {
+    const provenance = { setId: 'set-1', setName: 'My Set', sources: [] };
+    aggregationProvenanceService.getAggregationProvenance.mockImplementation((tabId) =>
+      tabId === 'a' ? provenance : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1", which is aggregated
+
+    expect(aggregationProvenanceService.setAggregationProvenance).toHaveBeenCalledWith(
+      expect.any(String),
+      provenance
+    );
+    // An aggregated tab's "link" is its provenance record, not a plain
+    // single-file link -- carrying over both would leave the copy pointed
+    // at whichever one SuggestAggregatedPrsModal/SuggestPrModal's routing
+    // happens to check first, instead of staying an aggregated tab.
     expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
   });
 
