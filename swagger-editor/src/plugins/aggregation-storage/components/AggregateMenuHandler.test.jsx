@@ -949,6 +949,65 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByText('Users API')).toBeInTheDocument();
       expect(screen.queryByText('discarded')).not.toBeInTheDocument();
     });
+
+    test('Save Set shows the change in the set list immediately, without a stale re-fetch', async () => {
+      // saveAggregationSet's own response already carries the just-saved,
+      // authoritative record -- this asserts the modal uses that directly
+      // rather than re-fetching from GitHub's Contents API, which can serve
+      // a cached pre-write response right after the save (the bug this test
+      // guards against: the change previously only appeared after closing
+      // and reopening the modal).
+      aggregationStorageService.saveAggregationSet.mockResolvedValue({
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Users API', url: 'https://x/users.yaml' },
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+        ],
+        createdAt: '2020-01-01T00:00:00.000Z',
+        updatedAt: '2020-01-02T00:00:00.000Z',
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users API' },
+      });
+      fireEvent.click(screen.getByText('Save'));
+
+      aggregationStorageService.listAggregationSets.mockClear();
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Save Set'));
+      });
+
+      expect(aggregationStorageService.listAggregationSets).not.toHaveBeenCalled();
+      expect(screen.getByText('Users API')).toBeInTheDocument();
+      expect(screen.queryByText('Users', { exact: true })).not.toBeInTheDocument();
+    });
+  });
+
+  test('Delete removes the set from the list immediately, without a stale re-fetch', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      { id: 'set-1', name: 'Orders', swaggerUrls: [] },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    await waitFor(() => screen.getByText('Delete'));
+
+    fireEvent.click(screen.getByText('Delete'));
+    aggregationStorageService.listAggregationSets.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Confirm Delete'));
+    });
+
+    expect(aggregationStorageService.listAggregationSets).not.toHaveBeenCalled();
+    expect(screen.queryByText('Orders', { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByText('No aggregation sets saved yet.')).toBeInTheDocument();
   });
 
   test('Delete asks for confirmation before calling deleteAggregationSet', async () => {

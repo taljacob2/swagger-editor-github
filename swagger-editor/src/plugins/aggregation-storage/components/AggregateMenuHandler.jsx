@@ -334,10 +334,26 @@ const AggregateMenuHandler = forwardRef(
       setIsSaving(true);
       setStatus(null);
       try {
-        await saveAggregationSet(form, currentStorage(), await getConnectionSettings());
-        setStatus({ ok: true, message: `Saved "${form.name}".` });
+        const saved = await saveAggregationSet(
+          form,
+          currentStorage(),
+          await getConnectionSettings()
+        );
+        setStatus({ ok: true, message: `Saved "${saved.name}".` });
         setShowForm(false);
-        await refreshSets(currentStorage());
+        // Update from the save response itself rather than re-fetching from
+        // GitHub's Contents API -- that API can briefly serve a cached
+        // pre-write response right after a PUT, which is why the modal used
+        // to keep showing the old data until it was closed and reopened.
+        // ensureDataBranch (inside saveAggregationSet) also means the branch
+        // now exists even if it didn't before this call.
+        setBranchExists(true);
+        setSets((prev) => {
+          const index = prev.findIndex((set) => set.id === saved.id);
+          const next =
+            index === -1 ? [saved, ...prev] : prev.map((set, i) => (i === index ? saved : set));
+          return next.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+        });
       } catch (error) {
         const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
         setStatus({
@@ -429,7 +445,10 @@ const AggregateMenuHandler = forwardRef(
       try {
         await deleteAggregationSet(id, currentStorage(), await getConnectionSettings());
         setStatus({ ok: true, message: 'Deleted.' });
-        await refreshSets(currentStorage());
+        // Same reasoning as handleSaveSetClick -- update local state directly
+        // instead of re-fetching, since GitHub's Contents API can briefly
+        // serve a stale pre-delete response right after the DELETE.
+        setSets((prev) => prev.filter((set) => set.id !== id));
       } catch (error) {
         const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
         setStatus({
