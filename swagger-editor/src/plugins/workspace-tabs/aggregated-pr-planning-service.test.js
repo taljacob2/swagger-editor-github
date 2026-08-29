@@ -97,6 +97,35 @@ describe('groupResolvedOpsBySource', () => {
       { entryType: 'paths', finalKey: '/orders', reason: 'source-not-linked' },
     ]);
   });
+
+  test('flags an op as unresolved instead of silently picking the wrong source when two sources share a name', () => {
+    // Reproduces a stale AggregationProvenance record from before mergeSpecs
+    // rejected name collisions: both sources are named "Same", and an entry
+    // that really belongs to the second source (its provenance says so) must
+    // not be attributed to the first just because a plain find() would land
+    // there.
+    const record = {
+      ...RECORD,
+      sources: [
+        { ...RECORD.sources[0], name: 'Same' },
+        { ...RECORD.sources[0], name: 'Same', path: 'other.yaml' },
+      ],
+      provenance: {
+        ...RECORD.provenance,
+        components: { schemas: { Order: { service: 'Same', originalKey: 'Order' } } },
+      },
+    };
+    const resolved = [
+      { entryType: 'schemas', finalKey: 'Order', subPath: ['properties', 'id'], newValue: 2 },
+    ];
+
+    const { bySource, unresolved } = groupResolvedOpsBySource(record, resolved);
+
+    expect(bySource.size).toBe(0);
+    expect(unresolved).toEqual([
+      { entryType: 'schemas', finalKey: 'Order', reason: 'source-name-ambiguous' },
+    ]);
+  });
 });
 
 describe('resolveSourceSubPath', () => {

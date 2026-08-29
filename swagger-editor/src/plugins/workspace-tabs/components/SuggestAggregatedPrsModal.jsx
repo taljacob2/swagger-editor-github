@@ -43,6 +43,8 @@ const UNRESOLVED_REASON_TEXT = {
   'no-provenance': "couldn't be traced back to a source file",
   'source-not-linked': "its source isn't a recognized GitHub file",
   'source-entry-missing': 'no longer found in its source file',
+  'source-name-ambiguous':
+    "this set's saved routing has two services sharing a name -- re-run Aggregate on this set to fix it",
 };
 
 const SKIPPED_REASON_TEXT = {

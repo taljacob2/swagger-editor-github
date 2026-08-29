@@ -35,8 +35,26 @@ export function groupResolvedOpsBySource(record, resolved) {
       unresolved.push({ entryType: op.entryType, finalKey: op.finalKey, reason: 'no-provenance' });
       return;
     }
-    const source = record.sources.find((candidate) => candidate.name === provEntry.service);
-    if (!source || !source.owner || !source.repo || !source.path || !source.ref) {
+    // A plain find() would silently return the *first* match if two
+    // sources in this record happen to share a name -- a real, already-
+    // reachable case for a set that was aggregated before mergeSpecs
+    // started rejecting name collisions (see aggregation-merge-service.js).
+    // An op whose source name is ambiguous is exactly as untraceable as
+    // one with no match at all, so both land in `unresolved` rather than
+    // guessing which of the two same-named sources it actually belongs to.
+    const matchingSources = record.sources.filter(
+      (candidate) => candidate.name === provEntry.service
+    );
+    if (matchingSources.length !== 1) {
+      unresolved.push({
+        entryType: op.entryType,
+        finalKey: op.finalKey,
+        reason: matchingSources.length === 0 ? 'source-not-linked' : 'source-name-ambiguous',
+      });
+      return;
+    }
+    const [source] = matchingSources;
+    if (!source.owner || !source.repo || !source.path || !source.ref) {
       unresolved.push({
         entryType: op.entryType,
         finalKey: op.finalKey,

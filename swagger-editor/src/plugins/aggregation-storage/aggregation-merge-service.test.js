@@ -315,6 +315,15 @@ describe('mergeSpecs', () => {
     expect(mergeSpecs([])).toBeNull();
   });
 
+  test('throws when two services share the same name instead of baking an ambiguous provenance map', () => {
+    const users = { name: 'Same', spec: { paths: { '/users': {} } } };
+    const orders = {
+      name: 'Same',
+      spec: { components: { schemas: { Order: { type: 'object' } } } },
+    };
+    expect(() => mergeSpecs([users, orders])).toThrow(/"Same" is used by more than one service/);
+  });
+
   test('passes a single spec through unchanged', () => {
     const spec = { openapi: '3.0.0', paths: { '/x': {} } };
     expect(mergeSpecs([{ name: 'Only', spec }])).toEqual({

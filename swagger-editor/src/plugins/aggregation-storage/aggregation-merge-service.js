@@ -2,7 +2,11 @@ import YAML from 'js-yaml';
 
 import { parseSsoAuthorizationUrl } from '../github-connection/github-connection-service.js';
 import parseGitHubFileUrl from '../github-connection/github-file-url.js';
-import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
+import {
+  base64ToUtf8,
+  findDuplicateNames,
+  stripTrailingSlashes,
+} from './aggregation-storage-service.js';
 
 // Remote specs can name a path or component literally "__proto__" --
 // merged.paths[finalPath] = ... / merged.components[type][finalName] = ...
@@ -143,6 +147,27 @@ export function mergeSpecs(specs, infoOverrides = {}) {
   if (specs.length === 0) {
     return null;
   }
+
+  // The Edit Set form already blocks *saving* two services under the same
+  // name (see findDuplicateNames's own comment), but that guard can't
+  // reach a set that was aggregated back when it still had a collision --
+  // once merged, every affected path/tag/component's provenance entry
+  // carries that shared name as its `service` key, and so does each
+  // source's own `name`. A later Suggest PR run resolves "which source is
+  // this name" with a plain find-by-name (aggregated-pr-planning-service.js's
+  // groupResolvedOpsBySource), which silently returns the first match on
+  // a collision -- an edit that belongs to the second, unmatched source
+  // then gets attributed to, and committed into, the first source's file
+  // instead. Failing here, the one place a name collision can still reach
+  // a provenance map, is the backstop for that already-aggregated case.
+  const duplicateNames = findDuplicateNames(specs);
+  if (duplicateNames.length > 0) {
+    throw new Error(
+      `Can't aggregate: "${duplicateNames[0]}" is used by more than one service in this set -- ` +
+        'rename one of them (Edit Set) so a later change can be traced back to the right file, then aggregate again.'
+    );
+  }
+
   if (specs.length === 1) {
     const { name, spec } = specs[0];
     const provenance = { paths: {}, tags: {}, components: {} };
