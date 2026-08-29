@@ -1,0 +1,165 @@
+.swagger-editor {
+  // Same boxed treatment as aggregation-storage's __aggregate-alert (border +
+  // tinted background, not just colored text) -- a bare colored <p> for an
+  // API error (often a full sentence, sometimes with a Retry action right
+  // next to it) read as an unstyled wall of text with nothing separating it
+  // from the rest of the modal.
+  &__repo-browser-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 1rem 0;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border: 1px solid transparent;
+
+    &--error {
+      color: #d1242f;
+      background-color: rgba(209, 36, 47, 0.08);
+      border-color: rgba(209, 36, 47, 0.3);
+    }
+  }
+
+  &__repo-browser-alert-message {
+    // Otherwise a long GitHub error sentence pushes the Retry button off
+    // the edge of the modal instead of wrapping under it.
+    min-width: 0;
+  }
+
+  &__repo-browser-alert-retry {
+    flex-shrink: 0;
+  }
+
+  // Filter input above the list -- pulled tight to the list below it (the
+  // list itself supplies the gap above its own first row via its own
+  // margin, see __repo-browser-list) rather than the .input-group default,
+  // which is sized for a field followed by other fields, not a list.
+  &__repo-browser-filter {
+    margin-bottom: 0.6rem;
+  }
+
+  // The 3-step "where am I" header (Repository -> Branch -> File), replacing
+  // the old single bare `owner/repo` line -- distinct from __repo-browser-status
+  // below both in role (orientation, not a transient loading/empty message)
+  // and in type scale, so the two don't read as the same kind of text.
+  &__repo-browser-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 0.9rem;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--se-color-border);
+  }
+
+  &__repo-browser-step {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--se-color-text-muted);
+
+    code {
+      font-size: 0.78rem;
+      font-weight: 400;
+    }
+
+    &--current {
+      color: var(--se-color-text);
+    }
+
+    &--done {
+      font-weight: 400;
+    }
+  }
+
+  &__repo-browser-status {
+    margin: 0 0 0.6rem 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+  }
+
+  // Shared by the repo, branch, and file lists -- each is a set of
+  // full-width rows, not a bulleted list of inline buttons.
+  &__repo-browser-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    // Own scroll region rather than growing the modal to fit however many
+    // repos/branches/files come back -- .modal-body already scrolls, but
+    // letting this list alone grow unbounded pushed the footer's
+    // Continue/Cancel buttons far below the fold on an account with a lot
+    // of repos.
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  &__repo-browser-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    background-color: var(--se-color-surface);
+    color: var(--se-color-text);
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+
+  &__repo-browser-row-icon {
+    // Never squashed by a long repo full_name/file path sharing the same
+    // flex row.
+    flex-shrink: 0;
+    color: var(--se-color-text-muted);
+  }
+
+  &__repo-browser-row-label {
+    // min-width: 0 overrides a flex item's default auto, which otherwise
+    // refuses to shrink below its content size and defeats the ellipsis
+    // below entirely. Long paths/full_names ellipsize instead of pushing a
+    // private badge (or just the row's own edge) off to the side.
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__repo-browser-row-badge {
+    flex-shrink: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--se-color-text-muted);
+  }
+
+  // The branch list's rows are <label>s wrapping a radio, not buttons --
+  // same row treatment, different element.
+  &__repo-browser-branch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+}

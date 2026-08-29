@@ -12,7 +12,7 @@ This is the GitHub-native sibling of [`swagger-editor-gitlab`](https://github.co
 
 ## Status
 
-Aggregation-set storage, GitHub-token-based auth, multi-tab editing with persisted per-tab undo/redo, drag-to-reorder tabs, and code generation are all implemented and live at the URL above. The one piece not yet ported is turning an aggregated set into a GitHub pull request (the GitLab sibling's merge-request flow) — see [docs/Design.md](docs/Design.md) for the full architecture and progress checklist.
+Aggregation-set storage, GitHub-token-based auth, multi-tab editing with persisted per-tab undo/redo, drag-to-reorder tabs, code generation, and suggesting a pull request back to a linked repo file are all implemented and live at the URL above — see [docs/Design.md](docs/Design.md) for the full architecture and progress checklist.
 
 ## Getting started
 
@@ -57,6 +57,13 @@ repurposing the built-in "Generate Client" menu as a spec bundler. See
 The **Aggregate** menu merges several independent, whole specs — one per microservice, say — into
 a single spec, auto-resolving any path/tag/component name collisions between them. See
 [docs/Aggregation.md](docs/Aggregation.md) for a full worked example.
+
+## Suggesting a pull request
+
+Link a tab to a file in a GitHub repo (via the tab bar's pull-request icon, or **File → Suggest
+pull request…**), and this app can propose your edits back to it as a real pull request — with
+drift detection, an inline diff preview, and automatic JSON/YAML conversion to match the target
+file. See [docs/SuggestingPullRequests.md](docs/SuggestingPullRequests.md) for the full walkthrough.
 
 ## License
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import { CopyIcon, GitPullRequestIcon, XIcon } from '@primer/octicons-react';
 
 import {
   addTab,
@@ -7,6 +8,7 @@ import {
   duplicateTab,
   getTabContent,
   getWorkspaceMeta,
+  onWorkspaceChanged,
   removeTabContent,
   renameTab,
   reorderTab,
@@ -14,11 +16,32 @@ import {
   setActiveTab,
   setTabContent,
 } from '../../workspace-tabs-service.js';
+import {
+  getLinkedTarget,
+  removeLinkedTarget,
+  setLinkedTarget,
+} from '../../linked-target-service.js';
+import {
+  getAggregationProvenance,
+  setAggregationProvenance,
+} from '../../aggregation-provenance-service.js';
+import SuggestAggregatedPrsModal from '../SuggestAggregatedPrsModal.jsx';
+import SuggestPrModal from '../SuggestPrModal.jsx';
 
-const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent }) => {
+const TabBar = ({
+  getComponent,
+  editorActions,
+  EditorContentOrigin,
+  flushPendingEditorContent,
+}) => {
   const [workspace, setWorkspace] = useState(() => getWorkspaceMeta());
   const [renamingTabId, setRenamingTabId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  // Linking has no modal of its own -- SuggestPrModal handles it as a phase
+  // of its own state machine (entering it automatically when the tab isn't
+  // linked yet), so this is the only piece of state this bar needs for the
+  // whole feature.
+  const [suggestingTabId, setSuggestingTabId] = useState(null);
   const [draggedTabId, setDraggedTabId] = useState(null);
   // Which tab is currently being dragged over, and which side of it (the
   // reorder target/position pair `reorderTab` expects) -- drives both the
@@ -64,6 +87,12 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A tab created/linked by something outside this component (e.g. the repo
+  // browser, wired in from FileMenu) writes straight to localStorage and
+  // then calls notifyWorkspaceChanged() -- re-read so the new tab shows up
+  // here without this component having caused the change itself.
+  useEffect(() => onWorkspaceChanged(() => setWorkspace(getWorkspaceMeta())), []);
 
   useEffect(() => {
     tabRefs.current[workspace.activeTabId]?.scrollIntoView({
@@ -113,9 +142,23 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
   const handleDuplicate = (tabId) => {
     const current = getWorkspaceMeta();
     const sourceContent = getTabContent(tabId);
+    const sourceProvenance = getAggregationProvenance(tabId);
+    const sourceLinkedTarget = sourceProvenance ? null : getLinkedTarget(tabId);
     const next = duplicateTab(current, tabId);
     if (next !== current) {
       setTabContent(next.activeTabId, sourceContent);
+      // A duplicate is a copy of the tab's content, including whatever it's
+      // linked to -- otherwise Suggest PR on the copy would open straight
+      // into the linking form instead of carrying over where the original
+      // was already pointed. An aggregated tab's "link" is its provenance
+      // record (which source file(s) it was merged from), not a single
+      // linked target -- same mutual exclusivity AggregateMenuHandler
+      // enforces when a plain link is replaced by an aggregation.
+      if (sourceProvenance) {
+        setAggregationProvenance(next.activeTabId, sourceProvenance);
+      } else if (sourceLinkedTarget) {
+        setLinkedTarget(next.activeTabId, sourceLinkedTarget);
+      }
     }
     applyWorkspace(next, { activateContentFor: next.activeTabId });
   };
@@ -126,6 +169,7 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     const next = closeTab(current, tabId);
     if (next !== current) {
       removeTabContent(tabId);
+      removeLinkedTarget(tabId);
       editorActions.disposeDocument?.(tabId);
     }
     applyWorkspace(next, wasActive ? { activateContentFor: next.activeTabId } : {});
@@ -257,6 +301,17 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const suggestPrTooltip = (tabId) => {
+    const provenance = getAggregationProvenance(tabId);
+    if (provenance) {
+      return `Suggest pull requests from the aggregated set "${provenance.setName}"`;
+    }
+    const target = getLinkedTarget(tabId);
+    return target
+      ? `Suggest pull request to ${target.owner}/${target.repo}`
+      : 'Link to a repository file & suggest a pull request';
+  };
+
   return (
     <div className="swagger-editor__tab-bar">
       {/* Wraps just the scrollable region (not the ever-visible + button
@@ -311,10 +366,18 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
               <button
                 type="button"
                 className="swagger-editor__tab-action"
+                title={suggestPrTooltip(tab.id)}
+                onClick={() => setSuggestingTabId(tab.id)}
+              >
+                <GitPullRequestIcon size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="swagger-editor__tab-action"
                 title="Duplicate tab"
                 onClick={() => handleDuplicate(tab.id)}
               >
-                ⧉
+                <CopyIcon size={14} aria-hidden="true" />
               </button>
               {workspace.tabs.length > 1 && (
                 <button
@@ -323,7 +386,7 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
                   title="Close tab"
                   onClick={() => handleClose(tab.id)}
                 >
-                  ×
+                  <XIcon size={14} aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -343,11 +406,30 @@ const TabBar = ({ editorActions, EditorContentOrigin, flushPendingEditorContent 
       <button type="button" className="swagger-editor__tab-add" title="New tab" onClick={handleAdd}>
         +
       </button>
+      {/* A tab is aggregated or singly-linked, never both (see
+          AggregateMenuHandler.jsx, which clears any single-file link the
+          moment a set is aggregated into a tab) -- so which record exists
+          is enough to route to the right modal, with no precedence rule
+          needed. */}
+      <SuggestAggregatedPrsModal
+        getComponent={getComponent}
+        isOpen={suggestingTabId !== null && Boolean(getAggregationProvenance(suggestingTabId))}
+        tabId={suggestingTabId}
+        onClose={() => setSuggestingTabId(null)}
+      />
+      <SuggestPrModal
+        getComponent={getComponent}
+        isOpen={suggestingTabId !== null && !getAggregationProvenance(suggestingTabId)}
+        tabId={suggestingTabId}
+        editorActions={editorActions}
+        onClose={() => setSuggestingTabId(null)}
+      />
     </div>
   );
 };
 
 TabBar.propTypes = {
+  getComponent: PropTypes.func.isRequired,
   editorActions: PropTypes.shape({
     setContent: PropTypes.func.isRequired,
     setActiveDocument: PropTypes.func,

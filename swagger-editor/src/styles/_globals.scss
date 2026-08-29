@@ -72,6 +72,19 @@ code {
   monospace;
 }
 
+// Plain color-only utility classes -- several modals (GitHubMenuHandler,
+// LinkTabModal, SuggestPrModal, RepoBrowserModal) use these on a bare <p>
+// for a one-line status message, as opposed to aggregation-storage's own
+// boxed __aggregate-alert treatment for a denser status area. Same palette
+// as __aggregate-alert (_aggregate-menu-handler.scss) for consistency.
+.text-danger {
+  color: #d1242f;
+}
+
+.text-success {
+  color: #1a7f37;
+}
+
 // Keep in sync with MOBILE_BREAKPOINT_PX in plugins/layout/hooks/useIsMobile.js --
 // that hook needs the same threshold in JS for the one change (SplitPane orientation)
 // that CSS alone can't express.

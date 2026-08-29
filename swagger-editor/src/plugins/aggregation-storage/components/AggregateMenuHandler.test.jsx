@@ -11,9 +11,73 @@ vi.mock('../../github-connection/github-connection-service.js');
 vi.mock('../aggregation-storage-service.js');
 vi.mock('../aggregation-merge-service.js');
 
-const { getSwaggerUrlWarning: realGetSwaggerUrlWarning } = await vi.importActual(
-  '../aggregation-storage-service.js'
-);
+// RepoBrowserModal's own repo/branch/file-picking behavior is covered by its
+// own dedicated tests -- stubbed here down to just "open and call
+// onFileSelected", so this file can focus on what AggregateMenuHandler does
+// with a selection (or a rejection of one) without re-driving the whole
+// browse flow.
+const MockRepoBrowserModal = ({ isOpen, onFileSelected }) => {
+  const [result, setResult] = React.useState(null);
+  if (!isOpen) return null;
+
+  const pick = (file) => async () => {
+    try {
+      await onFileSelected(file);
+      setResult('ok');
+    } catch (error) {
+      setResult(error.message);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={pick({
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'openapi.yaml',
+          ref: 'main',
+          apiBaseUrl: 'https://api.github.com',
+          content: 'openapi: 3.0.0\ninfo:\n  title: X\n',
+        })}
+      >
+        Pick valid file
+      </button>
+      <button
+        type="button"
+        onClick={pick({
+          owner: 'octo-org',
+          repo: 'petstore',
+          path: 'broken.yaml',
+          ref: 'main',
+          apiBaseUrl: 'https://api.github.com',
+          content: '{ not: valid: yaml: [',
+        })}
+      >
+        Pick invalid file
+      </button>
+      {result && <p>{result}</p>}
+    </div>
+  );
+};
+MockRepoBrowserModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onFileSelected: PropTypes.func.isRequired,
+};
+
+vi.mock('../../github-repo-browser/components/RepoBrowserModal.jsx', () => ({
+  default: ({ isOpen, onFileSelected }) => (
+    <MockRepoBrowserModal isOpen={isOpen} onFileSelected={onFileSelected} />
+  ),
+}));
+
+const {
+  getSwaggerUrlWarning: realGetSwaggerUrlWarning,
+  findDuplicateNames: realFindDuplicateNames,
+  getDuplicateNameWarning: realGetDuplicateNameWarning,
+  uniqueServiceName: realUniqueServiceName,
+} = await vi.importActual('../aggregation-storage-service.js');
 
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
 StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.node.isRequired };
@@ -82,7 +146,15 @@ const renderHandler = (ref, editorActions = { setContent: vi.fn() }) => {
 
 describe('AggregateMenuHandler', () => {
   beforeEach(() => {
+    // workspace-tabs' own services (getWorkspaceMeta, linked-target-service,
+    // aggregation-provenance-service) are real, unmocked localStorage-backed
+    // modules -- cleared so a leftover tab/link/provenance record from one
+    // test can't leak into the next.
+    localStorage.clear();
     githubConnectionService.getConnectionSettings.mockResolvedValue(CONNECTION_SETTINGS);
+    githubConnectionService.deriveWebBaseUrl.mockImplementation((apiBaseUrl) =>
+      apiBaseUrl.replace(/^https:\/\/api\./, 'https://')
+    );
     aggregationStorageService.getStorageSettings.mockReturnValue(STORAGE_SETTINGS);
     aggregationStorageService.saveStorageSettings.mockImplementation((s) => s);
     aggregationStorageService.listAggregationSets.mockResolvedValue([]);
@@ -102,11 +174,17 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.buildBranchName.mockImplementation(
       (suffix) => `${BRANCH_PREFIX}${(suffix || '').trim() || 'default'}`
     );
-    // getSwaggerUrlWarning is a pure function with its own dedicated coverage
+    // getSwaggerUrlWarning/findDuplicateNames/getDuplicateNameWarning/
+    // uniqueServiceName are pure functions with their own dedicated coverage
     // in aggregation-storage-service.test.js -- importActual (rather than a
     // hand-copied reimplementation, unlike the branch-prefix helpers above)
-    // keeps that single real implementation as the only source of truth.
+    // keeps those real implementations as the only source of truth.
     aggregationStorageService.getSwaggerUrlWarning.mockImplementation(realGetSwaggerUrlWarning);
+    aggregationStorageService.findDuplicateNames.mockImplementation(realFindDuplicateNames);
+    aggregationStorageService.getDuplicateNameWarning.mockImplementation(
+      realGetDuplicateNameWarning
+    );
+    aggregationStorageService.uniqueServiceName.mockImplementation(realUniqueServiceName);
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -267,6 +345,135 @@ describe('AggregateMenuHandler', () => {
       STORAGE_SETTINGS,
       CONNECTION_SETTINGS
     );
+  });
+
+  test('browsing GitHub and picking a valid file appends it with a prefilled, editable name', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+
+    await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
+    // Suggested name folds in the file's own basename (not just the repo),
+    // so picking two different files out of the same repo doesn't suggest
+    // the same name for both -- see suggestedServiceName.
+    expect(screen.getByText('petstore (openapi)')).toBeInTheDocument();
+    expect(
+      screen.getByText('https://github.com/octo-org/petstore/blob/main/openapi.yaml')
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Set'));
+    });
+
+    expect(aggregationStorageService.saveAggregationSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swaggerUrls: [
+          {
+            name: 'petstore (openapi)',
+            url: 'https://github.com/octo-org/petstore/blob/main/openapi.yaml',
+          },
+        ],
+      }),
+      STORAGE_SETTINGS,
+      CONNECTION_SETTINGS
+    );
+  });
+
+  test('browsing GitHub and picking two files from the same repo suggests distinct names', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+    await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+    await waitFor(() => expect(screen.getByText('petstore (openapi) 2')).toBeInTheDocument());
+    expect(screen.getByText('petstore (openapi)')).toBeInTheDocument();
+  });
+
+  test('browsing GitHub and picking a file that fails to parse surfaces an error and adds nothing', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick invalid file'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('"broken.yaml" doesn\'t parse as valid YAML/JSON — nothing was added.')
+      ).toBeInTheDocument()
+    );
+    expect(screen.queryByText('petstore (openapi)')).not.toBeInTheDocument();
+  });
+
+  test('warns and blocks Add URL when the typed name collides with one already added', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Orders API' } });
+    fireEvent.change(screen.getByLabelText('Swagger URL'), {
+      target: { value: 'https://x/orders.yaml' },
+    });
+    fireEvent.click(screen.getByText('Add URL'));
+    await waitFor(() => screen.getByText('Orders API'));
+
+    // The add-service row stays open (ready for the next entry) after
+    // adding one -- no need to reopen it.
+    fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Orders API' } });
+    fireEvent.change(screen.getByLabelText('Swagger URL'), {
+      target: { value: 'https://x/orders-v2.yaml' },
+    });
+
+    expect(
+      screen.getByText('A service named "Orders API" is already in this set.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Add URL')).toBeDisabled();
+
+    fireEvent.click(screen.getByText('Add URL'));
+    // Still only the first "Orders API" row -- the click above was a no-op.
+    expect(screen.getAllByText('Orders API')).toHaveLength(1);
+  });
+
+  test('rejects saving a set with a duplicate service name', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      {
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+          { name: 'Orders', url: 'https://x/orders-v2.yaml' },
+        ],
+      },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    await waitFor(() => screen.getByText('Edit'));
+    fireEvent.click(screen.getByText('Edit'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Set'));
+    });
+
+    expect(aggregationStorageService.saveAggregationSet).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Service name must be unique: "Orders" is used more than once.')
+    ).toBeInTheDocument();
   });
 
   test('rejects saving a set with no name', async () => {
@@ -611,6 +818,38 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByText('Save')).toBeEnabled();
     });
 
+    test('warns and blocks Save when the edited name collides with another service', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Orders' },
+      });
+
+      expect(
+        screen.getByText('A service named "Orders" is already in this set.')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Save')).toBeDisabled();
+    });
+
+    test('renaming a service to its own current name is not treated as a collision', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users' },
+      });
+
+      expect(
+        screen.queryByText('A service named "Users" is already in this set.')
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('Save')).toBeEnabled();
+    });
+
     test('editing and saving updates that row, leaving the other untouched', async () => {
       const ref = createRef();
       renderHandler(ref);
@@ -710,6 +949,65 @@ describe('AggregateMenuHandler', () => {
       expect(screen.getByText('Users API')).toBeInTheDocument();
       expect(screen.queryByText('discarded')).not.toBeInTheDocument();
     });
+
+    test('Save Set shows the change in the set list immediately, without a stale re-fetch', async () => {
+      // saveAggregationSet's own response already carries the just-saved,
+      // authoritative record -- this asserts the modal uses that directly
+      // rather than re-fetching from GitHub's Contents API, which can serve
+      // a cached pre-write response right after the save (the bug this test
+      // guards against: the change previously only appeared after closing
+      // and reopening the modal).
+      aggregationStorageService.saveAggregationSet.mockResolvedValue({
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Users API', url: 'https://x/users.yaml' },
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+        ],
+        createdAt: '2020-01-01T00:00:00.000Z',
+        updatedAt: '2020-01-02T00:00:00.000Z',
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users API' },
+      });
+      fireEvent.click(screen.getByText('Save'));
+
+      aggregationStorageService.listAggregationSets.mockClear();
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Save Set'));
+      });
+
+      expect(aggregationStorageService.listAggregationSets).not.toHaveBeenCalled();
+      expect(screen.getByText('Users API')).toBeInTheDocument();
+      expect(screen.queryByText('Users', { exact: true })).not.toBeInTheDocument();
+    });
+  });
+
+  test('Delete removes the set from the list immediately, without a stale re-fetch', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      { id: 'set-1', name: 'Orders', swaggerUrls: [] },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    await waitFor(() => screen.getByText('Delete'));
+
+    fireEvent.click(screen.getByText('Delete'));
+    aggregationStorageService.listAggregationSets.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Confirm Delete'));
+    });
+
+    expect(aggregationStorageService.listAggregationSets).not.toHaveBeenCalled();
+    expect(screen.queryByText('Orders', { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByText('No aggregation sets saved yet.')).toBeInTheDocument();
   });
 
   test('Delete asks for confirmation before calling deleteAggregationSet', async () => {
@@ -784,6 +1082,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [], tags: [], components: [] },
         errors: [],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -853,6 +1153,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [], tags: [], components: [] },
         errors: [],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       const editorActions = renderHandler(ref);
@@ -876,6 +1178,8 @@ describe('AggregateMenuHandler', () => {
         conflicts: { paths: [{ path: '/x', services: ['A', 'B'] }], tags: [], components: [] },
         errors: [{ name: 'Broken', message: 'HTTP 500: Server Error' }],
         specCount: 1,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -911,6 +1215,8 @@ describe('AggregateMenuHandler', () => {
         },
         errors: [],
         specCount: 2,
+        sources: [],
+        provenance: { paths: {}, tags: {}, components: {} },
       });
       const ref = createRef();
       renderHandler(ref);
@@ -933,6 +1239,76 @@ describe('AggregateMenuHandler', () => {
       fireEvent.click(toggle);
 
       expect(screen.queryByText('/users/profile')).not.toBeInTheDocument();
+    });
+
+    test('persists aggregation provenance for the active tab, clearing any single-file link', async () => {
+      const { getWorkspaceMeta } = await import('../../workspace-tabs/workspace-tabs-service.js');
+      const { setLinkedTarget, getLinkedTarget } = await import(
+        '../../workspace-tabs/linked-target-service.js'
+      );
+      const { getAggregationProvenance } = await import(
+        '../../workspace-tabs/aggregation-provenance-service.js'
+      );
+      const { activeTabId } = getWorkspaceMeta();
+      setLinkedTarget(activeTabId, {
+        apiBaseUrl: 'https://api.github.com',
+        owner: 'octo-org',
+        repo: 'other',
+        path: 'other.yaml',
+        ref: 'main',
+        baselineContent: 'openapi: 3.0.0\n',
+      });
+
+      aggregationMergeService.aggregateSet.mockResolvedValue({
+        yaml: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+        conflicts: { paths: [], tags: [], components: [] },
+        errors: [],
+        specCount: 1,
+        sources: [
+          {
+            name: 'Orders',
+            url: 'https://x/o.yaml',
+            rawContent: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+          },
+        ],
+        provenance: {
+          paths: { '/o': { service: 'Orders', originalKey: '/o' } },
+          tags: {},
+          components: {},
+        },
+      });
+      const ref = createRef();
+      renderHandler(ref);
+      await openModal(ref);
+      await waitFor(() => screen.getByText('Aggregate'));
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Aggregate'));
+      });
+
+      expect(getLinkedTarget(activeTabId)).toBeNull();
+      expect(getAggregationProvenance(activeTabId)).toEqual({
+        setId: 'set-1',
+        setName: 'Orders',
+        sources: [
+          {
+            name: 'Orders',
+            url: 'https://x/o.yaml',
+            apiBaseUrl: 'https://api.github.com',
+            owner: null,
+            repo: null,
+            path: null,
+            ref: null,
+            baselineContent: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+          },
+        ],
+        provenance: {
+          paths: { '/o': { service: 'Orders', originalKey: '/o' } },
+          tags: {},
+          components: {},
+        },
+        baselineMergedText: 'openapi: 3.0.0\npaths:\n  /o: {}\n',
+      });
     });
 
     test('reports an aggregation failure without crashing', async () => {

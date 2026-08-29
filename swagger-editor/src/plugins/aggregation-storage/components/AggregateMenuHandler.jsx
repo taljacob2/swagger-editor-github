@@ -1,7 +1,17 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import PropTypes from 'prop-types';
+import YAML from 'js-yaml';
 
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
+import parseGitHubFileUrl from '../../github-connection/github-file-url.js';
+import RepoBrowserModal from '../../github-repo-browser/components/RepoBrowserModal.jsx';
+import {
+  buildBlobUrl,
+  defaultNameFrom,
+} from '../../github-repo-browser/github-repo-browser-service.js';
+import { removeLinkedTarget } from '../../workspace-tabs/linked-target-service.js';
+import { setAggregationProvenance } from '../../workspace-tabs/aggregation-provenance-service.js';
+import { getWorkspaceMeta } from '../../workspace-tabs/workspace-tabs-service.js';
 import { aggregateSet } from '../aggregation-merge-service.js';
 import {
   BRANCH_PREFIX,
@@ -10,6 +20,8 @@ import {
   canWriteToStorage,
   deleteAggregationSet,
   doesBranchExist,
+  findDuplicateNames,
+  getDuplicateNameWarning,
   getRepoDefaultBranch,
   getStorageSettings,
   getSwaggerUrlWarning,
@@ -17,6 +29,7 @@ import {
   moveSwaggerUrl,
   saveAggregationSet,
   saveStorageSettings,
+  uniqueServiceName,
 } from '../aggregation-storage-service.js';
 
 // How long to wait after the last Storage location edit before auto-loading
@@ -28,6 +41,21 @@ const emptyForm = { id: null, name: '', swaggerUrls: [] };
 
 const PERMISSION_DENIED_MESSAGE =
   "You don't have write access to this repo — see docs/Permissions.md for how to get a token that can save sets.";
+
+// The repo alone (defaultNameFrom's own suggestion) is what produces the
+// collision this is meant to avoid: picking two files out of the *same*
+// repo via Browse would otherwise suggest the identical name for both.
+// Folding the file's own basename in gives a name that's already
+// meaningful on its own, not just "unique by accident" -- uniqueServiceName
+// below is still applied on top as a backstop for the rarer case where
+// that combination itself isn't enough (e.g. the same file browsed twice).
+function suggestedServiceName(repo, path) {
+  const basename = path
+    .split('/')
+    .pop()
+    .replace(/\.(ya?ml|json)$/i, '');
+  return `${defaultNameFrom(repo)} (${basename})`;
+}
 
 const AggregateMenuHandler = forwardRef(
   ({ getComponent, editorActions, EditorContentOrigin }, ref) => {
@@ -44,6 +72,7 @@ const AggregateMenuHandler = forwardRef(
     const [newUrlName, setNewUrlName] = useState('');
     const [newUrlValue, setNewUrlValue] = useState('');
     const [isAddingUrl, setIsAddingUrl] = useState(false);
+    const [isRepoBrowserOpen, setIsRepoBrowserOpen] = useState(false);
     const [editingUrlIndex, setEditingUrlIndex] = useState(null);
     const [editUrlDraft, setEditUrlDraft] = useState({ name: '', url: '' });
     const [isSaving, setIsSaving] = useState(false);
@@ -181,6 +210,37 @@ const AggregateMenuHandler = forwardRef(
 
     const handleStartAddUrlClick = () => setIsAddingUrl(true);
 
+    const handleOpenRepoBrowserClick = () => setIsRepoBrowserOpen(true);
+    const handleCloseRepoBrowserClick = () => setIsRepoBrowserOpen(false);
+
+    // A real improvement over getSwaggerUrlWarning below, which only checks
+    // the URL's file extension on a manually-typed entry -- here the actual
+    // fetched content is in hand, so it's checked for real instead. Thrown
+    // (not just set as local state) so RepoBrowserModal keeps its file list
+    // open on the failure rather than closing over a broken selection.
+    const handleRepoFileSelected = async ({
+      owner,
+      repo,
+      path,
+      ref: fileRef,
+      apiBaseUrl,
+      content,
+    }) => {
+      try {
+        YAML.load(content);
+      } catch {
+        throw new Error(`"${path}" doesn't parse as valid YAML/JSON — nothing was added.`);
+      }
+      const url = buildBlobUrl({ owner, repo, path, ref: fileRef, apiBaseUrl });
+      setForm((prev) => {
+        const name = uniqueServiceName(
+          suggestedServiceName(repo, path),
+          prev.swaggerUrls.map((entry) => entry.name)
+        );
+        return { ...prev, swaggerUrls: [...prev.swaggerUrls, { name, url }] };
+      });
+    };
+
     const handleDoneAddingUrlClick = () => {
       setIsAddingUrl(false);
       setNewUrlName('');
@@ -191,10 +251,11 @@ const AggregateMenuHandler = forwardRef(
       if (!newUrlValue.trim()) {
         return;
       }
-      const entry = {
-        name: newUrlName.trim() || `Service ${form.swaggerUrls.length + 1}`,
-        url: newUrlValue.trim(),
-      };
+      const name = newUrlName.trim() || `Service ${form.swaggerUrls.length + 1}`;
+      if (getDuplicateNameWarning(name, form.swaggerUrls)) {
+        return;
+      }
+      const entry = { name, url: newUrlValue.trim() };
       setForm((prev) => ({ ...prev, swaggerUrls: [...prev.swaggerUrls, entry] }));
       setNewUrlName('');
       setNewUrlValue('');
@@ -226,10 +287,11 @@ const AggregateMenuHandler = forwardRef(
         return;
       }
       const index = editingUrlIndex;
-      const entry = {
-        name: editUrlDraft.name.trim() || `Service ${index + 1}`,
-        url: editUrlDraft.url.trim(),
-      };
+      const name = editUrlDraft.name.trim() || `Service ${index + 1}`;
+      if (getDuplicateNameWarning(name, form.swaggerUrls, index)) {
+        return;
+      }
+      const entry = { name, url: editUrlDraft.url.trim() };
       setForm((prev) => ({
         ...prev,
         swaggerUrls: prev.swaggerUrls.map((existing, i) => (i === index ? entry : existing)),
@@ -239,6 +301,12 @@ const AggregateMenuHandler = forwardRef(
 
     const newUrlWarning = getSwaggerUrlWarning(newUrlValue);
     const editUrlWarning = getSwaggerUrlWarning(editUrlDraft.url);
+    const newUrlNameWarning = getDuplicateNameWarning(newUrlName, form.swaggerUrls);
+    const editUrlNameWarning = getDuplicateNameWarning(
+      editUrlDraft.name,
+      form.swaggerUrls,
+      editingUrlIndex
+    );
 
     const handleEditUrlKeyDown = (event) => {
       if (event.key === 'Enter') {
@@ -253,13 +321,39 @@ const AggregateMenuHandler = forwardRef(
         setStatus({ ok: false, message: 'Enter a name for this set.' });
         return;
       }
+      const duplicateNames = findDuplicateNames(form.swaggerUrls);
+      if (duplicateNames.length > 0) {
+        setStatus({
+          ok: false,
+          message: `Service name${duplicateNames.length === 1 ? '' : 's'} must be unique: ${duplicateNames
+            .map((name) => `"${name}"`)
+            .join(', ')} ${duplicateNames.length === 1 ? 'is' : 'are'} used more than once.`,
+        });
+        return;
+      }
       setIsSaving(true);
       setStatus(null);
       try {
-        await saveAggregationSet(form, currentStorage(), await getConnectionSettings());
-        setStatus({ ok: true, message: `Saved "${form.name}".` });
+        const saved = await saveAggregationSet(
+          form,
+          currentStorage(),
+          await getConnectionSettings()
+        );
+        setStatus({ ok: true, message: `Saved "${saved.name}".` });
         setShowForm(false);
-        await refreshSets(currentStorage());
+        // Update from the save response itself rather than re-fetching from
+        // GitHub's Contents API -- that API can briefly serve a cached
+        // pre-write response right after a PUT, which is why the modal used
+        // to keep showing the old data until it was closed and reopened.
+        // ensureDataBranch (inside saveAggregationSet) also means the branch
+        // now exists even if it didn't before this call.
+        setBranchExists(true);
+        setSets((prev) => {
+          const index = prev.findIndex((set) => set.id === saved.id);
+          const next =
+            index === -1 ? [saved, ...prev] : prev.map((set, i) => (i === index ? saved : set));
+          return next.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+        });
       } catch (error) {
         const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
         setStatus({
@@ -277,8 +371,37 @@ const AggregateMenuHandler = forwardRef(
       setStatus(null);
       setShowConflictDetails(false);
       try {
-        const result = await aggregateSet(set, await getConnectionSettings());
+        const connection = await getConnectionSettings();
+        const result = await aggregateSet(set, connection);
+        const { activeTabId } = getWorkspaceMeta();
         editorActions.setContent(result.yaml, EditorContentOrigin.Aggregation);
+
+        // Aggregation and single-file linking are mutually exclusive states
+        // for a tab (see docs/SuggestingPullRequests.md) -- clearing any
+        // stale single-file link here is what keeps that true, since this
+        // tab's content (and Suggest PR routing) now belongs to the set
+        // just loaded into it, not whatever file it may have been linked to
+        // before.
+        removeLinkedTarget(activeTabId);
+        setAggregationProvenance(activeTabId, {
+          setId: set.id,
+          setName: set.name,
+          sources: result.sources.map((source) => {
+            const parsed = parseGitHubFileUrl(source.url, connection.apiBaseUrl);
+            return {
+              name: source.name,
+              url: source.url,
+              apiBaseUrl: parsed?.apiBase ?? connection.apiBaseUrl,
+              owner: parsed?.owner ?? null,
+              repo: parsed?.repo ?? null,
+              path: parsed?.path ?? null,
+              ref: parsed?.ref ?? null,
+              baselineContent: source.rawContent,
+            };
+          }),
+          provenance: result.provenance,
+          baselineMergedText: result.yaml,
+        });
 
         const conflictCount =
           result.conflicts.paths.length +
@@ -323,7 +446,10 @@ const AggregateMenuHandler = forwardRef(
       try {
         await deleteAggregationSet(id, currentStorage(), await getConnectionSettings());
         setStatus({ ok: true, message: 'Deleted.' });
-        await refreshSets(currentStorage());
+        // Same reasoning as handleSaveSetClick -- update local state directly
+        // instead of re-fetching, since GitHub's Contents API can briefly
+        // serve a stale pre-delete response right after the DELETE.
+        setSets((prev) => prev.filter((set) => set.id !== id));
       } catch (error) {
         const isPermissionDenied = !error.ssoUrl && (error.status === 403 || error.status === 401);
         setStatus({
@@ -651,17 +777,24 @@ const AggregateMenuHandler = forwardRef(
                           {isEditingThis ? (
                             <>
                               <div className="swagger-editor__aggregate-url-edit-fields">
-                                <input
-                                  type="text"
-                                  aria-label="Edit service name"
-                                  value={editUrlDraft.name}
-                                  onChange={(e) =>
-                                    setEditUrlDraft((prev) => ({ ...prev, name: e.target.value }))
-                                  }
-                                  onKeyDown={handleEditUrlKeyDown}
-                                  // eslint-disable-next-line jsx-a11y/no-autofocus
-                                  autoFocus
-                                />
+                                <div className="swagger-editor__aggregate-url-edit-field">
+                                  <input
+                                    type="text"
+                                    aria-label="Edit service name"
+                                    value={editUrlDraft.name}
+                                    onChange={(e) =>
+                                      setEditUrlDraft((prev) => ({ ...prev, name: e.target.value }))
+                                    }
+                                    onKeyDown={handleEditUrlKeyDown}
+                                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                                    autoFocus
+                                  />
+                                  {editUrlNameWarning && (
+                                    <p className="swagger-editor__aggregate-url-warning">
+                                      {editUrlNameWarning}
+                                    </p>
+                                  )}
+                                </div>
                                 <div className="swagger-editor__aggregate-url-edit-field">
                                   <input
                                     type="text"
@@ -690,7 +823,7 @@ const AggregateMenuHandler = forwardRef(
                                 <button
                                   type="button"
                                   className="btn btn-primary"
-                                  disabled={!editUrlDraft.url.trim()}
+                                  disabled={!editUrlDraft.url.trim() || Boolean(editUrlNameWarning)}
                                   onClick={handleSaveEditUrlClick}
                                 >
                                   Save
@@ -772,6 +905,9 @@ const AggregateMenuHandler = forwardRef(
                         autoFocus
                         onChange={(e) => setNewUrlName(e.target.value)}
                       />
+                      {newUrlNameWarning && (
+                        <p className="swagger-editor__aggregate-url-warning">{newUrlNameWarning}</p>
+                      )}
                     </div>
                     <div className="input-group swagger-editor__aggregate-add-url-value">
                       {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
@@ -790,24 +926,46 @@ const AggregateMenuHandler = forwardRef(
                         <p className="swagger-editor__aggregate-url-warning">{newUrlWarning}</p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary swagger-editor__aggregate-add-url-button"
-                      disabled={editingUrlIndex !== null}
-                      onClick={handleAddUrlClick}
-                    >
-                      Add URL
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      aria-label="Hide add-service fields"
-                      title="Hide add-service fields"
-                      disabled={editingUrlIndex !== null}
-                      onClick={handleDoneAddingUrlClick}
-                    >
-                      ×
-                    </button>
+                    <div className="swagger-editor__aggregate-add-url-actions">
+                      {/* An invisible spacer matching .input-group label's own
+                          size (see _modal.scss) -- lines this button row up
+                          with its sibling inputs' own top edge, rather than
+                          fighting the labels' height with a hardcoded offset. */}
+                      <span
+                        className="swagger-editor__aggregate-add-url-actions-spacer"
+                        aria-hidden="true"
+                      >
+                        &nbsp;
+                      </span>
+                      <div className="swagger-editor__aggregate-add-url-buttons">
+                        <button
+                          type="button"
+                          className="btn btn-secondary swagger-editor__aggregate-add-url-button"
+                          disabled={editingUrlIndex !== null || Boolean(newUrlNameWarning)}
+                          onClick={handleAddUrlClick}
+                        >
+                          Add URL
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={editingUrlIndex !== null}
+                          onClick={handleOpenRepoBrowserClick}
+                        >
+                          Browse GitHub repositories…
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          aria-label="Hide add-service fields"
+                          title="Hide add-service fields"
+                          disabled={editingUrlIndex !== null}
+                          onClick={handleDoneAddingUrlClick}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <button
@@ -853,6 +1011,12 @@ const AggregateMenuHandler = forwardRef(
         >
           Delete this aggregation set? This removes its file from the storage branch.
         </ConfirmDialog>
+        <RepoBrowserModal
+          getComponent={getComponent}
+          isOpen={isRepoBrowserOpen}
+          onClose={handleCloseRepoBrowserClick}
+          onFileSelected={handleRepoFileSelected}
+        />
       </>
     );
   }

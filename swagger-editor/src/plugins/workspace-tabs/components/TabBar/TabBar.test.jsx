@@ -3,6 +3,8 @@ import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 
 import TabBar from './TabBar.jsx';
 import * as workspaceTabsService from '../../workspace-tabs-service.js';
+import * as linkedTargetService from '../../linked-target-service.js';
+import * as aggregationProvenanceService from '../../aggregation-provenance-service.js';
 
 vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -15,6 +17,37 @@ vi.mock('../../workspace-tabs-service.js', async (importOriginal) => {
     removeTabContent: vi.fn(),
   };
 });
+
+vi.mock('../../linked-target-service.js', () => ({
+  removeLinkedTarget: vi.fn(),
+  getLinkedTarget: vi.fn(() => null),
+  setLinkedTarget: vi.fn(),
+}));
+
+// No tab in these tests has an AggregationProvenance record unless a test
+// says otherwise -- routing (covered by its own test below) always falls
+// through to SuggestPrModal by default.
+vi.mock('../../aggregation-provenance-service.js', () => ({
+  getAggregationProvenance: vi.fn(() => null),
+  setAggregationProvenance: vi.fn(),
+}));
+
+// SuggestPrModal's own flow (fetch-fresh, drift, diff, PR creation, and the
+// linking phase it now handles internally) is covered by its own dedicated
+// tests -- stubbed here down to just reporting which tab it was opened for,
+// so this file can focus on the tab bar wiring (which tab id gets passed,
+// open/close) without re-driving the whole linking/suggest flow.
+vi.mock('../SuggestPrModal.jsx', () => ({
+  default: ({ isOpen, tabId }) => (isOpen ? <div>Suggest PR modal open for {tabId}</div> : null),
+}));
+// Likewise for the aggregated-set counterpart -- its own routing condition
+// is exercised in the "routes to the aggregated modal" test below.
+vi.mock('../SuggestAggregatedPrsModal.jsx', () => ({
+  default: ({ isOpen, tabId }) =>
+    isOpen ? <div>Suggest aggregated PRs modal open for {tabId}</div> : null,
+}));
+
+const getComponent = vi.fn();
 
 // jsdom doesn't implement ResizeObserver -- same mock pattern as
 // useOverflowCompact.test.jsx, which needs it for the same reason (the
@@ -70,7 +103,13 @@ describe('TabBar', () => {
   });
 
   test('renders every tab, highlighting the active one', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     expect(screen.getByText('Tab 1').closest('.swagger-editor__tab')).toHaveClass(
       'swagger-editor__tab--active'
@@ -82,7 +121,13 @@ describe('TabBar', () => {
   });
 
   test('clicking a tab switches the active tab and pushes its content into the editor', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.click(screen.getByText('Tab 2'));
 
@@ -97,7 +142,13 @@ describe('TabBar', () => {
   });
 
   test("switching tabs only touches the metadata blob, never any tab's stored content (regression: a stale full-content snapshot used to clobber other tabs' edits on switch)", () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.click(screen.getByText('Tab 2'));
 
@@ -109,6 +160,7 @@ describe('TabBar', () => {
     const flushPendingEditorContent = vi.fn();
     render(
       <TabBar
+        getComponent={getComponent}
         editorActions={editorActions}
         EditorContentOrigin={EditorContentOrigin}
         flushPendingEditorContent={flushPendingEditorContent}
@@ -128,14 +180,26 @@ describe('TabBar', () => {
   });
 
   test('is unaffected when no flushPendingEditorContent prop is supplied', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     expect(() => fireEvent.click(screen.getByText('Tab 2'))).not.toThrow();
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
   });
 
   test('the "+" button adds a new blank tab and activates it', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.click(screen.getByTitle('New tab'));
 
@@ -144,7 +208,13 @@ describe('TabBar', () => {
   });
 
   test('duplicating a tab copies its content into the new tab and activates it', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     const duplicateButtons = screen.getAllByTitle('Duplicate tab');
     fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1"
@@ -157,20 +227,98 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('a-content', 'local-storage');
   });
 
+  test('duplicating a linked tab carries the link over to the new tab', () => {
+    const target = { owner: 'octo-org', repo: 'petstore', path: 'openapi.yaml' };
+    linkedTargetService.getLinkedTarget.mockImplementation((tabId) =>
+      tabId === 'a' ? target : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1", which is linked
+
+    expect(linkedTargetService.setLinkedTarget).toHaveBeenCalledWith(expect.any(String), target);
+  });
+
+  test('duplicating an unlinked tab does not invent a link for the new tab', () => {
+    linkedTargetService.getLinkedTarget.mockReturnValue(null);
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]);
+
+    expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
+  });
+
+  test('duplicating an aggregated tab carries its provenance record over to the new tab', () => {
+    const provenance = { setId: 'set-1', setName: 'My Set', sources: [] };
+    aggregationProvenanceService.getAggregationProvenance.mockImplementation((tabId) =>
+      tabId === 'a' ? provenance : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    const duplicateButtons = screen.getAllByTitle('Duplicate tab');
+    fireEvent.click(duplicateButtons[0]); // duplicate "Tab 1", which is aggregated
+
+    expect(aggregationProvenanceService.setAggregationProvenance).toHaveBeenCalledWith(
+      expect.any(String),
+      provenance
+    );
+    // An aggregated tab's "link" is its provenance record, not a plain
+    // single-file link -- carrying over both would leave the copy pointed
+    // at whichever one SuggestAggregatedPrsModal/SuggestPrModal's routing
+    // happens to check first, instead of staying an aggregated tab.
+    expect(linkedTargetService.setLinkedTarget).not.toHaveBeenCalled();
+  });
+
   test('closing a background tab removes its stored content but does not touch the editor', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     const closeButtons = screen.getAllByTitle('Close tab');
     fireEvent.click(closeButtons[1]); // close "Tab 2" (not active)
 
     expect(screen.queryByText('Tab 2')).not.toBeInTheDocument();
     expect(workspaceTabsService.removeTabContent).toHaveBeenCalledWith('b');
+    expect(linkedTargetService.removeLinkedTarget).toHaveBeenCalledWith('b');
     expect(editorActions.disposeDocument).toHaveBeenCalledWith('b');
     expect(editorActions.setContent).not.toHaveBeenCalled();
   });
 
   test('closing the active tab activates the previous tab and pushes its content', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.click(screen.getAllByTitle('Close tab')[0]); // close "Tab 1" (active)
 
@@ -181,19 +329,103 @@ describe('TabBar', () => {
     expect(editorActions.setContent).toHaveBeenCalledWith('b-content', 'local-storage');
   });
 
+  // Linking has no button of its own -- it's only ever reached on the way to
+  // suggesting a PR (below), either because the tab isn't linked yet or via
+  // SuggestPrModal's own "Change link" affordance (also below).
+  test('the single tab action reflects whether the tab is linked yet', () => {
+    linkedTargetService.getLinkedTarget.mockImplementation((tabId) =>
+      tabId === 'a' ? { owner: 'octo-org', repo: 'petstore' } : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+
+    expect(screen.getByTitle('Suggest pull request to octo-org/petstore')).toBeInTheDocument();
+    expect(screen.getAllByTitle('Link to a repository file & suggest a pull request')).toHaveLength(
+      2
+    );
+  });
+
+  test('Suggest PR opens SuggestPrModal for the clicked tab, linked or not', () => {
+    linkedTargetService.getLinkedTarget.mockImplementation((tabId) =>
+      tabId === 'b' ? { owner: 'octo-org', repo: 'petstore' } : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+    fireEvent.click(screen.getAllByTitle('Suggest pull request to octo-org/petstore')[0]); // Tab 2
+
+    expect(screen.getByText('Suggest PR modal open for b')).toBeInTheDocument();
+  });
+
+  test('Suggest PR routes to the aggregated-set modal when the tab has an AggregationProvenance record', () => {
+    aggregationProvenanceService.getAggregationProvenance.mockImplementation((tabId) =>
+      tabId === 'b' ? { setName: 'My Set' } : null
+    );
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+    fireEvent.click(screen.getByTitle('Suggest pull requests from the aggregated set "My Set"'));
+
+    expect(screen.getByText('Suggest aggregated PRs modal open for b')).toBeInTheDocument();
+    expect(screen.queryByText(/^Suggest PR modal open for/)).not.toBeInTheDocument();
+  });
+
+  test('Suggest PR on an unlinked tab also opens SuggestPrModal, which handles linking as its own phase', () => {
+    linkedTargetService.getLinkedTarget.mockReturnValue(null);
+
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
+    fireEvent.click(screen.getAllByTitle('Link to a repository file & suggest a pull request')[1]); // Tab 2
+
+    expect(screen.getByText('Suggest PR modal open for b')).toBeInTheDocument();
+  });
+
   test('the close button is hidden when only one tab remains', () => {
     workspaceTabsService.getWorkspaceMeta.mockReturnValue({
       tabs: [{ id: 'a', name: 'Tab 1' }],
       activeTabId: 'a',
     });
 
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     expect(screen.queryByTitle('Close tab')).not.toBeInTheDocument();
   });
 
   test('Alt+2 switches directly to the second tab', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: '2', altKey: true });
 
@@ -201,7 +433,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+9 is a no-op when there are fewer than 9 tabs', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: '9', altKey: true });
 
@@ -211,7 +449,13 @@ describe('TabBar', () => {
   test('Alt+` moves to the next tab, wrapping around from the last', () => {
     workspaceTabsService.getWorkspaceMeta.mockReturnValue({ ...threeTabMeta(), activeTabId: 'c' });
 
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: '`', altKey: true });
 
@@ -219,7 +463,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+~ (Alt+Shift+`) moves to the previous tab, wrapping around from the first', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: '~', altKey: true, shiftKey: true });
 
@@ -227,7 +477,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+T adds a new blank tab and activates it', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: 't', altKey: true });
 
@@ -236,7 +492,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+Q closes the active tab and activates the previous tab', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: 'q', altKey: true });
 
@@ -252,7 +514,13 @@ describe('TabBar', () => {
       activeTabId: 'a',
     });
 
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: 'q', altKey: true });
 
@@ -260,7 +528,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+S duplicates the active tab and activates the copy', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: 's', altKey: true });
 
@@ -273,7 +547,13 @@ describe('TabBar', () => {
   });
 
   test('Alt+X enters rename mode for the active tab', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: 'x', altKey: true });
 
@@ -281,7 +561,13 @@ describe('TabBar', () => {
   });
 
   test('double-clicking a tab name enters rename mode, and Enter commits the new name', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.doubleClick(screen.getByText('Tab 1'));
     const input = screen.getByDisplayValue('Tab 1');
@@ -297,7 +583,13 @@ describe('TabBar', () => {
   });
 
   test('blurring the rename input commits the new name', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.doubleClick(screen.getByText('Tab 1'));
     const input = screen.getByDisplayValue('Tab 1');
@@ -308,7 +600,13 @@ describe('TabBar', () => {
   });
 
   test('Escape cancels the rename without saving', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.doubleClick(screen.getByText('Tab 1'));
     const input = screen.getByDisplayValue('Tab 1');
@@ -321,7 +619,13 @@ describe('TabBar', () => {
   });
 
   test('an empty (or whitespace-only) name is a no-op, leaving the original name in place', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.doubleClick(screen.getByText('Tab 1'));
     const input = screen.getByDisplayValue('Tab 1');
@@ -333,14 +637,26 @@ describe('TabBar', () => {
 
   test('switching and closing tabs does not throw when setActiveDocument/disposeDocument are absent (textarea preset has no editor-monaco)', () => {
     editorActions = { setContent: vi.fn() };
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     expect(() => fireEvent.click(screen.getByText('Tab 2'))).not.toThrow();
     expect(() => fireEvent.click(screen.getAllByTitle('Close tab')[0])).not.toThrow();
   });
 
   test('digit keys without Alt are ignored', () => {
-    render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+    render(
+      <TabBar
+        getComponent={getComponent}
+        editorActions={editorActions}
+        EditorContentOrigin={EditorContentOrigin}
+      />
+    );
 
     fireEvent.keyDown(window, { key: '2', altKey: false });
 
@@ -370,7 +686,13 @@ describe('TabBar', () => {
     };
 
     test('dropping before a target tab moves the dragged tab in front of it', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
       const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
 
@@ -389,7 +711,13 @@ describe('TabBar', () => {
     });
 
     test('dropping after a target tab moves the dragged tab behind it', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
       const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
 
@@ -408,7 +736,13 @@ describe('TabBar', () => {
     });
 
     test('reordering never activates a different tab or reloads editor content', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
       const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
 
@@ -421,7 +755,13 @@ describe('TabBar', () => {
     });
 
     test('dropping a tab onto itself is a no-op', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
 
       fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
@@ -431,7 +771,13 @@ describe('TabBar', () => {
     });
 
     test('shows a drop indicator on the side of the target tab being hovered', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
       const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
 
@@ -442,7 +788,13 @@ describe('TabBar', () => {
     });
 
     test('dragging ends without dropping clears the indicator', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
       const source = screen.getByText('Tab 1').closest('.swagger-editor__tab');
       const target = screen.getByText('Tab 3').closest('.swagger-editor__tab');
 
@@ -454,7 +806,13 @@ describe('TabBar', () => {
     });
 
     test('a tab being renamed is not draggable, so a stray drag cannot clobber the edit', () => {
-      render(<TabBar editorActions={editorActions} EditorContentOrigin={EditorContentOrigin} />);
+      render(
+        <TabBar
+          getComponent={getComponent}
+          editorActions={editorActions}
+          EditorContentOrigin={EditorContentOrigin}
+        />
+      );
 
       fireEvent.doubleClick(screen.getByText('Tab 1'));
       const input = screen.getByDisplayValue('Tab 1');

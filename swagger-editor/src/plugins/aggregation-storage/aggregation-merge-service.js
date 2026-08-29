@@ -2,7 +2,11 @@ import YAML from 'js-yaml';
 
 import { parseSsoAuthorizationUrl } from '../github-connection/github-connection-service.js';
 import parseGitHubFileUrl from '../github-connection/github-file-url.js';
-import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-service.js';
+import {
+  base64ToUtf8,
+  findDuplicateNames,
+  stripTrailingSlashes,
+} from './aggregation-storage-service.js';
 
 // Remote specs can name a path or component literally "__proto__" --
 // merged.paths[finalPath] = ... / merged.components[type][finalName] = ...
@@ -16,8 +20,10 @@ import { base64ToUtf8, stripTrailingSlashes } from './aggregation-storage-servic
 const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 // Component sub-collections that can each independently collide by name
-// across services — mirrors OpenAPI 3's components object.
-const COMPONENT_TYPES = [
+// across services — mirrors OpenAPI 3's components object. Exported so
+// aggregation-diff-service.js walks exactly the same set of sub-collections
+// this file merges, rather than risking the two lists drifting apart.
+export const COMPONENT_TYPES = [
   'schemas',
   'responses',
   'parameters',
@@ -58,7 +64,14 @@ function looksLikeUnroutedGitHubUrl(url) {
   }
 }
 
-export async function fetchSpec(url, connection) {
+// Fetches and parses a spec, same as fetchSpec below, but also hands back
+// the raw text it parsed -- needed by aggregateSet to store as a source's
+// drift-comparison baseline (see workspace-tabs/aggregation-provenance-service.js),
+// which fetchSpec's own callers have no use for and shouldn't have to carry
+// around. fetchSpec itself is kept as a thin wrapper so its existing
+// contract (resolves to just the parsed spec) doesn't change for anything
+// else that calls it.
+async function fetchSpecRaw(url, connection) {
   const parsed = parseGitHubFileUrl(url, connection.apiBaseUrl);
   const requestUrl = parsed
     ? `${stripTrailingSlashes(parsed.apiBase)}/repos/${parsed.owner}/${parsed.repo}/contents/${parsed.path}?ref=${encodeURIComponent(parsed.ref)}`
@@ -99,11 +112,16 @@ export async function fetchSpec(url, connection) {
 
   if (parsed) {
     const file = await response.json();
-    return YAML.load(base64ToUtf8(file.content));
+    const rawText = base64ToUtf8(file.content);
+    return { spec: YAML.load(rawText), rawText };
   }
 
-  const text = await response.text();
-  return YAML.load(text);
+  const rawText = await response.text();
+  return { spec: YAML.load(rawText), rawText };
+}
+
+export async function fetchSpec(url, connection) {
+  return (await fetchSpecRaw(url, connection)).spec;
 }
 
 function buildInfo(specs, overrides = {}) {
@@ -129,8 +147,47 @@ export function mergeSpecs(specs, infoOverrides = {}) {
   if (specs.length === 0) {
     return null;
   }
+
+  // The Edit Set form already blocks *saving* two services under the same
+  // name (see findDuplicateNames's own comment), but that guard can't
+  // reach a set that was aggregated back when it still had a collision --
+  // once merged, every affected path/tag/component's provenance entry
+  // carries that shared name as its `service` key, and so does each
+  // source's own `name`. A later Suggest PR run resolves "which source is
+  // this name" with a plain find-by-name (aggregated-pr-planning-service.js's
+  // groupResolvedOpsBySource), which silently returns the first match on
+  // a collision -- an edit that belongs to the second, unmatched source
+  // then gets attributed to, and committed into, the first source's file
+  // instead. Failing here, the one place a name collision can still reach
+  // a provenance map, is the backstop for that already-aggregated case.
+  const duplicateNames = findDuplicateNames(specs);
+  if (duplicateNames.length > 0) {
+    throw new Error(
+      `Can't aggregate: "${duplicateNames[0]}" is used by more than one service in this set -- ` +
+        'rename one of them (Edit Set) so a later change can be traced back to the right file, then aggregate again.'
+    );
+  }
+
   if (specs.length === 1) {
-    return { merged: specs[0].spec, conflicts: { paths: [], tags: [], components: [] } };
+    const { name, spec } = specs[0];
+    const provenance = { paths: {}, tags: {}, components: {} };
+    Object.keys(spec.paths || {}).forEach((path) => {
+      provenance.paths[path] = { service: name, originalKey: path };
+    });
+    (spec.tags || []).forEach((tag) => {
+      provenance.tags[tag.name] = { service: name, originalKey: tag.name };
+    });
+    COMPONENT_TYPES.forEach((type) => {
+      Object.keys(spec.components?.[type] || {}).forEach((componentName) => {
+        provenance.components[type] = provenance.components[type] || {};
+        provenance.components[type][componentName] = { service: name, originalKey: componentName };
+      });
+    });
+    return {
+      merged: spec,
+      conflicts: { paths: [], tags: [], components: [] },
+      provenance,
+    };
   }
 
   const merged = {
@@ -144,6 +201,10 @@ export function mergeSpecs(specs, infoOverrides = {}) {
   };
 
   const conflicts = { paths: [], tags: [], components: [] };
+  // Who a merged entry originally came from -- populated for every entry
+  // below, not just conflicting ones, so a later diff/patch step can trace
+  // any changed entry back to its source file without re-deriving this.
+  const provenance = { paths: {}, tags: {}, components: {} };
 
   // First pass: who owns each name, so we only prefix real collisions.
   const pathOwners = new Map();
@@ -229,6 +290,7 @@ export function mergeSpecs(specs, infoOverrides = {}) {
         }
       });
       merged.paths[finalPath] = clonedPathItem;
+      provenance.paths[finalPath] = { service: name, originalKey: path };
     });
 
     COMPONENT_TYPES.forEach((type) => {
@@ -239,16 +301,20 @@ export function mergeSpecs(specs, infoOverrides = {}) {
         const hasConflict = componentOwners.get(`${type}:${componentName}`)?.length > 1;
         const finalName = hasConflict ? `${name}${componentName}` : componentName;
         merged.components[type][finalName] = componentDef;
+        provenance.components[type] = provenance.components[type] || {};
+        provenance.components[type][finalName] = { service: name, originalKey: componentName };
       });
     });
 
     (spec.tags || []).forEach((tag) => {
       const hasConflict = tagOwners.get(tag.name)?.length > 1;
+      const finalTagName = hasConflict ? `${name}-${tag.name}` : tag.name;
       merged.tags.push({
         ...tag,
-        name: hasConflict ? `${name}-${tag.name}` : tag.name,
+        name: finalTagName,
         ...(hasConflict ? { description: `${tag.description || ''} (from ${name})`.trim() } : {}),
       });
+      provenance.tags[finalTagName] = { service: name, originalKey: tag.name };
     });
 
     (spec.security || []).forEach((securityItem) => {
@@ -270,7 +336,7 @@ export function mergeSpecs(specs, infoOverrides = {}) {
   if (merged.security.length === 0) delete merged.security;
   if (Object.keys(merged.paths).length === 0) delete merged.paths;
 
-  return { merged, conflicts };
+  return { merged, conflicts, provenance };
 }
 
 // Fetches every URL in a saved set, merges what succeeded, and returns the
@@ -279,14 +345,27 @@ export function mergeSpecs(specs, infoOverrides = {}) {
 export async function aggregateSet(set, connection) {
   const urls = set.swaggerUrls || [];
   const results = await Promise.allSettled(
-    urls.map(async (entry) => ({ name: entry.name, spec: await fetchSpec(entry.url, connection) }))
+    urls.map(async (entry) => {
+      const { spec, rawText } = await fetchSpecRaw(entry.url, connection);
+      return { name: entry.name, spec, rawText };
+    })
   );
 
   const specs = [];
+  // Raw text per successfully-fetched source, alongside its parsed spec --
+  // the basis a later Suggest PR patch step needs to preserve the source
+  // file's own formatting (see aggregation-provenance-service.js), which
+  // the parsed/re-dumped spec above can't provide.
+  const sources = [];
   const errors = [];
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') {
-      specs.push(result.value);
+      specs.push({ name: result.value.name, spec: result.value.spec });
+      sources.push({
+        name: result.value.name,
+        url: urls[index].url,
+        rawContent: result.value.rawText,
+      });
     } else {
       errors.push({
         name: urls[index].name,
@@ -300,8 +379,8 @@ export async function aggregateSet(set, connection) {
     throw new Error('No specs could be fetched for this set.');
   }
 
-  const { merged, conflicts } = mergeSpecs(specs, { title: set.name });
+  const { merged, conflicts, provenance } = mergeSpecs(specs, { title: set.name });
   const yaml = YAML.dump(merged, { lineWidth: -1 });
 
-  return { yaml, conflicts, errors, specCount: specs.length };
+  return { yaml, conflicts, errors, specCount: specs.length, provenance, sources };
 }

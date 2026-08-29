@@ -1,0 +1,190 @@
+.swagger-editor {
+  &__suggest-pr-target {
+    // Not pure --se-color-text-muted -- this is the one piece of context
+    // present on almost every phase of this modal (which file, which repo),
+    // not a footnote, so it reads a shade closer to body text.
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text);
+
+    svg {
+      margin-right: 0.35rem;
+      color: var(--se-color-text-muted);
+    }
+  }
+
+  &__suggest-pr-summary {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+  }
+
+  // GitHub's own PR-page convention: a compact "+N -M" count above the
+  // diff, giving the size of the change its own visual weight before the
+  // reader even scans a single line.
+  &__suggest-pr-diffstat {
+    margin: 0 0 0.5rem 0;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  &__suggest-pr-diffstat-added {
+    color: #1a7f37;
+  }
+
+  &__suggest-pr-diffstat-removed {
+    color: #d1242f;
+  }
+
+  &__suggest-pr-diff {
+    margin: 0;
+    padding: 0.5rem 0;
+    max-height: 40vh;
+    overflow: auto;
+    border: 1px solid var(--se-color-border);
+    border-radius: 4px;
+    background-color: var(--se-color-surface-muted);
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: pre;
+  }
+
+  &__suggest-pr-diff-line {
+    display: flex;
+    padding: 0 0.75rem;
+
+    &--added {
+      color: #1a7f37;
+      background-color: rgba(26, 127, 55, 0.1);
+    }
+
+    &--removed {
+      color: #d1242f;
+      background-color: rgba(209, 36, 47, 0.1);
+    }
+
+    &--context {
+      color: var(--se-color-text-muted);
+    }
+  }
+
+  // Two right-aligned, fixed-width columns (old line #, new line #) so
+  // numbers of any digit count still line up -- a context line fills both,
+  // an added/removed line only the side it exists on (see numberDiffLines).
+  &__suggest-pr-diff-line-no {
+    flex: 0 0 2rem;
+    text-align: right;
+    padding-right: 0.6rem;
+    color: var(--se-color-text-muted);
+    opacity: 0.6;
+    user-select: none;
+  }
+
+  &__suggest-pr-diff-line-marker {
+    flex: 0 0 1rem;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  &__suggest-pr-diff-line-text {
+    flex: 1 1 auto;
+    white-space: pre;
+  }
+
+  // The payoff of the entire feature -- styled like one, not like every
+  // other status sentence in this modal (drift warning, no-access, etc).
+  &__suggest-pr-success {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  &__suggest-pr-success-message {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1a7f37;
+
+    svg {
+      margin-right: 0.4rem;
+      vertical-align: text-bottom;
+    }
+  }
+
+  // Groups one result's service/file label with the chip (or error) below
+  // it, so a repo shared by two services doesn't leave their two PRs
+  // looking identical.
+  &__suggest-pr-success-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  &__suggest-pr-success-item-label {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+
+    code {
+      color: var(--se-color-text);
+    }
+  }
+
+  // A small chip (repo + PR number), not a raw URL in a sentence -- the
+  // link itself is the destination worth going to, so it gets to look like
+  // one.
+  &__suggest-pr-success-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--se-color-border);
+    border-radius: 999px;
+    background-color: var(--se-color-surface);
+    color: var(--se-color-text);
+    font-size: 0.8rem;
+    text-decoration: none;
+
+    &:hover {
+      border-color: #00a0b4;
+      background-color: var(--se-color-hover);
+    }
+  }
+
+  &__suggest-pr-success-chip-number {
+    color: var(--se-color-text-muted);
+  }
+
+  &__suggest-pr-relink-button svg {
+    margin-right: 0.3rem;
+    vertical-align: text-bottom;
+  }
+
+  // The input above it can only show so much of a long URL before clipping
+  // it -- this wraps instead, so the full currently-linked URL stays
+  // readable rather than cut off mid-path.
+  &__suggest-pr-existing-link {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.8rem;
+    word-break: break-all;
+
+    code {
+      color: var(--se-color-text);
+    }
+  }
+}
+
+// .help-block is normally pulled tight *under* an input (an attached note),
+// but this one introduces the linking form instead -- it needs its own
+// breathing room below, separating it from the "GitHub file URL" label and
+// input that follow, rather than reading like it belongs to whatever came
+// before it. Needs the .ReactModalPortal ancestor and .help-block class
+// both present, at 3-class specificity, to beat the base .help-block rule
+// (styles/_modal.scss, also scoped under .ReactModalPortal) it would
+// otherwise lose to regardless of import order.
+.ReactModalPortal .help-block.swagger-editor__suggest-pr-link-intro {
+  margin-bottom: 0.75rem;
+}

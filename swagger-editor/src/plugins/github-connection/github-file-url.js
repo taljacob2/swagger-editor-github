@@ -84,3 +84,14 @@ export default function parseGitHubFileUrl(url, apiBaseUrl) {
   const [, owner, repo, ref, path] = match;
   return { owner, repo, ref, path, apiBase: candidate.apiBase };
 }
+
+// The inverse of the above: reconstructs the blob URL a linked target came
+// from (or would have come from), so a UI can show a human what it already
+// has linked without making them decode {owner, repo, path, ref} themselves.
+export function buildGitHubFileUrl({ apiBaseUrl, owner, repo, path, ref }) {
+  const webHost = webHostFromApiBaseUrl(apiBaseUrl);
+  if (!webHost) {
+    return null;
+  }
+  return `https://${webHost}/${owner}/${repo}/blob/${ref}/${path}`;
+}

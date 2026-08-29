@@ -191,3 +191,10 @@ owning service's name. `/users`, `/orders`, `User`, and `Order` were each unique
 they passed straight through untouched. The status line for this aggregation would read
 `resolved 2 naming conflicts` — one path collision (`/health`) plus one tag collision (`API`); zero
 component collisions, since `User` and `Order` never shared a name.
+
+## Suggesting pull requests back to your sources
+
+Editing a tab loaded from an aggregation set isn't a dead end — see
+[Suggesting a pull request](SuggestingPullRequests.md#suggesting-pull-requests-from-an-aggregated-view)
+for how an edit made in the merged view gets traced back to the source file it came from and
+suggested as a pull request there.

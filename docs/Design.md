@@ -78,7 +78,40 @@ Develop against this personal github.com repo, then point the API base URL and s
 - [x] Authenticated `$ref` resolution for the live Preview pane — the `apidom-reference`/`apidom-ls` fix above covers editor-side validation/hover/go-to-definition/"Resolve document", but SwaggerUI core's own `spec` plugin (`swagger-client`, feeding `EditorPreviewSwaggerUI` via `specActions.updateSpec`) resolves `$ref`s through a **third**, completely independent pipeline with no GitHub-awareness either — a private repo's `$ref` still 404'd in the Preview pane after the fix above shipped, even though the editor's own validation/hover already worked. `swagger-client` threads `requestInterceptor`/`responseInterceptor` (its own config, unrelated to Monaco/ApiDOM) through every fetch it makes for spec resolution, so `src/plugins/github-connection/github-fetch-interceptors.js` implements the same Contents API rewrite as `fetchSpec`/`GitHubResolver`, wired in once in `App.tsx` ahead of whatever `requestInterceptor`/`responseInterceptor` a caller of the `<SwaggerEditor>` component passes in (never replacing it — chained, so a library consumer's own interceptor still runs, just against an already-rewritten GitHub request/response). Same interceptors also run ahead of "Try it out" operation execution, but are a no-op there since neither a real API's request URL nor its response shape matches a GitHub raw/blob URL or a Contents API base64 envelope.
 - [x] Switched Connection Settings from fine-grained to classic PATs — root-caused a live report of every private-repo `$ref`/aggregation-set request 404ing for an org owner with a token set to "All repositories": a fine-grained token's **Resource owner** (chosen at creation, separate from repository access) was the user's personal account rather than the org, so "All repositories" only ever covered personal repos, and GitHub's Contents API returns the same `404` for "repo the token can't see" as for "repo doesn't exist" (by design, to avoid confirming private-repo existence) — indistinguishable from any other cause without knowing to check that one setting. `src/plugins/github-connection/components/GitHubMenuHandler.jsx` now collapses the old two-field (Repo token / Fetch token) UI to a single **GitHub token** field, linking to a new `buildClassicTokenCreationUrl` (classic PAT, `repo` scope) instead of the fine-grained `buildTokenCreationUrl`; the latter and its tests stay in `github-connection-service.js`, unused by the UI, kept for a possible future return to fine-grained tokens. See [docs/GitHubAuthentication.md](GitHubAuthentication.md#classic-pats-only-for-now--fine-grained-tokens-have-a-sharp-edge) for the full explanation and [docs/Permissions.md](Permissions.md) for the updated tier walkthrough.
 - [x] Fixed "Manage Aggregation Sets" showing a blank Storage location on a privately published GHEC Pages site — `detectDefaultOwnerRepo` (`aggregation-storage-service.js`) only ever recognized a public `<owner>.github.io/<repo>/` URL; a GHEC deployment is instead served from a `<owner>-<repo>.pages.<hostname>` subdomain (confirmed live against a design partner's deployment), which folds owner and repo into one hyphenated label with no reliable split point (both can contain hyphens). Rather than guess at a split, `deploy-pages.yml` now bakes the exact values in at build time via `VITE_GITHUB_STORAGE_OWNER`/`VITE_GITHUB_STORAGE_REPO` — read straight from `github.repository_owner`/`github.event.repository.name`, so unlike `GH_API_BASE_URL` this needs no repo variable for whoever deploys to set. `detectDefaultOwnerRepo` prefers these when present, falling back to the old hostname parsing only when they're absent (e.g. a Pages build from before this change).
-- [ ] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s `Topbar.jsx`)
+- [x] Merge-request flow ported to GitHub Pull Requests (from `swagger-editor-gitlab`'s
+  `Topbar.jsx`) — reshaped around this app's tab model rather than a 1:1 port: instead of turning a
+  whole aggregated set into a PR, any tab can be linked to a single file in a GitHub repo
+  (`src/plugins/workspace-tabs/linked-target-service.js`, `github-file-url.js`'s
+  `parseGitHubFileUrl`/`buildGitHubFileUrl`) and suggest a pull request back to it
+  (`SuggestPrModal.jsx`, `suggest-pr-service.js`), with drift detection against the file's baseline
+  content, an LCS-based diff preview, and automatic JSON/YAML conversion so the suggestion always
+  matches the target file's format regardless of what the tab was edited in. Reachable from the tab
+  bar's own icon (works on a background tab without switching to it) or **File → Suggest pull
+  request…** (acts on the active tab). See [docs/SuggestingPullRequests.md](SuggestingPullRequests.md)
+  for the user-facing walkthrough.
+- [x] Suggest-PR flow extended to the aggregated view — an edit made in a tab loaded via `Aggregate`
+  gets traced back to whichever source file it belongs to and proposed there, instead of only being
+  suggestible for a tab linked to a single file. `mergeSpecs` (`aggregation-merge-service.js`) now
+  also returns a `provenance` map (which service/original key each merged path, tag, and
+  `components/*` entry came from), persisted per tab alongside the merge's own baseline text
+  (`workspace-tabs/aggregation-provenance-service.js`). A structural walker
+  (`aggregation-diff-service.js`) diffs the tab's current content against that baseline down to leaf
+  fields — an array is replaced as a whole unit rather than diffed element-by-element, and a
+  renamed/added/removed *entry* (as opposed to a changed *field* inside one) is deliberately left
+  unresolved rather than guessed at, since that's structurally indistinguishable from a plain diff
+  and a wrong guess would silently corrupt someone else's file. Resolved changes are grouped back to
+  their source (`aggregated-pr-planning-service.js`) and applied with a new **format-preserving**
+  patch step (`source-patch-service.js`, using the `yaml` package's CST-based `Document` API instead
+  of this app's usual `js-yaml` parse/dump round trip) — so a source file's comments and
+  anchors/aliases survive an automated edit intact, something `js-yaml` can't do by design. A
+  separate modal, `SuggestAggregatedPrsModal.jsx`, generalizes `SuggestPrModal.jsx`'s phase machine
+  to several sources at once (per-source drift check, one diff preview per touched source, pull
+  requests opened sequentially so a failure partway through still reports a clear "N of M" result);
+  `TabBar.jsx`/`SuggestPrMenuItemHandler.jsx` route to it instead of `SuggestPrModal.jsx` purely by
+  presence of a tab's `AggregationProvenance` record, since a tab is always aggregated or
+  singly-linked, never both. See
+  [docs/SuggestingPullRequests.md](SuggestingPullRequests.md#suggesting-pull-requests-from-an-aggregated-view)
+  for the user-facing walkthrough.
 - [x] Code generation — no port needed; vendored Swagger Editor's built-in "Generate Client"/"Generate Server" menus already call the public generator services directly (see [Code generation](#code-generation)). The custom `codegen.yml` GitHub Actions workflow this repo scaffolded early on was redundant with that and has been removed.
 
 ## Open items — not yet decided
