@@ -372,6 +372,52 @@ describe('SuggestAggregatedPrsModal', () => {
     );
   });
 
+  test('labels each result with its own service name and file so two PRs to the same repo are distinguishable', async () => {
+    // The real report this guards against: two services in one set can
+    // point at the same repo (even the exact same one), so "owner/repo"
+    // alone can't tell their two PRs apart -- each result needs its own
+    // service name and file path shown too.
+    const sameRepoRecord = {
+      ...RECORD,
+      sources: [
+        { ...USERS_SOURCE, repo: 'fixtures', path: 'ref-main.yaml' },
+        { ...ORDERS_SOURCE, repo: 'fixtures', path: 'ref-order.yaml' },
+      ],
+    };
+    aggregationProvenanceService.getAggregationProvenance.mockReturnValue(sameRepoRecord);
+    githubRepoBrowserService.getFileContent.mockImplementation(async (owner, repo, path) => ({
+      content:
+        path === 'ref-main.yaml' ? USERS_SOURCE.baselineContent : ORDERS_SOURCE.baselineContent,
+    }));
+    workspaceTabsService.getTabContent.mockReturnValue(
+      'paths:\n  /users:\n    get:\n      summary: List all users\n  /orders:\n    get:\n      summary: List all orders\n'
+    );
+
+    render(
+      <SuggestAggregatedPrsModal
+        getComponent={getComponent}
+        isOpen
+        tabId="tab-1"
+        onClose={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('Open pull requests')).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Open pull requests'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/2 of 2 pull requests opened/)).toBeInTheDocument()
+    );
+    expect(screen.getByText('Users')).toBeInTheDocument();
+    expect(screen.getByText('Orders')).toBeInTheDocument();
+    expect(screen.getByText('ref-main.yaml')).toBeInTheDocument();
+    expect(screen.getByText('ref-order.yaml')).toBeInTheDocument();
+    expect(screen.getAllByText('octo-org/fixtures')).toHaveLength(2);
+  });
+
   test('reports a partial failure without losing the successful result', async () => {
     suggestPrService.createSuggestionBranch.mockImplementation(async ({ repo }) => {
       if (repo === 'orders') {

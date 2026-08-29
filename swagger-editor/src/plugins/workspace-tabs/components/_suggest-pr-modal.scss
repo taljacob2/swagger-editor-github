@@ -122,6 +122,26 @@
     }
   }
 
+  // Groups one result's service/file label with the chip (or error) below
+  // it, so a repo shared by two services doesn't leave their two PRs
+  // looking identical.
+  &__suggest-pr-success-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  &__suggest-pr-success-item-label {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--se-color-text-muted);
+
+    code {
+      color: var(--se-color-text);
+    }
+  }
+
   // A small chip (repo + PR number), not a raw URL in a sentence -- the
   // link itself is the destination worth going to, so it gets to look like
   // one.

@@ -390,6 +390,7 @@ const SuggestAggregatedPrsModal = ({ getComponent, isOpen, onClose, tabId = null
           prUrl,
           owner: preview.source.owner,
           repo: preview.source.repo,
+          path: preview.source.path,
         };
       } catch (error) {
         return { name: preview.name, ok: false, message: error.message };
@@ -567,26 +568,47 @@ const SuggestAggregatedPrsModal = ({ getComponent, isOpen, onClose, tabId = null
               {state.results.filter((r) => r.ok).length} of {state.results.length} pull request
               {state.results.length === 1 ? '' : 's'} opened.
             </p>
-            {state.results.map((result) =>
-              result.ok ? (
-                <a
-                  key={result.name}
-                  className="swagger-editor__suggest-pr-success-chip"
-                  href={result.prUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <GitPullRequestIcon size={16} aria-hidden="true" />
-                  <span>
-                    {result.owner}/{result.repo}
-                  </span>
-                </a>
-              ) : (
-                <p key={result.name} className="text-danger">
-                  <strong>{result.name}</strong>: {result.message}
-                </p>
-              )
-            )}
+            {/* Two services can share a repo (even the exact same one, as
+                when a set aggregates two files out of one repository) --
+                owner/repo alone can't tell those PRs apart, so each result
+                leads with the service name and file it actually changed. */}
+            {state.results.map((result) => {
+              const prNumberMatch = result.prUrl?.match(/\/pull\/(\d+)/);
+              const prNumber = prNumberMatch ? prNumberMatch[1] : null;
+              return (
+                <div key={result.name} className="swagger-editor__suggest-pr-success-item">
+                  <p className="swagger-editor__suggest-pr-success-item-label">
+                    <strong>{result.name}</strong>
+                    {result.path && (
+                      <>
+                        {' — '}
+                        <code>{result.path}</code>
+                      </>
+                    )}
+                  </p>
+                  {result.ok ? (
+                    <a
+                      className="swagger-editor__suggest-pr-success-chip"
+                      href={result.prUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <GitPullRequestIcon size={16} aria-hidden="true" />
+                      <span>
+                        {result.owner}/{result.repo}
+                      </span>
+                      {prNumber && (
+                        <span className="swagger-editor__suggest-pr-success-chip-number">
+                          #{prNumber}
+                        </span>
+                      )}
+                    </a>
+                  ) : (
+                    <p className="text-danger">{result.message}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </ModalBody>
