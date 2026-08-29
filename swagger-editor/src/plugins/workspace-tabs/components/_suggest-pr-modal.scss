@@ -22,8 +22,12 @@
   // note), but this one introduces the linking form instead -- it needs
   // its own breathing room below, separating it from the "GitHub file URL"
   // label and input that follow, rather than reading like it belongs to
-  // whatever came before it.
-  &__suggest-pr-link-intro {
+  // whatever came before it. Written as .help-block.swagger-editor__… (not
+  // just the BEM class) and repeated below under .ReactModalPortal: the
+  // base .help-block rule (styles/_modal.scss) is itself scoped under
+  // .ReactModalPortal, at 2-class specificity and loaded after this file in
+  // main.scss, so a single-class override here would silently lose to it.
+  &__suggest-pr-link-intro.help-block {
     margin-bottom: 2rem;
   }
 
@@ -184,4 +188,11 @@
       color: var(--se-color-text);
     }
   }
+}
+
+// Same margin-bottom as .swagger-editor__suggest-pr-link-intro.help-block
+// above, at the 3-class specificity that actually beats the base
+// .ReactModalPortal .help-block rule this modal renders under.
+.ReactModalPortal .help-block.swagger-editor__suggest-pr-link-intro {
+  margin-bottom: 2rem;
 }
