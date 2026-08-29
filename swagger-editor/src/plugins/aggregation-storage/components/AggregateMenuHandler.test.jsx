@@ -72,9 +72,12 @@ vi.mock('../../github-repo-browser/components/RepoBrowserModal.jsx', () => ({
   ),
 }));
 
-const { getSwaggerUrlWarning: realGetSwaggerUrlWarning } = await vi.importActual(
-  '../aggregation-storage-service.js'
-);
+const {
+  getSwaggerUrlWarning: realGetSwaggerUrlWarning,
+  findDuplicateNames: realFindDuplicateNames,
+  getDuplicateNameWarning: realGetDuplicateNameWarning,
+  uniqueServiceName: realUniqueServiceName,
+} = await vi.importActual('../aggregation-storage-service.js');
 
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
 StubModal.propTypes = { isOpen: PropTypes.bool.isRequired, children: PropTypes.node.isRequired };
@@ -171,11 +174,17 @@ describe('AggregateMenuHandler', () => {
     aggregationStorageService.buildBranchName.mockImplementation(
       (suffix) => `${BRANCH_PREFIX}${(suffix || '').trim() || 'default'}`
     );
-    // getSwaggerUrlWarning is a pure function with its own dedicated coverage
+    // getSwaggerUrlWarning/findDuplicateNames/getDuplicateNameWarning/
+    // uniqueServiceName are pure functions with their own dedicated coverage
     // in aggregation-storage-service.test.js -- importActual (rather than a
     // hand-copied reimplementation, unlike the branch-prefix helpers above)
-    // keeps that single real implementation as the only source of truth.
+    // keeps those real implementations as the only source of truth.
     aggregationStorageService.getSwaggerUrlWarning.mockImplementation(realGetSwaggerUrlWarning);
+    aggregationStorageService.findDuplicateNames.mockImplementation(realFindDuplicateNames);
+    aggregationStorageService.getDuplicateNameWarning.mockImplementation(
+      realGetDuplicateNameWarning
+    );
+    aggregationStorageService.uniqueServiceName.mockImplementation(realUniqueServiceName);
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -349,7 +358,10 @@ describe('AggregateMenuHandler', () => {
     fireEvent.click(screen.getByText('Pick valid file'));
 
     await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
-    expect(screen.getByText('petstore')).toBeInTheDocument();
+    // Suggested name folds in the file's own basename (not just the repo),
+    // so picking two different files out of the same repo doesn't suggest
+    // the same name for both -- see suggestedServiceName.
+    expect(screen.getByText('petstore (openapi)')).toBeInTheDocument();
     expect(
       screen.getByText('https://github.com/octo-org/petstore/blob/main/openapi.yaml')
     ).toBeInTheDocument();
@@ -362,7 +374,7 @@ describe('AggregateMenuHandler', () => {
       expect.objectContaining({
         swaggerUrls: [
           {
-            name: 'petstore',
+            name: 'petstore (openapi)',
             url: 'https://github.com/octo-org/petstore/blob/main/openapi.yaml',
           },
         ],
@@ -370,6 +382,23 @@ describe('AggregateMenuHandler', () => {
       STORAGE_SETTINGS,
       CONNECTION_SETTINGS
     );
+  });
+
+  test('browsing GitHub and picking two files from the same repo suggests distinct names', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+    await waitFor(() => expect(screen.getByText('ok')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Browse GitHub repositories…'));
+    fireEvent.click(screen.getByText('Pick valid file'));
+    await waitFor(() => expect(screen.getByText('petstore (openapi) 2')).toBeInTheDocument());
+    expect(screen.getByText('petstore (openapi)')).toBeInTheDocument();
   });
 
   test('browsing GitHub and picking a file that fails to parse surfaces an error and adds nothing', async () => {
@@ -386,7 +415,65 @@ describe('AggregateMenuHandler', () => {
         screen.getByText('"broken.yaml" doesn\'t parse as valid YAML/JSON — nothing was added.')
       ).toBeInTheDocument()
     );
-    expect(screen.queryByText('petstore')).not.toBeInTheDocument();
+    expect(screen.queryByText('petstore (openapi)')).not.toBeInTheDocument();
+  });
+
+  test('warns and blocks Add URL when the typed name collides with one already added', async () => {
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    fireEvent.click(screen.getByText('New Set'));
+    fireEvent.change(screen.getByLabelText('Set name'), { target: { value: 'Orders' } });
+    fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Orders API' } });
+    fireEvent.change(screen.getByLabelText('Swagger URL'), {
+      target: { value: 'https://x/orders.yaml' },
+    });
+    fireEvent.click(screen.getByText('Add URL'));
+    await waitFor(() => screen.getByText('Orders API'));
+
+    // The add-service row stays open (ready for the next entry) after
+    // adding one -- no need to reopen it.
+    fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Orders API' } });
+    fireEvent.change(screen.getByLabelText('Swagger URL'), {
+      target: { value: 'https://x/orders-v2.yaml' },
+    });
+
+    expect(
+      screen.getByText('A service named "Orders API" is already in this set.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Add URL')).toBeDisabled();
+
+    fireEvent.click(screen.getByText('Add URL'));
+    // Still only the first "Orders API" row -- the click above was a no-op.
+    expect(screen.getAllByText('Orders API')).toHaveLength(1);
+  });
+
+  test('rejects saving a set with a duplicate service name', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      {
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+          { name: 'Orders', url: 'https://x/orders-v2.yaml' },
+        ],
+      },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+    await waitFor(() => screen.getByText('Edit'));
+    fireEvent.click(screen.getByText('Edit'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Set'));
+    });
+
+    expect(aggregationStorageService.saveAggregationSet).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Service name must be unique: "Orders" is used more than once.')
+    ).toBeInTheDocument();
   });
 
   test('rejects saving a set with no name', async () => {
@@ -728,6 +815,38 @@ describe('AggregateMenuHandler', () => {
       });
 
       expect(screen.getByText(/doesn't look like it points to a spec file/i)).toBeInTheDocument();
+      expect(screen.getByText('Save')).toBeEnabled();
+    });
+
+    test('warns and blocks Save when the edited name collides with another service', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Orders' },
+      });
+
+      expect(
+        screen.getByText('A service named "Orders" is already in this set.')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Save')).toBeDisabled();
+    });
+
+    test('renaming a service to its own current name is not treated as a collision', async () => {
+      const ref = createRef();
+      renderHandler(ref);
+      await openEditForm(ref);
+
+      fireEvent.click(screen.getAllByLabelText('Edit')[0]);
+      fireEvent.change(screen.getByLabelText('Edit service name'), {
+        target: { value: 'Users' },
+      });
+
+      expect(
+        screen.queryByText('A service named "Users" is already in this set.')
+      ).not.toBeInTheDocument();
       expect(screen.getByText('Save')).toBeEnabled();
     });
 

@@ -20,6 +20,8 @@ import {
   canWriteToStorage,
   deleteAggregationSet,
   doesBranchExist,
+  findDuplicateNames,
+  getDuplicateNameWarning,
   getRepoDefaultBranch,
   getStorageSettings,
   getSwaggerUrlWarning,
@@ -27,6 +29,7 @@ import {
   moveSwaggerUrl,
   saveAggregationSet,
   saveStorageSettings,
+  uniqueServiceName,
 } from '../aggregation-storage-service.js';
 
 // How long to wait after the last Storage location edit before auto-loading
@@ -38,6 +41,21 @@ const emptyForm = { id: null, name: '', swaggerUrls: [] };
 
 const PERMISSION_DENIED_MESSAGE =
   "You don't have write access to this repo — see docs/Permissions.md for how to get a token that can save sets.";
+
+// The repo alone (defaultNameFrom's own suggestion) is what produces the
+// collision this is meant to avoid: picking two files out of the *same*
+// repo via Browse would otherwise suggest the identical name for both.
+// Folding the file's own basename in gives a name that's already
+// meaningful on its own, not just "unique by accident" -- uniqueServiceName
+// below is still applied on top as a backstop for the rarer case where
+// that combination itself isn't enough (e.g. the same file browsed twice).
+function suggestedServiceName(repo, path) {
+  const basename = path
+    .split('/')
+    .pop()
+    .replace(/\.(ya?ml|json)$/i, '');
+  return `${defaultNameFrom(repo)} (${basename})`;
+}
 
 const AggregateMenuHandler = forwardRef(
   ({ getComponent, editorActions, EditorContentOrigin }, ref) => {
@@ -214,10 +232,13 @@ const AggregateMenuHandler = forwardRef(
         throw new Error(`"${path}" doesn't parse as valid YAML/JSON — nothing was added.`);
       }
       const url = buildBlobUrl({ owner, repo, path, ref: fileRef, apiBaseUrl });
-      setForm((prev) => ({
-        ...prev,
-        swaggerUrls: [...prev.swaggerUrls, { name: defaultNameFrom(repo), url }],
-      }));
+      setForm((prev) => {
+        const name = uniqueServiceName(
+          suggestedServiceName(repo, path),
+          prev.swaggerUrls.map((entry) => entry.name)
+        );
+        return { ...prev, swaggerUrls: [...prev.swaggerUrls, { name, url }] };
+      });
     };
 
     const handleDoneAddingUrlClick = () => {
@@ -230,10 +251,11 @@ const AggregateMenuHandler = forwardRef(
       if (!newUrlValue.trim()) {
         return;
       }
-      const entry = {
-        name: newUrlName.trim() || `Service ${form.swaggerUrls.length + 1}`,
-        url: newUrlValue.trim(),
-      };
+      const name = newUrlName.trim() || `Service ${form.swaggerUrls.length + 1}`;
+      if (getDuplicateNameWarning(name, form.swaggerUrls)) {
+        return;
+      }
+      const entry = { name, url: newUrlValue.trim() };
       setForm((prev) => ({ ...prev, swaggerUrls: [...prev.swaggerUrls, entry] }));
       setNewUrlName('');
       setNewUrlValue('');
@@ -265,10 +287,11 @@ const AggregateMenuHandler = forwardRef(
         return;
       }
       const index = editingUrlIndex;
-      const entry = {
-        name: editUrlDraft.name.trim() || `Service ${index + 1}`,
-        url: editUrlDraft.url.trim(),
-      };
+      const name = editUrlDraft.name.trim() || `Service ${index + 1}`;
+      if (getDuplicateNameWarning(name, form.swaggerUrls, index)) {
+        return;
+      }
+      const entry = { name, url: editUrlDraft.url.trim() };
       setForm((prev) => ({
         ...prev,
         swaggerUrls: prev.swaggerUrls.map((existing, i) => (i === index ? entry : existing)),
@@ -278,6 +301,12 @@ const AggregateMenuHandler = forwardRef(
 
     const newUrlWarning = getSwaggerUrlWarning(newUrlValue);
     const editUrlWarning = getSwaggerUrlWarning(editUrlDraft.url);
+    const newUrlNameWarning = getDuplicateNameWarning(newUrlName, form.swaggerUrls);
+    const editUrlNameWarning = getDuplicateNameWarning(
+      editUrlDraft.name,
+      form.swaggerUrls,
+      editingUrlIndex
+    );
 
     const handleEditUrlKeyDown = (event) => {
       if (event.key === 'Enter') {
@@ -290,6 +319,16 @@ const AggregateMenuHandler = forwardRef(
     const handleSaveSetClick = async () => {
       if (!form.name.trim()) {
         setStatus({ ok: false, message: 'Enter a name for this set.' });
+        return;
+      }
+      const duplicateNames = findDuplicateNames(form.swaggerUrls);
+      if (duplicateNames.length > 0) {
+        setStatus({
+          ok: false,
+          message: `Service name${duplicateNames.length === 1 ? '' : 's'} must be unique: ${duplicateNames
+            .map((name) => `"${name}"`)
+            .join(', ')} ${duplicateNames.length === 1 ? 'is' : 'are'} used more than once.`,
+        });
         return;
       }
       setIsSaving(true);
@@ -718,17 +757,24 @@ const AggregateMenuHandler = forwardRef(
                           {isEditingThis ? (
                             <>
                               <div className="swagger-editor__aggregate-url-edit-fields">
-                                <input
-                                  type="text"
-                                  aria-label="Edit service name"
-                                  value={editUrlDraft.name}
-                                  onChange={(e) =>
-                                    setEditUrlDraft((prev) => ({ ...prev, name: e.target.value }))
-                                  }
-                                  onKeyDown={handleEditUrlKeyDown}
-                                  // eslint-disable-next-line jsx-a11y/no-autofocus
-                                  autoFocus
-                                />
+                                <div className="swagger-editor__aggregate-url-edit-field">
+                                  <input
+                                    type="text"
+                                    aria-label="Edit service name"
+                                    value={editUrlDraft.name}
+                                    onChange={(e) =>
+                                      setEditUrlDraft((prev) => ({ ...prev, name: e.target.value }))
+                                    }
+                                    onKeyDown={handleEditUrlKeyDown}
+                                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                                    autoFocus
+                                  />
+                                  {editUrlNameWarning && (
+                                    <p className="swagger-editor__aggregate-url-warning">
+                                      {editUrlNameWarning}
+                                    </p>
+                                  )}
+                                </div>
                                 <div className="swagger-editor__aggregate-url-edit-field">
                                   <input
                                     type="text"
@@ -757,7 +803,7 @@ const AggregateMenuHandler = forwardRef(
                                 <button
                                   type="button"
                                   className="btn btn-primary"
-                                  disabled={!editUrlDraft.url.trim()}
+                                  disabled={!editUrlDraft.url.trim() || Boolean(editUrlNameWarning)}
                                   onClick={handleSaveEditUrlClick}
                                 >
                                   Save
@@ -839,6 +885,9 @@ const AggregateMenuHandler = forwardRef(
                         autoFocus
                         onChange={(e) => setNewUrlName(e.target.value)}
                       />
+                      {newUrlNameWarning && (
+                        <p className="swagger-editor__aggregate-url-warning">{newUrlNameWarning}</p>
+                      )}
                     </div>
                     <div className="input-group swagger-editor__aggregate-add-url-value">
                       {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
@@ -857,32 +906,46 @@ const AggregateMenuHandler = forwardRef(
                         <p className="swagger-editor__aggregate-url-warning">{newUrlWarning}</p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary swagger-editor__aggregate-add-url-button"
-                      disabled={editingUrlIndex !== null}
-                      onClick={handleAddUrlClick}
-                    >
-                      Add URL
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={editingUrlIndex !== null}
-                      onClick={handleOpenRepoBrowserClick}
-                    >
-                      Browse GitHub repositories…
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      aria-label="Hide add-service fields"
-                      title="Hide add-service fields"
-                      disabled={editingUrlIndex !== null}
-                      onClick={handleDoneAddingUrlClick}
-                    >
-                      ×
-                    </button>
+                    <div className="swagger-editor__aggregate-add-url-actions">
+                      {/* An invisible spacer matching .input-group label's own
+                          size (see _modal.scss) -- lines this button row up
+                          with its sibling inputs' own top edge, rather than
+                          fighting the labels' height with a hardcoded offset. */}
+                      <span
+                        className="swagger-editor__aggregate-add-url-actions-spacer"
+                        aria-hidden="true"
+                      >
+                        &nbsp;
+                      </span>
+                      <div className="swagger-editor__aggregate-add-url-buttons">
+                        <button
+                          type="button"
+                          className="btn btn-secondary swagger-editor__aggregate-add-url-button"
+                          disabled={editingUrlIndex !== null || Boolean(newUrlNameWarning)}
+                          onClick={handleAddUrlClick}
+                        >
+                          Add URL
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={editingUrlIndex !== null}
+                          onClick={handleOpenRepoBrowserClick}
+                        >
+                          Browse GitHub repositories…
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          aria-label="Hide add-service fields"
+                          title="Hide add-service fields"
+                          disabled={editingUrlIndex !== null}
+                          onClick={handleDoneAddingUrlClick}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <button

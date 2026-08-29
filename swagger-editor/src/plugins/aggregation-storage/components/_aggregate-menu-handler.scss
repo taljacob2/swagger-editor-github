@@ -343,7 +343,13 @@
 
   &__aggregate-add-url-row {
     display: flex;
-    align-items: flex-end;
+    // flex-start, not flex-end: every column here (the two labeled inputs,
+    // and the button row's own invisible label-height spacer below) starts
+    // its real content at the same distance from the row's top, so aligning
+    // tops is what actually lines the input boxes up with the buttons --
+    // flex-end instead would have re-broken that the moment a warning line
+    // (see newUrlWarning) made one input column taller than the others.
+    align-items: flex-start;
     gap: 0.5rem;
     margin: 0.75rem 0;
 
@@ -362,9 +368,41 @@
 
   &__aggregate-add-url-value {
     flex: 1 1 auto;
+    // Without this, the flex item's default min-width (auto, derived from
+    // its own <input>'s intrinsic content width) can refuse to shrink far
+    // enough to leave room for the buttons alongside it, forcing an
+    // overflow instead of the shrink flex: 1 1 auto is supposed to allow.
+    min-width: 0;
 
     @include mobile {
       flex: 1 1 100%;
+    }
+  }
+
+  &__aggregate-add-url-actions {
+    display: flex;
+    flex-direction: column;
+
+    @include mobile {
+      flex: 1 1 100%;
+    }
+  }
+
+  // Matches .input-group label's own display/margin/font-size (see
+  // _modal.scss) exactly, rather than a hardcoded pixel offset that would
+  // drift out of sync if that label rule ever changes.
+  &__aggregate-add-url-actions-spacer {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  &__aggregate-add-url-buttons {
+    display: flex;
+    gap: 0.5rem;
+
+    @include mobile {
+      flex-wrap: wrap;
     }
   }
 
