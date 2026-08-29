@@ -10,6 +10,7 @@ function provenanceStorageKey(tabId) {
 // an edit made in the merged view back to the source file(s) it came from.
 //
 // {
+//   setId,                // absent on a record saved before this field existed
 //   setName,
 //   sources: [{ name, url, apiBaseUrl, owner, repo, path, ref, baselineContent }],
 //   provenance,           // mergeSpecs's own provenance map, from aggregateSet

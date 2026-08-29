@@ -9,6 +9,10 @@ import {
 } from '@primer/octicons-react';
 
 import { diffAggregatedSpecs } from '../../aggregation-storage/aggregation-diff-service.js';
+import {
+  getAggregationSet,
+  getStorageSettings,
+} from '../../aggregation-storage/aggregation-storage-service.js';
 import { applySourcePatch } from '../../aggregation-storage/source-patch-service.js';
 import { getConnectionSettings } from '../../github-connection/github-connection-service.js';
 import { getFileContent } from '../../github-repo-browser/github-repo-browser-service.js';
@@ -226,6 +230,37 @@ const SuggestAggregatedPrsModal = ({ getComponent, isOpen, onClose, tabId = null
       return;
     }
     try {
+      const connection = await getConnectionSettings();
+
+      // Editing the saved set (renaming/adding/removing a service) is a
+      // set-level action that never reaches a tab this set was already
+      // aggregated into -- the tab keeps whatever provenance record it got
+      // at Aggregate time, the same way it keeps whatever merged text it
+      // got (see the per-source drift check below for that half). A rename
+      // is exactly how a name collision like the one groupResolvedOpsBySource
+      // now guards against can go undetected in the record for a long time:
+      // the Edit Set form's own duplicate check only runs at save time, so
+      // renaming *away* from a collision fixes the set but leaves every tab
+      // already aggregated from it still routing changes through the old,
+      // colliding names. Comparing the set's current service names against
+      // what this record has catches that -- and any other set edit -- up
+      // front, before trusting the record for anything.
+      if (record.setId) {
+        const currentSet = await getAggregationSet(
+          record.setId,
+          getStorageSettings(),
+          connection
+        ).catch(() => null);
+        if (currentSet) {
+          const recordNames = record.sources.map((source) => source.name).sort();
+          const currentNames = (currentSet.swaggerUrls || []).map((entry) => entry.name).sort();
+          if (JSON.stringify(recordNames) !== JSON.stringify(currentNames)) {
+            setState({ ...emptyState, phase: 'set-changed', record });
+            return;
+          }
+        }
+      }
+
       const baseline = YAML.load(record.baselineMergedText);
       const current = YAML.load(getTabContent(tabId));
       const { resolved, unresolved: diffUnresolved } = diffAggregatedSpecs(baseline, current);
@@ -251,7 +286,6 @@ const SuggestAggregatedPrsModal = ({ getComponent, isOpen, onClose, tabId = null
         return;
       }
 
-      const connection = await getConnectionSettings();
       const touchedNames = [...bySource.keys()];
       const { freshBySource, fetchFailed } = await fetchFreshForSources(
         record,
@@ -438,6 +472,15 @@ const SuggestAggregatedPrsModal = ({ getComponent, isOpen, onClose, tabId = null
         {state.phase === 'working' && <p className="help-block">{state.workingLabel}</p>}
 
         {state.phase === 'error' && <p className="text-danger">{state.message}</p>}
+
+        {state.phase === 'set-changed' && (
+          <p className="text-danger">
+            <code>{record.setName}</code> has been renamed, or had a service added or removed, since
+            it was aggregated into this tab — this tab is still routing changes using the old
+            service names. Re-run Aggregate on this set to update this tab, then try Suggest pull
+            requests again.
+          </p>
+        )}
 
         {state.phase === 'nothing-to-suggest' && (
           <p className="help-block">

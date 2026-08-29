@@ -1288,6 +1288,7 @@ describe('AggregateMenuHandler', () => {
 
       expect(getLinkedTarget(activeTabId)).toBeNull();
       expect(getAggregationProvenance(activeTabId)).toEqual({
+        setId: 'set-1',
         setName: 'Orders',
         sources: [
           {

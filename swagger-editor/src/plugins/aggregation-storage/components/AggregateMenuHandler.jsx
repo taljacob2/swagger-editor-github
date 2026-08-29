@@ -384,6 +384,7 @@ const AggregateMenuHandler = forwardRef(
         // before.
         removeLinkedTarget(activeTabId);
         setAggregationProvenance(activeTabId, {
+          setId: set.id,
           setName: set.name,
           sources: result.sources.map((source) => {
             const parsed = parseGitHubFileUrl(source.url, connection.apiBaseUrl);

@@ -3,12 +3,14 @@ import PropTypes from 'prop-types';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import SuggestAggregatedPrsModal from './SuggestAggregatedPrsModal.jsx';
+import * as aggregationStorageService from '../../aggregation-storage/aggregation-storage-service.js';
 import * as githubConnectionService from '../../github-connection/github-connection-service.js';
 import * as githubRepoBrowserService from '../../github-repo-browser/github-repo-browser-service.js';
 import * as suggestPrService from '../suggest-pr-service.js';
 import * as aggregationProvenanceService from '../aggregation-provenance-service.js';
 import * as workspaceTabsService from '../workspace-tabs-service.js';
 
+vi.mock('../../aggregation-storage/aggregation-storage-service.js');
 vi.mock('../../github-connection/github-connection-service.js');
 vi.mock('../../github-repo-browser/github-repo-browser-service.js');
 vi.mock('../suggest-pr-service.js');
@@ -99,6 +101,16 @@ describe('SuggestAggregatedPrsModal', () => {
       content: repo === 'users' ? USERS_SOURCE.baselineContent : ORDERS_SOURCE.baselineContent,
     }));
     workspaceTabsService.getTabContent.mockReturnValue(BASELINE_MERGED_TEXT);
+    // RECORD carries no setId (the field this set-changed check relies on
+    // didn't exist when it was aggregated), so run() skips the check
+    // entirely without ever calling this -- set only so a test that does
+    // give the record a setId isn't tripped up by a stale default.
+    aggregationStorageService.getStorageSettings.mockReturnValue({
+      owner: 'octo-org',
+      repo: 'sets-repo',
+      branch: 'main',
+    });
+    aggregationStorageService.getAggregationSet.mockResolvedValue(null);
   });
 
   test('renders nothing when closed', () => {
@@ -128,6 +140,62 @@ describe('SuggestAggregatedPrsModal', () => {
     await waitFor(() =>
       expect(screen.getByText(/aggregation link is missing/)).toBeInTheDocument()
     );
+  });
+
+  test('warns instead of routing changes when the saved set was renamed since this tab was aggregated', async () => {
+    // Reproduces the real report: the record was saved with setId, but the
+    // set's service names have since diverged (a rename, in this case) --
+    // this must be caught before the record is ever trusted for routing.
+    aggregationProvenanceService.getAggregationProvenance.mockReturnValue({
+      ...RECORD,
+      setId: 'set-1',
+    });
+    aggregationStorageService.getAggregationSet.mockResolvedValue({
+      id: 'set-1',
+      name: 'My Set',
+      swaggerUrls: [{ name: 'Users' }, { name: 'Orders (renamed)' }],
+    });
+    workspaceTabsService.getTabContent.mockReturnValue(
+      'paths:\n  /users:\n    get:\n      summary: List all users\n  /orders:\n    get:\n      summary: List orders\n'
+    );
+
+    render(
+      <SuggestAggregatedPrsModal
+        getComponent={getComponent}
+        isOpen
+        tabId="tab-1"
+        onClose={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText(/has been renamed/)).toBeInTheDocument());
+    expect(screen.queryByText('octo-org/users')).not.toBeInTheDocument();
+  });
+
+  test('proceeds normally when the setId is present but the set has not changed', async () => {
+    aggregationProvenanceService.getAggregationProvenance.mockReturnValue({
+      ...RECORD,
+      setId: 'set-1',
+    });
+    aggregationStorageService.getAggregationSet.mockResolvedValue({
+      id: 'set-1',
+      name: 'My Set',
+      swaggerUrls: [{ name: 'Orders' }, { name: 'Users' }],
+    });
+    workspaceTabsService.getTabContent.mockReturnValue(
+      'paths:\n  /users:\n    get:\n      summary: List all users\n  /orders:\n    get:\n      summary: List orders\n'
+    );
+
+    render(
+      <SuggestAggregatedPrsModal
+        getComponent={getComponent}
+        isOpen
+        tabId="tab-1"
+        onClose={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('octo-org/users')).toBeInTheDocument());
   });
 
   test('reports nothing to suggest when the tab matches its baseline', async () => {
