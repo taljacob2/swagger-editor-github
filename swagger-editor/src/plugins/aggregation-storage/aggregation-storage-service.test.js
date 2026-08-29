@@ -7,7 +7,9 @@ import {
   deleteAggregationSet,
   doesBranchExist,
   ensureDataBranch,
+  findDuplicateNames,
   getAggregationSet,
+  getDuplicateNameWarning,
   getRepoDefaultBranch,
   getStorageSettings,
   getSwaggerUrlWarning,
@@ -15,6 +17,7 @@ import {
   moveSwaggerUrl,
   saveAggregationSet,
   saveStorageSettings,
+  uniqueServiceName,
 } from './aggregation-storage-service.js';
 
 const CONNECTION = { apiBaseUrl: 'https://api.github.com', token: 'test-token' };
@@ -645,5 +648,67 @@ describe('aggregation-storage-service', () => {
     test('flags a URL with no recognized spec-file extension', () => {
       expect(getSwaggerUrlWarning('https://example.com/owner/repo')).toMatch(/spec file/);
     });
+  });
+});
+
+describe('uniqueServiceName', () => {
+  test('returns the base name unchanged when nothing else has it', () => {
+    expect(uniqueServiceName('Orders', ['Users'])).toBe('Orders');
+  });
+
+  test('appends " 2" when the base name is already taken', () => {
+    expect(uniqueServiceName('Orders', ['Orders'])).toBe('Orders 2');
+  });
+
+  test('keeps incrementing past an already-taken suffix', () => {
+    expect(uniqueServiceName('Orders', ['Orders', 'Orders 2', 'Orders 3'])).toBe('Orders 4');
+  });
+
+  test('is unaffected by a gap in existing suffixes', () => {
+    expect(uniqueServiceName('Orders', ['Orders', 'Orders 3'])).toBe('Orders 2');
+  });
+});
+
+describe('getDuplicateNameWarning', () => {
+  const urls = (...names) => names.map((name) => ({ name, url: `https://x/${name}.yaml` }));
+
+  test('returns null for a blank name', () => {
+    expect(getDuplicateNameWarning('  ', urls('Orders'))).toBeNull();
+  });
+
+  test('returns null when the trimmed name is not used yet', () => {
+    expect(getDuplicateNameWarning('Users', urls('Orders'))).toBeNull();
+  });
+
+  test('flags a name that matches an existing entry', () => {
+    expect(getDuplicateNameWarning('Orders', urls('Orders'))).toMatch(/already in this set/);
+  });
+
+  test('trims before comparing', () => {
+    expect(getDuplicateNameWarning('  Orders  ', urls('Orders'))).toMatch(/already in this set/);
+  });
+
+  test('excludeIndex lets an entry compare against every other entry but itself', () => {
+    const swaggerUrls = urls('Orders', 'Users');
+    expect(getDuplicateNameWarning('Orders', swaggerUrls, 0)).toBeNull();
+    expect(getDuplicateNameWarning('Users', swaggerUrls, 0)).toMatch(/already in this set/);
+  });
+});
+
+describe('findDuplicateNames', () => {
+  const urls = (...names) => names.map((name) => ({ name, url: `https://x/${name}.yaml` }));
+
+  test('returns an empty list when every name is unique', () => {
+    expect(findDuplicateNames(urls('Orders', 'Users'))).toEqual([]);
+  });
+
+  test('reports a name used more than once', () => {
+    expect(findDuplicateNames(urls('Orders', 'Orders'))).toEqual(['Orders']);
+  });
+
+  test('reports each distinct name that repeats, once each', () => {
+    expect(
+      findDuplicateNames(urls('Orders', 'Orders', 'Users', 'Users', 'Billing')).sort()
+    ).toEqual(['Orders', 'Users']);
   });
 });

@@ -146,6 +146,56 @@ export function moveSwaggerUrl(swaggerUrls, index, direction) {
 // needing a separate "does this look cut off" heuristic of its own.
 const SPEC_FILE_EXTENSION_RE = /\.(ya?ml|json)$/i;
 
+// Each service's name is also the key mergeSpecs (aggregation-merge-service.js)
+// and its own provenance map use to trace a change back to a source -- two
+// entries sharing a name aren't just a confusing display, they're
+// indistinguishable to that lookup, so the second one silently shadows the
+// first wherever the name is used as a key. Appends " 2", " 3", ... until
+// distinct, the same suffix style used elsewhere for a name collision (e.g.
+// duplicateTab's "<name> copy").
+export function uniqueServiceName(baseName, existingNames) {
+  const taken = new Set(existingNames);
+  if (!taken.has(baseName)) {
+    return baseName;
+  }
+  let suffix = 2;
+  while (taken.has(`${baseName} ${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseName} ${suffix}`;
+}
+
+// A live, non-blocking hint (same treatment as getSwaggerUrlWarning) for a
+// name that collides with another entry already in the set -- excludeIndex
+// lets the entry currently being edited compare against every *other*
+// entry without always flagging itself.
+export function getDuplicateNameWarning(name, swaggerUrls, excludeIndex = null) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const isDuplicate = swaggerUrls.some(
+    (entry, index) => index !== excludeIndex && entry.name === trimmed
+  );
+  return isDuplicate ? `A service named "${trimmed}" is already in this set.` : null;
+}
+
+// The hard backstop behind the live warning above -- checked once at save
+// time so a set can never actually be persisted with two same-named
+// services, regardless of how the duplicate got there (including one
+// loaded from storage before this validation existed).
+export function findDuplicateNames(swaggerUrls) {
+  const seen = new Set();
+  const duplicates = new Set();
+  swaggerUrls.forEach((entry) => {
+    if (seen.has(entry.name)) {
+      duplicates.add(entry.name);
+    }
+    seen.add(entry.name);
+  });
+  return [...duplicates];
+}
+
 export function getSwaggerUrlWarning(url) {
   const trimmed = url.trim();
   if (!trimmed) {
