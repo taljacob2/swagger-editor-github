@@ -18,19 +18,6 @@
     font-size: 0.8rem;
   }
 
-  // .help-block is normally pulled tight *under* an input (an attached
-  // note), but this one introduces the linking form instead -- it needs
-  // its own breathing room below, separating it from the "GitHub file URL"
-  // label and input that follow, rather than reading like it belongs to
-  // whatever came before it. Written as .help-block.swagger-editor__… (not
-  // just the BEM class) and repeated below under .ReactModalPortal: the
-  // base .help-block rule (styles/_modal.scss) is itself scoped under
-  // .ReactModalPortal, at 2-class specificity and loaded after this file in
-  // main.scss, so a single-class override here would silently lose to it.
-  &__suggest-pr-link-intro.help-block {
-    margin-bottom: 1.25rem;
-  }
-
   // GitHub's own PR-page convention: a compact "+N -M" count above the
   // diff, giving the size of the change its own visual weight before the
   // reader even scans a single line.
@@ -190,9 +177,14 @@
   }
 }
 
-// Same margin-bottom as .swagger-editor__suggest-pr-link-intro.help-block
-// above, at the 3-class specificity that actually beats the base
-// .ReactModalPortal .help-block rule this modal renders under.
+// .help-block is normally pulled tight *under* an input (an attached note),
+// but this one introduces the linking form instead -- it needs its own
+// breathing room below, separating it from the "GitHub file URL" label and
+// input that follow, rather than reading like it belongs to whatever came
+// before it. Needs the .ReactModalPortal ancestor and .help-block class
+// both present, at 3-class specificity, to beat the base .help-block rule
+// (styles/_modal.scss, also scoped under .ReactModalPortal) it would
+// otherwise lose to regardless of import order.
 .ReactModalPortal .help-block.swagger-editor__suggest-pr-link-intro {
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
 }
