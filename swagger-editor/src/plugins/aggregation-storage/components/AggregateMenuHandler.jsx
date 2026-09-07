@@ -23,11 +23,13 @@ import {
   findDuplicateNames,
   getDuplicateNameWarning,
   getRepoDefaultBranch,
+  getSelectedServiceNames,
   getStorageSettings,
   getSwaggerUrlWarning,
   listAggregationSets,
   moveSwaggerUrl,
   saveAggregationSet,
+  saveSelectedServiceNames,
   saveStorageSettings,
   uniqueServiceName,
 } from '../aggregation-storage-service.js';
@@ -78,6 +80,7 @@ const AggregateMenuHandler = forwardRef(
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
     const [aggregatingId, setAggregatingId] = useState(null);
+    const [selectedServiceNames, setSelectedServiceNames] = useState({});
     const [canWrite, setCanWrite] = useState(false);
     const [repoDefaultBranch, setRepoDefaultBranch] = useState(null);
     const [branchExists, setBranchExists] = useState(null);
@@ -366,13 +369,40 @@ const AggregateMenuHandler = forwardRef(
       }
     };
 
+    // The checked names for a set: an override the user already toggled
+    // this session, or else the last selection remembered for this browser
+    // (see getSelectedServiceNames), defaulting to "everything".
+    const getSelectedFor = (set) => {
+      const allNames = (set.swaggerUrls || []).map((entry) => entry.name);
+      return selectedServiceNames[set.id] ?? getSelectedServiceNames(set.id, allNames);
+    };
+
+    const handleToggleServiceClick = (set, name) => {
+      const current = getSelectedFor(set);
+      const next = current.includes(name)
+        ? current.filter((selectedName) => selectedName !== name)
+        : [...current, name];
+      setSelectedServiceNames((prev) => ({ ...prev, [set.id]: next }));
+      saveSelectedServiceNames(set.id, next);
+    };
+
     const handleAggregateClick = async (set) => {
+      const urls = set.swaggerUrls || [];
+      const selectedNames = getSelectedFor(set);
+      const selectedUrls = urls.filter((entry) => selectedNames.includes(entry.name));
+      // Only a set that HAS services but has all of them unchecked is
+      // blocked here -- a set with none configured yet behaves exactly as
+      // it always has (whatever aggregateSet does with an empty list).
+      if (urls.length > 0 && selectedUrls.length === 0) {
+        setStatus({ ok: false, message: 'Select at least one service to aggregate.' });
+        return;
+      }
       setAggregatingId(set.id);
       setStatus(null);
       setShowConflictDetails(false);
       try {
         const connection = await getConnectionSettings();
-        const result = await aggregateSet(set, connection);
+        const result = await aggregateSet({ ...set, swaggerUrls: selectedUrls }, connection);
         const { activeTabId } = getWorkspaceMeta();
         editorActions.setContent(result.yaml, EditorContentOrigin.Aggregation);
 
@@ -687,12 +717,14 @@ const AggregateMenuHandler = forwardRef(
                 <ul className="swagger-editor__aggregate-set-list">
                   {sets.map((set) => {
                     const urls = set.swaggerUrls || [];
+                    const selectedNames = getSelectedFor(set);
                     return (
                       <li key={set.id} className="swagger-editor__aggregate-set-card">
                         <div className="swagger-editor__aggregate-set-info">
                           <div className="swagger-editor__aggregate-set-name">{set.name}</div>
                           <div className="swagger-editor__aggregate-set-meta">
-                            {urls.length} service{urls.length === 1 ? '' : 's'}
+                            {selectedNames.length} of {urls.length} service
+                            {urls.length === 1 ? '' : 's'} selected
                           </div>
                           {urls.length > 0 && (
                             <ul className="swagger-editor__aggregate-set-chips">
@@ -700,9 +732,16 @@ const AggregateMenuHandler = forwardRef(
                                 <li
                                   // eslint-disable-next-line react/no-array-index-key
                                   key={`${entry.url}-${index}`}
-                                  className="swagger-editor__aggregate-chip"
                                 >
-                                  {entry.name}
+                                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                                  <label className="swagger-editor__aggregate-chip">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedNames.includes(entry.name)}
+                                      onChange={() => handleToggleServiceClick(set, entry.name)}
+                                    />
+                                    {entry.name}
+                                  </label>
                                 </li>
                               ))}
                             </ul>
@@ -713,7 +752,10 @@ const AggregateMenuHandler = forwardRef(
                             type="button"
                             className="btn btn-primary"
                             onClick={() => handleAggregateClick(set)}
-                            disabled={aggregatingId === set.id}
+                            disabled={
+                              aggregatingId === set.id ||
+                              (urls.length > 0 && selectedNames.length === 0)
+                            }
                           >
                             {aggregatingId === set.id ? 'Aggregating…' : 'Aggregate'}
                           </button>

@@ -120,6 +120,40 @@ export function saveStorageSettings({ owner, repo, branch }) {
   return settings;
 }
 
+const SELECTED_SERVICES_KEY = 'github-editor:aggregation-selected-services';
+
+function readSelectedServicesMap() {
+  try {
+    const raw = localStorage.getItem(SELECTED_SERVICES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Ephemeral, browser-local service selection for a set's "Aggregate" run --
+// deliberately not part of the set itself (never written to the shared
+// aggregation-sets/<id>.json), so unchecking a service here can't silently
+// narrow what a teammate gets when they open the same saved set. Falls back
+// to "everything selected" both when nothing was saved yet and when the
+// saved names no longer match any of the set's current services (renamed or
+// removed since the last save) -- an empty-looking picker would otherwise
+// read as a bug rather than stale state.
+export function getSelectedServiceNames(setId, allNames) {
+  const saved = readSelectedServicesMap()[setId];
+  if (!Array.isArray(saved)) {
+    return allNames;
+  }
+  const stillValid = saved.filter((name) => allNames.includes(name));
+  return stillValid.length ? stillValid : allNames;
+}
+
+export function saveSelectedServiceNames(setId, names) {
+  const map = readSelectedServicesMap();
+  map[setId] = names;
+  localStorage.setItem(SELECTED_SERVICES_KEY, JSON.stringify(map));
+}
+
 // Order is functionally meaningful, not just cosmetic: mergeSpecs iterates
 // swaggerUrls in array order, so for non-colliding paths/tags/components,
 // whichever service is first here ends up first in the merged output. Same

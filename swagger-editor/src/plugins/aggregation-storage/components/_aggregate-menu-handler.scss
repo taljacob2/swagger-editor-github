@@ -194,12 +194,21 @@
   }
 
   &__aggregate-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
     font-size: 0.7rem;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
     color: #00707d;
     background-color: rgba(0, 160, 180, 0.08);
     border: 1px solid rgba(0, 160, 180, 0.25);
+    cursor: pointer;
+
+    input[type='checkbox'] {
+      margin: 0;
+      cursor: pointer;
+    }
   }
 
   &__aggregate-set-actions {
