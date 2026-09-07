@@ -3,7 +3,12 @@ import {
   listOperations,
   operationKey,
   parseSpecContent,
+  removeOperation,
   removeOperationFromContent,
+  removeOperationsFromContent,
+  restoreOperation,
+  restoreOperationInContent,
+  restoreOperationsInContent,
   serializeSpec,
 } from './operation-filter-service.js';
 
@@ -36,10 +41,16 @@ describe('listOperations', () => {
     };
 
     expect(listOperations(spec)).toEqual([
-      { key: 'PUT /pet', path: '/pet', method: 'put' },
-      { key: 'POST /pet', path: '/pet', method: 'post' },
-      { key: 'GET /pet/{petId}', path: '/pet/{petId}', method: 'get' },
+      { key: 'PUT /pet', path: '/pet', method: 'put', tags: [] },
+      { key: 'POST /pet', path: '/pet', method: 'post', tags: [] },
+      { key: 'GET /pet/{petId}', path: '/pet/{petId}', method: 'get', tags: [] },
     ]);
+  });
+
+  test("includes each operation's own tags", () => {
+    const spec = { paths: { '/pet': { get: { tags: ['pet', 'read'] } } } };
+
+    expect(listOperations(spec)[0].tags).toEqual(['pet', 'read']);
   });
 
   test('ignores non-operation path-item fields', () => {
@@ -53,7 +64,9 @@ describe('listOperations', () => {
       },
     };
 
-    expect(listOperations(spec)).toEqual([{ key: 'GET /pet', path: '/pet', method: 'get' }]);
+    expect(listOperations(spec)).toEqual([
+      { key: 'GET /pet', path: '/pet', method: 'get', tags: [] },
+    ]);
   });
 
   test('returns an empty list for a spec with no paths', () => {
@@ -256,7 +269,93 @@ describe('serializeSpec', () => {
   });
 });
 
-describe('removeOperationFromContent', () => {
+describe('removeOperation', () => {
+  test('returns the pruned spec and a record of what was removed', () => {
+    const spec = {
+      paths: {
+        '/pet': {
+          get: {
+            tags: ['pet'],
+            responses: { 200: { $ref: '#/components/responses/PetResponse' } },
+          },
+        },
+      },
+      tags: [{ name: 'pet' }],
+      components: { responses: { PetResponse: { description: 'a pet' } } },
+    };
+
+    const result = removeOperation(spec, '/pet', 'get');
+
+    expect(result.spec).not.toHaveProperty('paths');
+    expect(result.record).toEqual({
+      path: '/pet',
+      method: 'get',
+      operation: spec.paths['/pet'].get,
+      removedComponents: { responses: { PetResponse: { description: 'a pet' } } },
+      removedTags: [{ name: 'pet' }],
+    });
+  });
+
+  test('returns null when the operation is not in the spec', () => {
+    expect(removeOperation({ paths: {} }, '/pet', 'get')).toBeNull();
+  });
+});
+
+describe('restoreOperation', () => {
+  test('puts the operation, its components, and its tags back', () => {
+    const spec = { paths: {} };
+    const record = {
+      path: '/pet',
+      method: 'get',
+      operation: { tags: ['pet'], responses: {} },
+      removedComponents: { responses: { PetResponse: { description: 'a pet' } } },
+      removedTags: [{ name: 'pet' }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.paths['/pet'].get).toEqual(record.operation);
+    expect(restored.components.responses.PetResponse).toEqual({ description: 'a pet' });
+    expect(restored.tags).toEqual([{ name: 'pet' }]);
+  });
+
+  test('adds to an existing path item without disturbing its other operations', () => {
+    const spec = { paths: { '/pet': { post: { summary: 'add' } } } };
+    const record = { path: '/pet', method: 'get', operation: { summary: 'list' } };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.paths['/pet']).toEqual({ post: { summary: 'add' }, get: { summary: 'list' } });
+  });
+
+  test('does not duplicate a component or tag already present', () => {
+    const spec = {
+      components: { responses: { PetResponse: { description: 'current' } } },
+      tags: [{ name: 'pet', description: 'current' }],
+      paths: {},
+    };
+    const record = {
+      path: '/pet',
+      method: 'get',
+      operation: {},
+      removedComponents: { responses: { PetResponse: { description: 'stale' } } },
+      removedTags: [{ name: 'pet', description: 'stale' }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.components.responses.PetResponse).toEqual({ description: 'current' });
+    expect(restored.tags).toEqual([{ name: 'pet', description: 'current' }]);
+  });
+
+  test('does not mutate the input spec', () => {
+    const spec = { paths: {} };
+    restoreOperation(spec, { path: '/pet', method: 'get', operation: {} });
+    expect(spec.paths).toEqual({});
+  });
+});
+
+describe('removeOperationFromContent / removeOperationsFromContent', () => {
   const YAML_SPEC = [
     'openapi: 3.0.0',
     'paths:',
@@ -270,15 +369,16 @@ describe('removeOperationFromContent', () => {
     const result = removeOperationFromContent(YAML_SPEC, '/pet/findByStatus', 'get', true);
 
     expect(result).not.toBeNull();
-    expect(result).not.toContain('findByStatus');
-    expect(result).toContain('/pet:');
+    expect(result.content).not.toContain('findByStatus');
+    expect(result.content).toContain('/pet:');
+    expect(result.record).toMatchObject({ path: '/pet/findByStatus', method: 'get' });
   });
 
   test('serializes as JSON when isYAML is false', () => {
     const result = removeOperationFromContent(YAML_SPEC, '/pet/findByStatus', 'get', false);
 
-    expect(() => JSON.parse(result)).not.toThrow();
-    expect(result).not.toContain('findByStatus');
+    expect(() => JSON.parse(result.content)).not.toThrow();
+    expect(result.content).not.toContain('findByStatus');
   });
 
   test('returns null when the content cannot be parsed', () => {
@@ -287,5 +387,73 @@ describe('removeOperationFromContent', () => {
 
   test('returns null when the named operation is already gone', () => {
     expect(removeOperationFromContent(YAML_SPEC, '/pet/missing', 'get', true)).toBeNull();
+  });
+
+  test('removeOperationsFromContent removes several operations in one pass', () => {
+    const result = removeOperationsFromContent(
+      YAML_SPEC,
+      [
+        { path: '/pet', method: 'post' },
+        { path: '/pet/findByStatus', method: 'get' },
+      ],
+      true
+    );
+
+    expect(result.records).toHaveLength(2);
+    expect(result.content).not.toContain('paths');
+  });
+
+  test('removeOperationsFromContent skips keys that are not in the spec, keeping the rest', () => {
+    const result = removeOperationsFromContent(
+      YAML_SPEC,
+      [
+        { path: '/pet', method: 'post' },
+        { path: '/missing', method: 'get' },
+      ],
+      true
+    );
+
+    expect(result.records).toHaveLength(1);
+  });
+
+  test('removeOperationsFromContent returns null when nothing in keys is found', () => {
+    expect(
+      removeOperationsFromContent(YAML_SPEC, [{ path: '/missing', method: 'get' }], true)
+    ).toBeNull();
+  });
+});
+
+describe('restoreOperationInContent / restoreOperationsInContent', () => {
+  const YAML_SPEC = ['openapi: 3.0.0', 'paths:', '  /pet:', '    post: {}'].join('\n');
+
+  test('restores a single record into the current content', () => {
+    const content = restoreOperationInContent(
+      YAML_SPEC,
+      { path: '/pet/findByStatus', method: 'get', operation: { summary: 'list' } },
+      true
+    );
+
+    expect(content).toContain('findByStatus');
+    expect(content).toContain('post:');
+  });
+
+  test('restores several records in one pass', () => {
+    const content = restoreOperationsInContent(
+      YAML_SPEC,
+      [
+        { path: '/pet/findByStatus', method: 'get', operation: {} },
+        { path: '/store/order', method: 'post', operation: {} },
+      ],
+      true
+    );
+
+    expect(content).toContain('findByStatus');
+    expect(content).toContain('/store/order');
+  });
+
+  test('returns null when the current content cannot be parsed', () => {
+    expect(
+      restoreOperationInContent('{ not: valid: yaml: [', { path: '/pet', method: 'get' }, true)
+    ).toBeNull();
   });
 });

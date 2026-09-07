@@ -57,7 +57,12 @@ export function listOperations(spec) {
       if (!operation || typeof operation !== 'object') {
         return;
       }
-      operations.push({ key: operationKey(path, method), path, method });
+      operations.push({
+        key: operationKey(path, method),
+        path,
+        method,
+        tags: operation.tags || [],
+      });
     });
   });
   return operations;
@@ -230,24 +235,149 @@ export function serializeSpec(spec, isYAML) {
   return isYAML ? YAML.dump(spec, { lineWidth: -1 }) : JSON.stringify(spec, null, 2);
 }
 
-// The content the editor should switch to once `path`/`method` is removed --
-// parses `content`, drops that one operation (and anything only it kept
-// reachable), and re-serializes matching the original format. Returns null
-// if `content` isn't parsable right now (e.g. mid-edit) or the operation is
-// already gone -- nothing sensible to do in either case.
-export function removeOperationFromContent(content, path, method, isYAML) {
+// Every components/<type>/<name> entry present in `before` but absent from
+// `after`, as { type: { name: definition } } -- what a removal step pruned
+// as a side effect, and therefore what a later restore of that same
+// operation needs to bring back.
+function diffComponents(before, after) {
+  const removed = {};
+  COMPONENT_TYPES.forEach((type) => {
+    const beforeType = before?.[type];
+    if (!beforeType) {
+      return;
+    }
+    const afterType = after?.[type] || {};
+    Object.entries(beforeType).forEach(([name, definition]) => {
+      if (!(name in afterType)) {
+        if (!removed[type]) removed[type] = {};
+        removed[type][name] = definition;
+      }
+    });
+  });
+  return removed;
+}
+
+// Every tag object present in `before` but absent (by name) from `after`.
+function diffTags(before, after) {
+  const afterNames = new Set((after || []).map((tag) => tag.name));
+  return (before || []).filter((tag) => !afterNames.has(tag.name));
+}
+
+// Removes one operation from `spec`, returning both the pruned spec and a
+// self-contained record of what that removal took with it -- the operation
+// itself, plus the components/tags that were only reachable because of it.
+// That record is exactly what restoreOperation needs later to put the
+// operation back exactly as it was, independent of whatever else has
+// changed in the spec since. Returns null if the operation isn't there.
+export function removeOperation(spec, path, method) {
+  const key = operationKey(path, method);
+  const allKeys = listOperations(spec).map((operation) => operation.key);
+  if (!allKeys.includes(key)) {
+    return null;
+  }
+  const operation = spec.paths[path][method];
+  const remainingKeys = allKeys.filter((k) => k !== key);
+  const nextSpec = buildSubsetSpec(spec, remainingKeys);
+  const record = {
+    path,
+    method,
+    operation,
+    removedComponents: diffComponents(spec.components, nextSpec.components),
+    removedTags: diffTags(spec.tags, nextSpec.tags),
+  };
+  return { spec: nextSpec, record };
+}
+
+// Puts a previously-removed operation (and whatever components/tags its
+// removal took with it) back into `spec`. Safe to apply against a spec
+// that's since been edited elsewhere -- it only ever adds the path/
+// components/tags the record names, in addition to whatever else the
+// current spec has going on. Doesn't mutate `spec`.
+export function restoreOperation(spec, record) {
+  const nextSpec = { ...spec };
+
+  const paths = { ...(spec.paths || {}) };
+  paths[record.path] = { ...(paths[record.path] || {}), [record.method]: record.operation };
+  nextSpec.paths = paths;
+
+  if (record.removedComponents && Object.keys(record.removedComponents).length > 0) {
+    const components = { ...(spec.components || {}) };
+    Object.entries(record.removedComponents).forEach(([type, definitions]) => {
+      const existing = { ...(components[type] || {}) };
+      Object.entries(definitions).forEach(([name, definition]) => {
+        if (!(name in existing)) {
+          existing[name] = definition;
+        }
+      });
+      components[type] = existing;
+    });
+    nextSpec.components = components;
+  }
+
+  if (record.removedTags && record.removedTags.length > 0) {
+    const existingTags = spec.tags || [];
+    const existingNames = new Set(existingTags.map((tag) => tag.name));
+    const toAdd = record.removedTags.filter((tag) => !existingNames.has(tag.name));
+    if (toAdd.length > 0) {
+      nextSpec.tags = [...existingTags, ...toAdd];
+    }
+  }
+
+  return nextSpec;
+}
+
+// The content the editor should switch to once every operation in `keys`
+// ([{ path, method }, ...]) is removed -- parses `content` once, removes
+// each in turn (each against the result of the last, so a later removal's
+// component/tag pruning correctly accounts for an earlier one in the same
+// batch), and re-serializes once matching the original format. Returns
+// null if content isn't parsable right now, or none of `keys` were found.
+export function removeOperationsFromContent(content, keys, isYAML) {
   let spec;
   try {
     spec = parseSpecContent(content);
   } catch {
     return null;
   }
-  const removedKey = operationKey(path, method);
-  const allKeys = listOperations(spec).map((operation) => operation.key);
-  if (!allKeys.includes(removedKey)) {
+  const records = [];
+  keys.forEach(({ path, method }) => {
+    const result = removeOperation(spec, path, method);
+    if (result) {
+      spec = result.spec;
+      records.push(result.record);
+    }
+  });
+  if (records.length === 0) {
     return null;
   }
-  const remainingKeys = allKeys.filter((key) => key !== removedKey);
-  const subset = buildSubsetSpec(spec, remainingKeys);
-  return serializeSpec(subset, isYAML);
+  return { content: serializeSpec(spec, isYAML), records };
+}
+
+// Single-operation convenience wrapper around removeOperationsFromContent,
+// for the common case (one checkbox unchecked).
+export function removeOperationFromContent(content, path, method, isYAML) {
+  const result = removeOperationsFromContent(content, [{ path, method }], isYAML);
+  return result && { content: result.content, record: result.records[0] };
+}
+
+// The content the editor should switch to once every record in `records`
+// is restored -- parses `content` once, restores each in turn, and
+// re-serializes once matching the original format. Returns null if content
+// isn't parsable right now.
+export function restoreOperationsInContent(content, records, isYAML) {
+  let spec;
+  try {
+    spec = parseSpecContent(content);
+  } catch {
+    return null;
+  }
+  records.forEach((record) => {
+    spec = restoreOperation(spec, record);
+  });
+  return serializeSpec(spec, isYAML);
+}
+
+// Single-record convenience wrapper around restoreOperationsInContent.
+export function restoreOperationInContent(content, record, isYAML) {
+  return restoreOperationsInContent(content, [record], isYAML);
 }

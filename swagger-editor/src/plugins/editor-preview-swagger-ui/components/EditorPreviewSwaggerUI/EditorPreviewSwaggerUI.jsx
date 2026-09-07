@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 
 const EditorPreviewSwaggerUI = ({ getComponent, editorPreviewSwaggerUIActions }) => {
   const BaseLayout = getComponent('BaseLayout', true); // accessed from swagger-ui
+  const RemovedOperationsBanner = getComponent('RemovedOperationsBanner', true);
 
   useEffect(() => {
     return () => {
@@ -12,6 +13,7 @@ const EditorPreviewSwaggerUI = ({ getComponent, editorPreviewSwaggerUIActions })
 
   return (
     <div className="swagger-editor__editor-preview-swagger-ui">
+      <RemovedOperationsBanner />
       <BaseLayout />
     </div>
   );

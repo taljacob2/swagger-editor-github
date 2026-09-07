@@ -4,6 +4,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 import OperationSummaryWrapper from './OperationSummaryWrapper.jsx';
 import { ContentOrigin } from '../../../../editor-content-origin/root-injects.js';
+import * as workspaceTabsService from '../../../../workspace-tabs/workspace-tabs-service.js';
+
+vi.mock('../../../../workspace-tabs/workspace-tabs-service.js');
 
 const Original = () => <div className="opblock-summary">Original row</div>;
 
@@ -27,6 +30,10 @@ const buildSystem = (overrides = {}) => ({
     setContent: vi.fn(),
     ...overrides.editorActions,
   },
+  editorPreviewSwaggerUIActions: {
+    recordOperationRemovals: vi.fn(),
+    ...overrides.editorPreviewSwaggerUIActions,
+  },
   EditorContentOrigin: ContentOrigin,
 });
 
@@ -36,6 +43,13 @@ const renderWrapped = (system, specPath = List(['paths', '/pet/findByStatus', 'g
 };
 
 describe('OperationSummaryWrapper', () => {
+  beforeEach(() => {
+    workspaceTabsService.getWorkspaceMeta.mockReturnValue({
+      tabs: [{ id: 'tab-1', name: 'Tab 1' }],
+      activeTabId: 'tab-1',
+    });
+  });
+
   test('renders a checked checkbox alongside the original row', () => {
     renderWrapped(buildSystem());
 
@@ -43,7 +57,7 @@ describe('OperationSummaryWrapper', () => {
     expect(screen.getByText('Original row')).toBeInTheDocument();
   });
 
-  test('unchecking removes that operation from the editor content', () => {
+  test('unchecking removes that operation from the editor content and records the removal', () => {
     const system = buildSystem();
     renderWrapped(system);
 
@@ -54,6 +68,11 @@ describe('OperationSummaryWrapper', () => {
     expect(content).not.toContain('findByStatus');
     expect(content).toContain('/pet:');
     expect(origin).toBe(ContentOrigin.EndpointFilter);
+
+    expect(system.editorPreviewSwaggerUIActions.recordOperationRemovals).toHaveBeenCalledWith({
+      tabId: 'tab-1',
+      records: [expect.objectContaining({ path: '/pet/findByStatus', method: 'get' })],
+    });
   });
 
   test('does nothing when the current content cannot be parsed', () => {

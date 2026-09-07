@@ -28,3 +28,51 @@
     cursor: pointer;
   }
 }
+
+// Shared method-color badge, used both by the checkbox row above (implicitly,
+// via swagger-ui-react's own .opblock-summary-method) and by
+// RemovedOperationsBanner.jsx, which has no live .opblock to borrow one
+// from since the operation it's listing isn't in the spec anymore.
+.swagger-editor__operation-filter-method {
+  flex-shrink: 0;
+  min-width: 4.5rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  color: #fff;
+
+  &--get {
+    background-color: #61affe;
+  }
+
+  &--post {
+    background-color: #49cc90;
+  }
+
+  &--put {
+    background-color: #fca130;
+  }
+
+  &--delete {
+    background-color: #f93e3e;
+  }
+
+  &--patch {
+    background-color: #50e3c2;
+  }
+
+  &--options {
+    background-color: #0d5aa7;
+  }
+
+  &--head {
+    background-color: #9012fe;
+  }
+
+  &--trace {
+    background-color: #6b6b6b;
+  }
+}
