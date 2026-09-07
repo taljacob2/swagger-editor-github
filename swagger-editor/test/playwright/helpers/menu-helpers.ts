@@ -11,10 +11,17 @@ import { Page, Locator } from '@playwright/test';
  * TopBar renders an invisible, always-mounted copy of the menu items ahead of
  * the real, visible copy (used to measure when to switch to compact/hamburger
  * mode) -- see TopBar.jsx. A plain text locator resolves to that hidden copy
- * first, so this is scoped to `:visible` to always hit the clickable one.
+ * first, so this intersects with `:visible` to always hit the clickable one.
+ * Intersecting rather than restricting to specific classes (`.menu-item`,
+ * `.dropdown-item`) because nested submenu triggers like "Load Example" use
+ * their own class (`.nested-dd-menu-trigger`) that a class-based locator
+ * would miss.
+ *
+ * @param exact - Defaults to true. Nested submenu triggers append an arrow
+ * (e.g. "Load Example  >"), so pass `exact: false` for those.
  */
-export function menuItemLocator(page: Page, text: string): Locator {
-  return page.locator('.menu-item:visible, .dropdown-item:visible', { hasText: text }).first();
+export function menuItemLocator(page: Page, text: string, exact = true): Locator {
+  return page.getByText(text, { exact }).and(page.locator(':visible')).first();
 }
 
 /**
@@ -52,7 +59,7 @@ export async function clickNestedMenuItem(
   // Hover over intermediate menu items (all except the last one)
   for (let i = 0; i < subMenuItems.length - 1; i++) {
     // Don't use exact match because menu items may have arrows (">") appended
-    const menuItem = menuItemLocator(page, subMenuItems[i]);
+    const menuItem = menuItemLocator(page, subMenuItems[i], false);
     // Wait for submenu item to be visible before hovering
     await menuItem.waitFor({ state: 'visible', timeout: 10000 });
     await menuItem.hover();
@@ -63,7 +70,7 @@ export async function clickNestedMenuItem(
   // Click the final menu item
   const lastItem = subMenuItems[subMenuItems.length - 1];
   // Don't use exact match because menu items may have arrows (">") appended
-  const finalMenuItem = menuItemLocator(page, lastItem);
+  const finalMenuItem = menuItemLocator(page, lastItem, false);
   await finalMenuItem.waitFor({ state: 'visible', timeout: 10000 });
   await finalMenuItem.click();
 }
