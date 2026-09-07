@@ -106,6 +106,14 @@ test.describe('Operation filter checkboxes in the Preview pane', () => {
       (window as unknown as MonacoWindow).monaco.getModel().getValue()
     );
     expect(editorContent).toContain('findByStatus');
+    // It must land back between its original neighbors (/pet before it,
+    // /store/order after), not appended at the very end of paths.
+    expect(editorContent.indexOf('/pet:')).toBeLessThan(
+      editorContent.indexOf('/pet/findByStatus:')
+    );
+    expect(editorContent.indexOf('/pet/findByStatus:')).toBeLessThan(
+      editorContent.indexOf('/store/order:')
+    );
   });
 
   test('"Remove all" on a tag removes every operation under it in one go, leaving other tags alone', async ({

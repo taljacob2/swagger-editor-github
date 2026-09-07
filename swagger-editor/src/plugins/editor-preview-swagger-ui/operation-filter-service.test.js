@@ -291,6 +291,8 @@ describe('removeOperation', () => {
       path: '/pet',
       method: 'get',
       operation: spec.paths['/pet'].get,
+      precedingPath: null,
+      precedingMethod: null,
       removedComponents: { responses: { PetResponse: { description: 'a pet' } } },
       removedTags: [{ name: 'pet' }],
     });
@@ -298,6 +300,24 @@ describe('removeOperation', () => {
 
   test('returns null when the operation is not in the spec', () => {
     expect(removeOperation({ paths: {} }, '/pet', 'get')).toBeNull();
+  });
+
+  test('records the sibling path/method that came right before the one removed', () => {
+    const spec = {
+      paths: {
+        '/pet': { get: {}, post: {} },
+        '/store/order': { get: {} },
+      },
+    };
+
+    expect(removeOperation(spec, '/pet', 'post').record).toMatchObject({
+      precedingPath: null,
+      precedingMethod: 'get',
+    });
+    expect(removeOperation(spec, '/store/order', 'get').record).toMatchObject({
+      precedingPath: '/pet',
+      precedingMethod: null,
+    });
   });
 });
 
@@ -352,6 +372,62 @@ describe('restoreOperation', () => {
     const spec = { paths: {} };
     restoreOperation(spec, { path: '/pet', method: 'get', operation: {} });
     expect(spec.paths).toEqual({});
+  });
+
+  test('reinserts a fully-removed path back at its original position among siblings', () => {
+    const spec = { paths: { '/pet': { get: {} }, '/store/order': { get: {} } } };
+    const record = {
+      path: '/pet/findByStatus',
+      method: 'get',
+      operation: { summary: 'list' },
+      precedingPath: '/pet',
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(Object.keys(restored.paths)).toEqual(['/pet', '/pet/findByStatus', '/store/order']);
+  });
+
+  test('reinserts a path at the front when it was originally first', () => {
+    const spec = { paths: { '/store/order': { get: {} } } };
+    const record = {
+      path: '/pet',
+      method: 'get',
+      operation: { summary: 'list' },
+      precedingPath: null,
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(Object.keys(restored.paths)).toEqual(['/pet', '/store/order']);
+  });
+
+  test('falls back to appending a path when its recorded neighbor is also gone', () => {
+    const spec = { paths: { '/store/order': { get: {} } } };
+    const record = {
+      path: '/pet/findByStatus',
+      method: 'get',
+      operation: { summary: 'list' },
+      precedingPath: '/pet',
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(Object.keys(restored.paths)).toEqual(['/store/order', '/pet/findByStatus']);
+  });
+
+  test('reinserts a method back at its original position within a surviving path item', () => {
+    const spec = { paths: { '/pet': { get: {}, delete: {} } } };
+    const record = {
+      path: '/pet',
+      method: 'post',
+      operation: { summary: 'add' },
+      precedingMethod: 'get',
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(Object.keys(restored.paths['/pet'])).toEqual(['get', 'post', 'delete']);
   });
 });
 

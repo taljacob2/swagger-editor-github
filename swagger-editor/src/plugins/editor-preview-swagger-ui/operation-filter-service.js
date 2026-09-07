@@ -263,18 +263,55 @@ function diffTags(before, after) {
   return (before || []).filter((tag) => !afterNames.has(tag.name));
 }
 
+// Inserts `key: value` into a shallow copy of `obj`, positioned right after
+// `precedingKey` -- `null` means "insert first", `undefined` means "no
+// position info available, just append" (keeps the old append-at-the-end
+// behavior for any caller that doesn't have it, e.g. hand-built records in
+// tests). Falls back to appending when `precedingKey` no longer exists in
+// `obj` either (its own former neighbor is gone too) -- the closest
+// approximation to "back where it was" once the surrounding keys have
+// themselves changed.
+function insertPreservingOrder(obj, key, value, precedingKey) {
+  if (precedingKey === undefined || (precedingKey !== null && !(precedingKey in obj))) {
+    return { ...obj, [key]: value };
+  }
+  const result = {};
+  if (precedingKey === null) {
+    result[key] = value;
+  }
+  Object.entries(obj).forEach(([k, v]) => {
+    result[k] = v;
+    if (k === precedingKey) {
+      result[key] = value;
+    }
+  });
+  return result;
+}
+
 // Removes one operation from `spec`, returning both the pruned spec and a
 // self-contained record of what that removal took with it -- the operation
-// itself, plus the components/tags that were only reachable because of it.
-// That record is exactly what restoreOperation needs later to put the
-// operation back exactly as it was, independent of whatever else has
-// changed in the spec since. Returns null if the operation isn't there.
+// itself, plus the components/tags that were only reachable because of it,
+// plus where it sat (precedingPath among its sibling paths, precedingMethod
+// among its own path item's other keys) so a later restore can put it back
+// in the same spot instead of at the end. That record is exactly what
+// restoreOperation needs later to put the operation back exactly as it was,
+// independent of whatever else has changed in the spec since. Returns null
+// if the operation isn't there.
 export function removeOperation(spec, path, method) {
   const key = operationKey(path, method);
   const allKeys = listOperations(spec).map((operation) => operation.key);
   if (!allKeys.includes(key)) {
     return null;
   }
+
+  const pathKeys = Object.keys(spec.paths);
+  const pathIndex = pathKeys.indexOf(path);
+  const precedingPath = pathIndex === 0 ? null : pathKeys[pathIndex - 1];
+
+  const pathItemKeys = Object.keys(spec.paths[path]);
+  const methodIndex = pathItemKeys.indexOf(method);
+  const precedingMethod = methodIndex === 0 ? null : pathItemKeys[methodIndex - 1];
+
   const operation = spec.paths[path][method];
   const remainingKeys = allKeys.filter((k) => k !== key);
   const nextSpec = buildSubsetSpec(spec, remainingKeys);
@@ -282,6 +319,8 @@ export function removeOperation(spec, path, method) {
     path,
     method,
     operation,
+    precedingPath,
+    precedingMethod,
     removedComponents: diffComponents(spec.components, nextSpec.components),
     removedTags: diffTags(spec.tags, nextSpec.tags),
   };
@@ -289,16 +328,32 @@ export function removeOperation(spec, path, method) {
 }
 
 // Puts a previously-removed operation (and whatever components/tags its
-// removal took with it) back into `spec`. Safe to apply against a spec
-// that's since been edited elsewhere -- it only ever adds the path/
-// components/tags the record names, in addition to whatever else the
-// current spec has going on. Doesn't mutate `spec`.
+// removal took with it) back into `spec`, at (or as close as currently
+// possible to) the position it was removed from -- see
+// insertPreservingOrder. Safe to apply against a spec that's since been
+// edited elsewhere -- it only ever adds the path/components/tags the record
+// names, in addition to whatever else the current spec has going on.
+// Doesn't mutate `spec`.
 export function restoreOperation(spec, record) {
   const nextSpec = { ...spec };
 
-  const paths = { ...(spec.paths || {}) };
-  paths[record.path] = { ...(paths[record.path] || {}), [record.method]: record.operation };
-  nextSpec.paths = paths;
+  const paths = spec.paths || {};
+  if (Object.prototype.hasOwnProperty.call(paths, record.path)) {
+    const pathItem = insertPreservingOrder(
+      paths[record.path],
+      record.method,
+      record.operation,
+      record.precedingMethod
+    );
+    nextSpec.paths = { ...paths, [record.path]: pathItem };
+  } else {
+    nextSpec.paths = insertPreservingOrder(
+      paths,
+      record.path,
+      { [record.method]: record.operation },
+      record.precedingPath
+    );
+  }
 
   if (record.removedComponents && Object.keys(record.removedComponents).length > 0) {
     const components = { ...(spec.components || {}) };
