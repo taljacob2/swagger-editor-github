@@ -6,6 +6,7 @@ import {
   prepareOasGenerator,
   prepareOpenAPI30x,
   clickNestedMenuItem,
+  menuItemLocator,
 } from '../helpers';
 
 /**
@@ -21,7 +22,7 @@ test.describe('App', () => {
 
   test('should render the app', async ({ page }) => {
     // Picking a random element that should display, in this case the 'File' menu dropdown
-    await expect(page.getByText('File', { exact: true })).toBeVisible();
+    await expect(menuItemLocator(page, 'File')).toBeVisible();
   });
 });
 

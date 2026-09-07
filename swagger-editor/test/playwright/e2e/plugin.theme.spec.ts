@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-import { visitBlankPage, prepareAsyncAPI, waitForSplashScreen } from '../helpers';
+import {
+  visitBlankPage,
+  prepareAsyncAPI,
+  waitForSplashScreen,
+  clickNestedMenuItem,
+} from '../helpers';
 
 /**
  * Theme
@@ -102,8 +107,7 @@ test.describe('Theme', () => {
   test('applies the dark scope class to modal portals', async ({ page }) => {
     await option(page, 'dark').click();
 
-    await page.getByText('File', { exact: true }).last().click();
-    await page.getByText('Import URL', { exact: true }).last().click();
+    await clickNestedMenuItem(page, 'File', 'Import URL');
 
     await expect(page.locator('.ReactModalPortal').first()).toHaveClass(
       /swagger-editor__theme-dark/

@@ -40,4 +40,5 @@ export {
   generateClient,
   waitForMenu,
   isMenuVisible,
+  menuItemLocator,
 } from './menu-helpers';

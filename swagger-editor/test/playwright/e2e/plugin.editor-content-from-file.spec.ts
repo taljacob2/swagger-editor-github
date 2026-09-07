@@ -10,6 +10,7 @@ import {
   waitForSplashScreen,
   waitForContentPropagation,
   getAllEditorText,
+  clickNestedMenuItem,
 } from '../helpers';
 
 // Get __dirname equivalent in ES modules
@@ -43,8 +44,7 @@ test.describe('EditorContentFromFilePlugin', () => {
     });
 
     // Open File > Import URL dialog
-    await page.getByText('File', { exact: true }).click();
-    await page.getByText('Import URL', { exact: true }).click();
+    await clickNestedMenuItem(page, 'File', 'Import URL');
 
     // Enter URL and submit
     await page.locator('.form-control').fill('https://example.com/import-example.json');
