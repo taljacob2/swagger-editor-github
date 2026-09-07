@@ -11,11 +11,13 @@ import {
   getAggregationSet,
   getDuplicateNameWarning,
   getRepoDefaultBranch,
+  getSelectedServiceNames,
   getStorageSettings,
   getSwaggerUrlWarning,
   listAggregationSets,
   moveSwaggerUrl,
   saveAggregationSet,
+  saveSelectedServiceNames,
   saveStorageSettings,
   uniqueServiceName,
 } from './aggregation-storage-service.js';
@@ -613,6 +615,39 @@ describe('aggregation-storage-service', () => {
       const input = urls('a', 'b');
       moveSwaggerUrl(input, 0, 'down');
       expect(input.map((e) => e.name)).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('getSelectedServiceNames / saveSelectedServiceNames', () => {
+    test('defaults to every name when nothing was saved yet', () => {
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a', 'b']);
+    });
+
+    test('round-trips a saved selection through localStorage', () => {
+      saveSelectedServiceNames('set-1', ['a']);
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a']);
+    });
+
+    test('keeps selections for other sets independent', () => {
+      saveSelectedServiceNames('set-1', ['a']);
+      saveSelectedServiceNames('set-2', ['b']);
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a']);
+      expect(getSelectedServiceNames('set-2', ['a', 'b'])).toEqual(['b']);
+    });
+
+    test('falls back to every name once a saved selection no longer matches any current service', () => {
+      saveSelectedServiceNames('set-1', ['old-name']);
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a', 'b']);
+    });
+
+    test('drops only the stale names when some of a saved selection still match', () => {
+      saveSelectedServiceNames('set-1', ['a', 'renamed-away']);
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a']);
+    });
+
+    test('falls back to every name when localStorage holds invalid JSON', () => {
+      localStorage.setItem('github-editor:aggregation-selected-services', 'not json');
+      expect(getSelectedServiceNames('set-1', ['a', 'b'])).toEqual(['a', 'b']);
     });
   });
 

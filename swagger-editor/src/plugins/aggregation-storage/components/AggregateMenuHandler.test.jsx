@@ -77,6 +77,8 @@ const {
   findDuplicateNames: realFindDuplicateNames,
   getDuplicateNameWarning: realGetDuplicateNameWarning,
   uniqueServiceName: realUniqueServiceName,
+  getSelectedServiceNames: realGetSelectedServiceNames,
+  saveSelectedServiceNames: realSaveSelectedServiceNames,
 } = await vi.importActual('../aggregation-storage-service.js');
 
 const StubModal = ({ isOpen, children }) => (isOpen ? <div>{children}</div> : null);
@@ -185,6 +187,16 @@ describe('AggregateMenuHandler', () => {
       realGetDuplicateNameWarning
     );
     aggregationStorageService.uniqueServiceName.mockImplementation(realUniqueServiceName);
+    // Ditto for the service-selection helpers -- real, localStorage-backed
+    // implementations (cleared above) so selection defaults/round-trips
+    // behave exactly as they do in the app, per
+    // aggregation-storage-service.test.js.
+    aggregationStorageService.getSelectedServiceNames.mockImplementation(
+      realGetSelectedServiceNames
+    );
+    aggregationStorageService.saveSelectedServiceNames.mockImplementation(
+      realSaveSelectedServiceNames
+    );
   });
 
   test('openModal hydrates storage location fields and loads sets from storage', async () => {
@@ -527,7 +539,66 @@ describe('AggregateMenuHandler', () => {
 
     await waitFor(() => expect(screen.getByText('Users')).toBeInTheDocument());
     expect(screen.getByText('Orders')).toBeInTheDocument();
-    expect(screen.getByText('2 services')).toBeInTheDocument();
+    expect(screen.getByText('2 of 2 services selected')).toBeInTheDocument();
+  });
+
+  test('all services are selected by default, and unchecking one narrows what gets aggregated', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      {
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [
+          { name: 'Users', url: 'https://x/users.yaml' },
+          { name: 'Orders', url: 'https://x/orders.yaml' },
+        ],
+      },
+    ]);
+    aggregationMergeService.aggregateSet.mockResolvedValue({
+      yaml: 'merged',
+      specCount: 1,
+      sources: [],
+      provenance: {},
+      conflicts: { paths: [], tags: [], components: [] },
+      errors: [],
+    });
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Users' })).toBeChecked());
+    expect(screen.getByRole('checkbox', { name: 'Orders' })).toBeChecked();
+    expect(screen.getByText('2 of 2 services selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Orders' }));
+    expect(screen.getByText('1 of 2 services selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Aggregate'));
+    await waitFor(() => expect(aggregationMergeService.aggregateSet).toHaveBeenCalled());
+    expect(aggregationMergeService.aggregateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swaggerUrls: [{ name: 'Users', url: 'https://x/users.yaml' }],
+      }),
+      CONNECTION_SETTINGS
+    );
+  });
+
+  test('Aggregate is disabled and refuses to run once every service is unchecked', async () => {
+    aggregationStorageService.listAggregationSets.mockResolvedValue([
+      {
+        id: 'set-1',
+        name: 'Public API',
+        swaggerUrls: [{ name: 'Users', url: 'https://x/users.yaml' }],
+      },
+    ]);
+    const ref = createRef();
+    renderHandler(ref);
+    await openModal(ref);
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Users' })).toBeChecked());
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Users' }));
+
+    expect(screen.getByText('Aggregate')).toBeDisabled();
+    expect(aggregationMergeService.aggregateSet).not.toHaveBeenCalled();
   });
 
   describe('add-service fields collapse by default when editing an existing set', () => {
