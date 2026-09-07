@@ -1,6 +1,7 @@
 import EditorPreviewSwaggerUI from './components/EditorPreviewSwaggerUI/EditorPreviewSwaggerUI.jsx';
 import JumpToPath from './components/JumpToPath.jsx';
 import EditorPreviewWrapper from './extensions/editor-preview/wrap-components/EditorPreviewWrapper.jsx';
+import OperationSummaryWrapper from './extensions/oas3/wrap-components/OperationSummaryWrapper.jsx';
 import { previewUnmounted } from './actions/preview-unmounted.js';
 import {
   jumpToPath,
@@ -23,6 +24,7 @@ const EditorPreviewSwaggerUIPlugin = () => ({
   },
   wrapComponents: {
     EditorPreview: EditorPreviewWrapper,
+    OperationSummary: OperationSummaryWrapper,
   },
   statePlugins: {
     editor: {

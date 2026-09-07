@@ -1,0 +1,30 @@
+// Sits inside swagger-ui-react's own .opblock, immediately wrapping its
+// .opblock-summary (a flex row itself) -- matching that row's own
+// display:flex/align-items so the checkbox lines up with the method badge
+// instead of stacking above it.
+.swagger-editor__operation-filter-row {
+  display: flex;
+  align-items: center;
+
+  // .opblock-summary is swagger-ui-react's own class, not ours -- targeted
+  // directly (as this file's sibling _editor-preview-swagger-ui.scss
+  // already does elsewhere) since it's the only way to make Original's
+  // rendered row grow to fill the space next to the checkbox.
+  > .opblock-summary {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.swagger-editor__operation-filter-checkbox {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 10px;
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    cursor: pointer;
+  }
+}

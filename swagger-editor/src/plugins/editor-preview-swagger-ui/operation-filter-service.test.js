@@ -3,7 +3,9 @@ import {
   listOperations,
   operationKey,
   parseSpecContent,
-} from './export-subset-service.js';
+  removeOperationFromContent,
+  serializeSpec,
+} from './operation-filter-service.js';
 
 describe('parseSpecContent', () => {
   test('parses YAML content', () => {
@@ -28,41 +30,15 @@ describe('listOperations', () => {
   test('lists every operation across every path, in method order', () => {
     const spec = {
       paths: {
-        '/pet': {
-          post: { summary: 'Add a new pet' },
-          put: { summary: 'Update an existing pet' },
-        },
-        '/pet/{petId}': {
-          get: { operationId: 'getPetById', tags: ['pet'] },
-        },
+        '/pet': { post: {}, put: {} },
+        '/pet/{petId}': { get: {} },
       },
     };
 
     expect(listOperations(spec)).toEqual([
-      {
-        key: 'PUT /pet',
-        path: '/pet',
-        method: 'put',
-        operationId: null,
-        summary: 'Update an existing pet',
-        tags: [],
-      },
-      {
-        key: 'POST /pet',
-        path: '/pet',
-        method: 'post',
-        operationId: null,
-        summary: 'Add a new pet',
-        tags: [],
-      },
-      {
-        key: 'GET /pet/{petId}',
-        path: '/pet/{petId}',
-        method: 'get',
-        operationId: 'getPetById',
-        summary: null,
-        tags: ['pet'],
-      },
+      { key: 'PUT /pet', path: '/pet', method: 'put' },
+      { key: 'POST /pet', path: '/pet', method: 'post' },
+      { key: 'GET /pet/{petId}', path: '/pet/{petId}', method: 'get' },
     ]);
   });
 
@@ -72,14 +48,12 @@ describe('listOperations', () => {
         '/pet': {
           parameters: [{ name: 'shared', in: 'query' }],
           summary: 'shared summary',
-          get: { summary: 'ok' },
+          get: {},
         },
       },
     };
 
-    expect(listOperations(spec)).toEqual([
-      { key: 'GET /pet', path: '/pet', method: 'get', operationId: null, summary: 'ok', tags: [] },
-    ]);
+    expect(listOperations(spec)).toEqual([{ key: 'GET /pet', path: '/pet', method: 'get' }]);
   });
 
   test('returns an empty list for a spec with no paths', () => {
@@ -137,7 +111,9 @@ describe('buildSubsetSpec', () => {
     const spec = {
       paths: {
         '/pet': { get: { responses: { 200: { $ref: '#/components/responses/PetResponse' } } } },
-        '/order': { get: { responses: { 200: { $ref: '#/components/responses/OrderResponse' } } } },
+        '/order': {
+          get: { responses: { 200: { $ref: '#/components/responses/OrderResponse' } } },
+        },
       },
       components: {
         responses: {
@@ -219,7 +195,9 @@ describe('buildSubsetSpec', () => {
     const spec = {
       paths: {
         '/pet': { get: {} },
-        '/order': { get: { responses: { 200: { $ref: '#/components/responses/OrderResponse' } } } },
+        '/order': {
+          get: { responses: { 200: { $ref: '#/components/responses/OrderResponse' } } },
+        },
       },
       components: { responses: { OrderResponse: { description: 'x' } } },
     };
@@ -265,5 +243,49 @@ describe('buildSubsetSpec', () => {
     expect(subset.info).toEqual(spec.info);
     expect(subset.servers).toEqual(spec.servers);
     expect(subset.security).toEqual(spec.security);
+  });
+});
+
+describe('serializeSpec', () => {
+  test('dumps as YAML when isYAML is true', () => {
+    expect(serializeSpec({ openapi: '3.0.0' }, true)).toBe('openapi: 3.0.0\n');
+  });
+
+  test('stringifies as JSON when isYAML is false', () => {
+    expect(serializeSpec({ openapi: '3.0.0' }, false)).toBe('{\n  "openapi": "3.0.0"\n}');
+  });
+});
+
+describe('removeOperationFromContent', () => {
+  const YAML_SPEC = [
+    'openapi: 3.0.0',
+    'paths:',
+    '  /pet:',
+    '    post: {}',
+    '  /pet/findByStatus:',
+    '    get: {}',
+  ].join('\n');
+
+  test('removes the named operation and re-serializes matching the original format', () => {
+    const result = removeOperationFromContent(YAML_SPEC, '/pet/findByStatus', 'get', true);
+
+    expect(result).not.toBeNull();
+    expect(result).not.toContain('findByStatus');
+    expect(result).toContain('/pet:');
+  });
+
+  test('serializes as JSON when isYAML is false', () => {
+    const result = removeOperationFromContent(YAML_SPEC, '/pet/findByStatus', 'get', false);
+
+    expect(() => JSON.parse(result)).not.toThrow();
+    expect(result).not.toContain('findByStatus');
+  });
+
+  test('returns null when the content cannot be parsed', () => {
+    expect(removeOperationFromContent('{ not: valid: yaml: [', '/pet', 'get', true)).toBeNull();
+  });
+
+  test('returns null when the named operation is already gone', () => {
+    expect(removeOperationFromContent(YAML_SPEC, '/pet/missing', 'get', true)).toBeNull();
   });
 });

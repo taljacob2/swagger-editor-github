@@ -30,7 +30,6 @@ const FileMenu = (props) => {
     'TopBarFileMenuDownloadResolvedYAMLMenuItem',
     true
   );
-  const ExportSubsetMenuItem = getComponent('TopBarFileMenuExportSubsetMenuItem', true);
 
   const handleUrlImportClick = useCallback((event) => {
     fileMenuHandler.current.importURL(event);
@@ -59,9 +58,6 @@ const FileMenu = (props) => {
   const handleDownloadResolvedYAMLClick = useCallback(async (event) => {
     await fileMenuHandler.current.downloadResolvedYAML(event);
   }, []);
-  const handleExportSubsetClick = useCallback((event) => {
-    fileMenuHandler.current.exportSubset(event);
-  }, []);
 
   return (
     <>
@@ -80,8 +76,6 @@ const FileMenu = (props) => {
         <DropdownMenuItemDivider />
         <DownloadResolvedJSONMenuItem onClick={handleDownloadResolvedJSONClick} />
         <DownloadResolvedYAMLMenuItem onClick={handleDownloadResolvedYAMLClick} />
-        <DropdownMenuItemDivider />
-        <ExportSubsetMenuItem onClick={handleExportSubsetClick} />
       </DropdownMenu>
     </>
   );

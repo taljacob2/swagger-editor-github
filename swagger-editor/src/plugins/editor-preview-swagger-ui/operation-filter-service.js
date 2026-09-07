@@ -1,7 +1,7 @@
 import YAML from 'js-yaml';
 
-// Fixed order, also driving the row order in the picker -- matches the
-// order OpenAPI itself defines operations in under a path item.
+// Fixed order -- matches the order OpenAPI itself defines operations in
+// under a path item.
 export const OPERATION_METHODS = [
   'get',
   'put',
@@ -17,9 +17,9 @@ export const OPERATION_METHODS = [
 // list aggregation-merge-service.js merges (OpenAPI 3's components object)
 // -- this app's pruning logic only ever needs to reason about that one
 // shape, and keeping both lists in sync means a spec that round-trips
-// through Aggregate and then Export Subset behaves consistently. A
-// Swagger 2.0 document has no `components` object at all, so pruning
-// against this list is simply a no-op for one -- not a special case.
+// through Aggregate and this filter behaves consistently. A Swagger 2.0
+// document has no `components` object at all, so pruning against this list
+// is simply a no-op for one -- not a special case.
 const COMPONENT_TYPES = [
   'schemas',
   'responses',
@@ -45,10 +45,7 @@ export function operationKey(path, method) {
   return `${method.toUpperCase()} ${path}`;
 }
 
-// Every operation in the spec, in a stable order, for the picker to render.
-// A path item's non-operation fields (a shared `parameters` array,
-// `summary`/`description` on the item itself, `$ref`, `servers`, `x-*`
-// extensions) are deliberately not operations and never appear here.
+// Every operation in the spec, in a stable order.
 export function listOperations(spec) {
   const operations = [];
   Object.entries(spec?.paths || {}).forEach(([path, pathItem]) => {
@@ -60,14 +57,7 @@ export function listOperations(spec) {
       if (!operation || typeof operation !== 'object') {
         return;
       }
-      operations.push({
-        key: operationKey(path, method),
-        path,
-        method,
-        operationId: operation.operationId || null,
-        summary: operation.summary || null,
-        tags: operation.tags || [],
-      });
+      operations.push({ key: operationKey(path, method), path, method });
     });
   });
   return operations;
@@ -150,9 +140,8 @@ function resolveTransitiveComponentRefs(seeds, spec) {
 // Builds a copy of `spec` containing only the operations named in
 // `selectedKeys` (operationKey(path, method) values), with every
 // components/* entry and top-level tag that's no longer reachable from a
-// surviving operation dropped too -- so the exported document doesn't ship
-// dead $refs or tag groupings for endpoints that are no longer in it.
-// Doesn't mutate `spec`.
+// surviving operation dropped too -- so removing an endpoint doesn't leave
+// dead $refs or tag groupings behind. Doesn't mutate `spec`.
 export function buildSubsetSpec(spec, selectedKeys) {
   const selected = new Set(selectedKeys);
   const subset = { ...spec, paths: {} };
@@ -232,4 +221,33 @@ export function buildSubsetSpec(spec, selectedKeys) {
   }
 
   return subset;
+}
+
+// Re-serializes `spec` matching the format (`isYAML`) the editor's current
+// content is already in, so removing an endpoint doesn't silently convert
+// a YAML document to JSON or vice versa.
+export function serializeSpec(spec, isYAML) {
+  return isYAML ? YAML.dump(spec, { lineWidth: -1 }) : JSON.stringify(spec, null, 2);
+}
+
+// The content the editor should switch to once `path`/`method` is removed --
+// parses `content`, drops that one operation (and anything only it kept
+// reachable), and re-serializes matching the original format. Returns null
+// if `content` isn't parsable right now (e.g. mid-edit) or the operation is
+// already gone -- nothing sensible to do in either case.
+export function removeOperationFromContent(content, path, method, isYAML) {
+  let spec;
+  try {
+    spec = parseSpecContent(content);
+  } catch {
+    return null;
+  }
+  const removedKey = operationKey(path, method);
+  const allKeys = listOperations(spec).map((operation) => operation.key);
+  if (!allKeys.includes(removedKey)) {
+    return null;
+  }
+  const remainingKeys = allKeys.filter((key) => key !== removedKey);
+  const subset = buildSubsetSpec(spec, remainingKeys);
+  return serializeSpec(subset, isYAML);
 }
