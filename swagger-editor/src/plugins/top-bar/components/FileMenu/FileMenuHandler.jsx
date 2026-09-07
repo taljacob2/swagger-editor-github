@@ -9,6 +9,7 @@ import ConvertAndSaveAsJSONMenuItemHandler from './items/ConvertAndSaveAsJSONMen
 import ConvertAndSaveAsYAMLMenuItemHandler from './items/ConvertAndSaveAsYAMLMenuItemHandler.jsx';
 import DownloadResolvedJSONMenuItemHandler from './items/DownloadResolvedJSONMenuItemHandler.jsx';
 import DownloadResolvedYAMLMenuItemHandler from './items/DownloadResolvedYAMLMenuItemHandler.jsx';
+import ExportSubsetMenuItemHandler from './items/ExportSubsetMenuItemHandler.jsx';
 
 /* eslint-disable react/jsx-props-no-spreading */
 
@@ -22,6 +23,7 @@ const FileMenuHandler = (props, ref) => {
   const convertAndSaveAsYAMLMenuItemHandler = useRef(null);
   const downloadResolvedJSONMenuItemHandler = useRef(null);
   const downloadResolvedYAMLMenuItemHandler = useRef(null);
+  const exportSubsetMenuItemHandler = useRef(null);
 
   useImperativeHandle(ref, () => ({
     importURL(event) {
@@ -51,6 +53,9 @@ const FileMenuHandler = (props, ref) => {
     async downloadResolvedYAML(event) {
       await downloadResolvedYAMLMenuItemHandler.current.downloadResolvedYAML(event);
     },
+    exportSubset(event) {
+      exportSubsetMenuItemHandler.current.openModal(event);
+    },
   }));
 
   return (
@@ -64,6 +69,7 @@ const FileMenuHandler = (props, ref) => {
       <ConvertAndSaveAsYAMLMenuItemHandler ref={convertAndSaveAsYAMLMenuItemHandler} {...props} />
       <DownloadResolvedJSONMenuItemHandler ref={downloadResolvedJSONMenuItemHandler} {...props} />
       <DownloadResolvedYAMLMenuItemHandler ref={downloadResolvedYAMLMenuItemHandler} {...props} />
+      <ExportSubsetMenuItemHandler ref={exportSubsetMenuItemHandler} {...props} />
     </>
   );
 };

@@ -21,6 +21,7 @@ import ConvertAndSaveAsJSONMenuItem from './components/FileMenu/items/ConvertAnd
 import ConvertAndSaveAsYAMLMenuItem from './components/FileMenu/items/ConvertAndSaveAsYAMLMenuItem.jsx';
 import DownloadResolvedJSONMenuItem from './components/FileMenu/items/DownloadResolvedJSONMenuItem.jsx';
 import DownloadResolvedYAMLMenuItem from './components/FileMenu/items/DownloadResolvedYAMLMenuItem.jsx';
+import ExportSubsetMenuItem from './components/FileMenu/items/ExportSubsetMenuItem.jsx';
 import EditMenu from './components/EditMenu/EditMenu.jsx';
 import ClearMenuItem from './components/EditMenu/items/ClearMenuItem.jsx';
 import ConvertToJSONMenuItem from './components/EditMenu/items/ConvertToJSONMenuItem.jsx';
@@ -175,6 +176,7 @@ const TopBarPlugin = () => ({
     TopBarFileMenuConvertAndSaveAsYAMLMenuItem: ConvertAndSaveAsYAMLMenuItem,
     TopBarFileMenuDownloadResolvedJSONMenuItem: DownloadResolvedJSONMenuItem,
     TopBarFileMenuDownloadResolvedYAMLMenuItem: DownloadResolvedYAMLMenuItem,
+    TopBarFileMenuExportSubsetMenuItem: ExportSubsetMenuItem,
 
     TopBarEditMenu: EditMenu,
     TopBarEditMenuClearMenuItem: ClearMenuItem,
