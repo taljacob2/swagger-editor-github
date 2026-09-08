@@ -228,3 +228,73 @@ paths:
     expect(editorContent).toContain('query:');
   });
 });
+
+// Restoring an operation used to put its tag back at the end of the
+// top-level tags: list (same append-only bug the paths ordering fix
+// addressed), instead of back where it was among its sibling tags.
+test.describe('Restoring an operation puts its tag section back in place', () => {
+  const TAGGED_SPEC = `openapi: 3.0.0
+info:
+  title: Test API
+  version: "1.0"
+tags:
+  - name: pet
+  - name: store
+  - name: user
+paths:
+  /pet:
+    get:
+      summary: List pets
+      tags: [pet]
+      responses:
+        '200':
+          description: ok
+  /store/order:
+    post:
+      summary: Place an order
+      tags: [store]
+      responses:
+        '200':
+          description: ok
+  /user:
+    post:
+      summary: Create a user
+      tags: [user]
+      responses:
+        '200':
+          description: ok
+`;
+
+  test.beforeEach(async ({ page }) => {
+    await visitBlankPage(page);
+    await prepareAsyncAPI(page);
+    await waitForSplashScreen(page);
+    await page.evaluate((spec) => {
+      (window as unknown as MonacoWindow).monaco.getModel().setValue(spec);
+    }, TAGGED_SPEC);
+    await page.waitForTimeout(600);
+  });
+
+  test("restoring the middle tag's only operation reinserts it between its original neighbors", async ({
+    page,
+  }) => {
+    await page
+      .locator('.opblock', { hasText: '/store/order' })
+      .locator('.swagger-editor__operation-filter-checkbox input')
+      .click();
+
+    let editorContent = await page.evaluate(() =>
+      (window as unknown as MonacoWindow).monaco.getModel().getValue()
+    );
+    expect(editorContent).not.toContain('name: store');
+
+    await page.locator('.swagger-editor__removed-operations-restore').click();
+
+    editorContent = await page.evaluate(() =>
+      (window as unknown as MonacoWindow).monaco.getModel().getValue()
+    );
+    expect(editorContent).toContain('name: store');
+    expect(editorContent.indexOf('name: pet')).toBeLessThan(editorContent.indexOf('name: store'));
+    expect(editorContent.indexOf('name: store')).toBeLessThan(editorContent.indexOf('name: user'));
+  });
+});

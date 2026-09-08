@@ -259,10 +259,20 @@ function diffComponents(before, after) {
   return removed;
 }
 
-// Every tag object present in `before` but absent (by name) from `after`.
+// Every tag object present in `before` but absent (by name) from `after`,
+// each paired with the name of whichever tag preceded it in `before`'s own
+// order (or null if it was first) -- the same positional bookkeeping
+// removeOperation does for paths/methods, so a later restore can put a
+// dropped tag section back where it was instead of appending it at the end.
 function diffTags(before, after) {
+  const beforeTags = before || [];
   const afterNames = new Set((after || []).map((tag) => tag.name));
-  return (before || []).filter((tag) => !afterNames.has(tag.name));
+  return beforeTags
+    .filter((tag) => !afterNames.has(tag.name))
+    .map((tag) => {
+      const index = beforeTags.indexOf(tag);
+      return { tag, precedingTag: index === 0 ? null : beforeTags[index - 1].name };
+    });
 }
 
 // Inserts `key: value` into a shallow copy of `obj`, positioned right after
@@ -372,12 +382,23 @@ export function restoreOperation(spec, record) {
   }
 
   if (record.removedTags && record.removedTags.length > 0) {
-    const existingTags = spec.tags || [];
-    const existingNames = new Set(existingTags.map((tag) => tag.name));
-    const toAdd = record.removedTags.filter((tag) => !existingNames.has(tag.name));
-    if (toAdd.length > 0) {
-      nextSpec.tags = [...existingTags, ...toAdd];
-    }
+    let tagsByName = {};
+    (spec.tags || []).forEach((tag) => {
+      tagsByName[tag.name] = tag;
+    });
+    record.removedTags.forEach((entry) => {
+      // Normally { tag, precedingTag } (see diffTags), but a hand-built
+      // record (tests, or one from before this positional bookkeeping
+      // existed) may be a plain tag object instead -- treated the same as
+      // "no position info", same as a missing precedingPath/precedingMethod.
+      const isWrapped = entry && typeof entry === 'object' && 'tag' in entry;
+      const tag = isWrapped ? entry.tag : entry;
+      const precedingTag = isWrapped ? entry.precedingTag : undefined;
+      if (!(tag.name in tagsByName)) {
+        tagsByName = insertPreservingOrder(tagsByName, tag.name, tag, precedingTag);
+      }
+    });
+    nextSpec.tags = Object.values(tagsByName);
   }
 
   return nextSpec;

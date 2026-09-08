@@ -315,7 +315,7 @@ describe('removeOperation', () => {
       precedingPath: null,
       precedingMethod: null,
       removedComponents: { responses: { PetResponse: { description: 'a pet' } } },
-      removedTags: [{ name: 'pet' }],
+      removedTags: [{ tag: { name: 'pet' }, precedingTag: null }],
     });
   });
 
@@ -339,6 +339,24 @@ describe('removeOperation', () => {
       precedingPath: '/pet',
       precedingMethod: null,
     });
+  });
+
+  test('records the sibling tag that came right before each dropped tag', () => {
+    const spec = {
+      tags: [{ name: 'pet' }, { name: 'store' }, { name: 'user' }],
+      paths: {
+        '/pet': { get: { tags: ['pet'] } },
+        '/store/order': { post: { tags: ['store'] } },
+        '/user': { post: { tags: ['user'] } },
+      },
+    };
+
+    expect(removeOperation(spec, '/store/order', 'post').record.removedTags).toEqual([
+      { tag: { name: 'store' }, precedingTag: 'pet' },
+    ]);
+    expect(removeOperation(spec, '/pet', 'get').record.removedTags).toEqual([
+      { tag: { name: 'pet' }, precedingTag: null },
+    ]);
   });
 });
 
@@ -449,6 +467,65 @@ describe('restoreOperation', () => {
     const restored = restoreOperation(spec, record);
 
     expect(Object.keys(restored.paths['/pet'])).toEqual(['get', 'post', 'delete']);
+  });
+
+  test('reinserts a dropped tag back at its original position among siblings', () => {
+    const spec = {
+      tags: [{ name: 'pet' }, { name: 'user' }],
+      paths: {},
+    };
+    const record = {
+      path: '/store/order',
+      method: 'post',
+      operation: { tags: ['store'] },
+      removedTags: [{ tag: { name: 'store' }, precedingTag: 'pet' }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.tags.map((tag) => tag.name)).toEqual(['pet', 'store', 'user']);
+  });
+
+  test('reinserts a tag at the front when it was originally first', () => {
+    const spec = { tags: [{ name: 'store' }], paths: {} };
+    const record = {
+      path: '/pet',
+      method: 'get',
+      operation: { tags: ['pet'] },
+      removedTags: [{ tag: { name: 'pet' }, precedingTag: null }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.tags.map((tag) => tag.name)).toEqual(['pet', 'store']);
+  });
+
+  test('falls back to appending a tag when its recorded neighbor is also gone', () => {
+    const spec = { tags: [{ name: 'user' }], paths: {} };
+    const record = {
+      path: '/store/order',
+      method: 'post',
+      operation: { tags: ['store'] },
+      removedTags: [{ tag: { name: 'store' }, precedingTag: 'pet' }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.tags.map((tag) => tag.name)).toEqual(['user', 'store']);
+  });
+
+  test('still restores a tag with no position info (plain tag object, no wrapper)', () => {
+    const spec = { paths: {} };
+    const record = {
+      path: '/pet',
+      method: 'get',
+      operation: { tags: ['pet'] },
+      removedTags: [{ name: 'pet' }],
+    };
+
+    const restored = restoreOperation(spec, record);
+
+    expect(restored.tags).toEqual([{ name: 'pet' }]);
   });
 });
 
