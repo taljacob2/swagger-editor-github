@@ -19,8 +19,12 @@
 .swagger-editor__operation-filter-checkbox {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  padding-left: 10px;
+  // A fixed-width column, not one-sided padding -- centers the checkbox
+  // within its own click target instead of leaving it flush against
+  // .opblock-summary with all the breathing room pushed to one side.
+  width: 2.25rem;
   cursor: pointer;
 
   input {
