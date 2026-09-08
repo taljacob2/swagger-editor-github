@@ -157,3 +157,74 @@ test.describe('Operation filter checkboxes in the Preview pane', () => {
     await expect(page.locator('.opblock', { hasText: '/store/order' })).toHaveCount(0);
   });
 });
+
+// OpenAPI 3.2's QUERY method used to be silently invisible to this filter --
+// OPERATION_METHODS in operation-filter-service.js hardcoded the pre-3.2
+// method list, so a QUERY operation got no checkbox, and worse, a path
+// item containing *only* a QUERY operation would be dropped by
+// buildSubsetSpec any time an unrelated operation elsewhere was removed.
+test.describe('Operation filter checkboxes support the QUERY method', () => {
+  const QUERY_SPEC = `openapi: 3.2.0
+info:
+  title: Test API
+  version: "1.0"
+paths:
+  /pet/search:
+    query:
+      summary: Search pets by a complex filter
+      tags: [pet]
+      responses:
+        '200':
+          description: ok
+  /store/order:
+    post:
+      summary: Place an order
+      tags: [store]
+      responses:
+        '200':
+          description: ok
+`;
+
+  test.beforeEach(async ({ page }) => {
+    await visitBlankPage(page);
+    await prepareAsyncAPI(page);
+    await waitForSplashScreen(page);
+    await page.evaluate((spec) => {
+      (window as unknown as MonacoWindow).monaco.getModel().setValue(spec);
+    }, QUERY_SPEC);
+    await page.waitForTimeout(600);
+  });
+
+  test('renders a checked checkbox on a QUERY operation, and unchecking it removes it', async ({
+    page,
+  }) => {
+    const searchBlock = page.locator('.opblock', { hasText: '/pet/search' });
+    await expect(
+      searchBlock.locator('.swagger-editor__operation-filter-checkbox input')
+    ).toBeChecked();
+
+    await searchBlock.locator('.swagger-editor__operation-filter-checkbox input').click();
+
+    await expect(searchBlock).toHaveCount(0);
+    const editorContent = await page.evaluate(() =>
+      (window as unknown as MonacoWindow).monaco.getModel().getValue()
+    );
+    expect(editorContent).not.toContain('/pet/search');
+  });
+
+  test('removing an unrelated operation does not silently drop a QUERY-only path', async ({
+    page,
+  }) => {
+    await page
+      .locator('.opblock', { hasText: '/store/order' })
+      .locator('.swagger-editor__operation-filter-checkbox input')
+      .click();
+
+    await expect(page.locator('.opblock', { hasText: '/store/order' })).toHaveCount(0);
+    const editorContent = await page.evaluate(() =>
+      (window as unknown as MonacoWindow).monaco.getModel().getValue()
+    );
+    expect(editorContent).toContain('/pet/search');
+    expect(editorContent).toContain('query:');
+  });
+});

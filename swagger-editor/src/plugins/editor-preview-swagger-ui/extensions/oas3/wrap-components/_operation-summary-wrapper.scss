@@ -75,4 +75,10 @@
   &--trace {
     background-color: #6b6b6b;
   }
+
+  // OpenAPI 3.2's QUERY method -- matches swagger-ui-react's own
+  // .opblock-query badge color.
+  &--query {
+    background-color: #9d408a;
+  }
 }

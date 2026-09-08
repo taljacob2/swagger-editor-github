@@ -1,7 +1,8 @@
 import YAML from 'js-yaml';
 
 // Fixed order -- matches the order OpenAPI itself defines operations in
-// under a path item.
+// under a path item, and swagger-ui-react's own validOperationMethods list
+// (including OpenAPI 3.2's QUERY method, added last in both).
 export const OPERATION_METHODS = [
   'get',
   'put',
@@ -11,6 +12,7 @@ export const OPERATION_METHODS = [
   'head',
   'patch',
   'trace',
+  'query',
 ];
 
 // Component sub-collections a $ref can point into. Deliberately the same

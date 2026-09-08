@@ -73,6 +73,14 @@ describe('listOperations', () => {
     expect(listOperations({})).toEqual([]);
     expect(listOperations(undefined)).toEqual([]);
   });
+
+  test("recognizes OpenAPI 3.2's QUERY method like any other operation", () => {
+    const spec = { paths: { '/pet': { query: { tags: ['pet'] } } } };
+
+    expect(listOperations(spec)).toEqual([
+      { key: 'QUERY /pet', path: '/pet', method: 'query', tags: ['pet'] },
+    ]);
+  });
 });
 
 describe('buildSubsetSpec', () => {
@@ -118,6 +126,19 @@ describe('buildSubsetSpec', () => {
     const spec = { paths: { '/pet': { get: {}, post: {} } } };
     buildSubsetSpec(spec, ['GET /pet']);
     expect(Object.keys(spec.paths['/pet'])).toEqual(['get', 'post']);
+  });
+
+  test('keeps a QUERY-only path untouched when an unrelated operation is removed', () => {
+    const spec = {
+      paths: {
+        '/pet': { get: {} },
+        '/pet/search': { query: {} },
+      },
+    };
+
+    const subset = buildSubsetSpec(spec, ['QUERY /pet/search']);
+
+    expect(subset.paths).toEqual({ '/pet/search': { query: {} } });
   });
 
   test('prunes a components/schemas entry no surviving operation references', () => {
