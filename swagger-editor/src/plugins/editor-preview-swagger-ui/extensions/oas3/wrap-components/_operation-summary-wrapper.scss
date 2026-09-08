@@ -1,10 +1,16 @@
 // Sits inside swagger-ui-react's own .opblock, immediately wrapping its
 // .opblock-summary (a flex row itself) -- matching that row's own
-// display:flex/align-items so the checkbox lines up with the method badge
-// instead of stacking above it.
+// display:flex so the checkbox lines up with the method badge instead of
+// stacking above it. align-items: flex-start, not center -- a long summary
+// description wraps .opblock-summary onto several lines, and centering the
+// checkbox against that *whole* multi-line block drags it down into the
+// middle of the wrapped text, away from the method badge on the first
+// line. Anchoring both to the top instead keeps the checkbox locked to
+// that first line regardless of how many lines the description wraps to,
+// like any other leading list marker.
 .swagger-editor__operation-filter-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 
   // .opblock-summary is swagger-ui-react's own class, not ours -- targeted
   // directly (as this file's sibling _editor-preview-swagger-ui.scss
@@ -16,6 +22,18 @@
   }
 }
 
+// Selector repeated (.foo.foo), not written once -- swagger-ui-react ships
+// a blanket `.swagger-ui label { margin: 0 0 5px }` with no more specific
+// selector to target, and it applies to every <label>, this one included.
+// That class+type specificity (0,1,1) beats a single class of ours
+// (0,1,0), so a plain `margin: 0` here lost to it, and the stray bottom
+// margin was exactly what threw the checkbox off center every time this
+// row's height changed. Doubling our own class (0,2,0) reliably outweighs
+// it regardless of stylesheet order, without resorting to !important.
+.swagger-editor__operation-filter-checkbox.swagger-editor__operation-filter-checkbox {
+  margin: 0;
+}
+
 .swagger-editor__operation-filter-checkbox {
   // Grid + place-items, not flex + justify-content -- some browsers don't
   // reliably center a native <input type="checkbox"> as a flex child (it's
@@ -25,10 +43,13 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  // A fixed-width column, not one-sided padding -- centers the checkbox
-  // within its own click target instead of leaving it flush against
-  // .opblock-summary with all the breathing room pushed to one side.
+  // A fixed-size column (matching height, not just width) equal to a
+  // single-line .opblock-summary row -- centers the checkbox within its
+  // own click target, and (with align-items: flex-start above) keeps that
+  // target pinned to the first line's height even when the row grows
+  // taller from a wrapped description.
   width: 2.25rem;
+  height: 2.25rem;
   cursor: pointer;
 
   input {
