@@ -17,9 +17,13 @@
 }
 
 .swagger-editor__operation-filter-checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  // Grid + place-items, not flex + justify-content -- some browsers don't
+  // reliably center a native <input type="checkbox"> as a flex child (it's
+  // a replaced element, and flex's own alignment properties have a history
+  // of being inconsistently applied to those), but every browser handles
+  // grid's place-items the same way.
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
   // A fixed-width column, not one-sided padding -- centers the checkbox
   // within its own click target instead of leaving it flush against
