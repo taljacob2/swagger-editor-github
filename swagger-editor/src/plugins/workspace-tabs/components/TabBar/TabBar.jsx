@@ -8,6 +8,7 @@ import {
   duplicateTab,
   getTabContent,
   getWorkspaceMeta,
+  notifyWorkspaceChanged,
   onWorkspaceChanged,
   removeTabContent,
   renameTab,
@@ -126,6 +127,13 @@ const TabBar = ({
       editorActions.setActiveDocument?.(activateContentFor);
       editorActions.setContent(getTabContent(activateContentFor), EditorContentOrigin.LocalStorage);
     }
+    // This component updates its own `workspace` state directly above, so
+    // it doesn't need this notification itself -- but another component
+    // reacting to the active tab (e.g. RemovedOperationsBanner.jsx, scoping
+    // its list to whichever tab is current) has no other way to learn a
+    // switch/add/close/etc. just happened here, since none of it flows
+    // through Redux.
+    notifyWorkspaceChanged();
   };
 
   const handleSwitch = (tabId) => {

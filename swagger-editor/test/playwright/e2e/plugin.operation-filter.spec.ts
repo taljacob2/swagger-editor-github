@@ -340,3 +340,85 @@ paths:
     expect(editorContent.indexOf('name: store')).toBeLessThan(editorContent.indexOf('name: user'));
   });
 });
+
+// The removed-operations banner used to keep showing whichever tab it last
+// picked up, regardless of which tab was actually active -- TabBar.jsx
+// updates its own React state directly on a switch, but (before this fix)
+// never announced the change via notifyWorkspaceChanged(), which is the
+// only way the banner (built after TabBar, on the same
+// getWorkspaceMeta/onWorkspaceChanged pattern) finds out a switch happened.
+test.describe('The removed-operations banner is scoped to the active tab', () => {
+  const SPEC_A = `openapi: 3.0.0
+info:
+  title: A
+  version: "1.0"
+paths:
+  /pet:
+    get:
+      summary: List pets
+      responses:
+        '200':
+          description: ok
+`;
+  const SPEC_B = `openapi: 3.0.0
+info:
+  title: B
+  version: "1.0"
+paths:
+  /order:
+    get:
+      summary: List orders
+      responses:
+        '200':
+          description: ok
+`;
+
+  test("switching tabs (by click or keyboard shortcut) shows each tab's own removed operations, not the other tab's", async ({
+    page,
+  }) => {
+    await visitBlankPage(page);
+    await prepareAsyncAPI(page);
+    await waitForSplashScreen(page);
+
+    const bannerPaths = () =>
+      page
+        .locator(
+          '.swagger-editor__removed-operations-item .swagger-editor__removed-operations-path'
+        )
+        .allTextContents();
+
+    // Tab 1: remove /pet.
+    await page.evaluate((spec) => {
+      (window as unknown as MonacoWindow).monaco.getModel().setValue(spec);
+    }, SPEC_A);
+    await page.waitForTimeout(600);
+    await page
+      .locator('.opblock', { hasText: '/pet' })
+      .locator('.swagger-editor__operation-filter-checkbox input')
+      .click();
+    await expect.poll(bannerPaths).toEqual(['/pet']);
+
+    // New tab: remove /order.
+    await page.locator('.swagger-editor__tab-add').click();
+    await page.waitForTimeout(300);
+    await page.evaluate((spec) => {
+      (window as unknown as MonacoWindow).monaco.getModel().setValue(spec);
+    }, SPEC_B);
+    await page.waitForTimeout(600);
+    await page
+      .locator('.opblock', { hasText: '/order' })
+      .locator('.swagger-editor__operation-filter-checkbox input')
+      .click();
+    await expect.poll(bannerPaths).toEqual(['/order']);
+
+    // Back to tab 1 by clicking its name -- must show /pet again, not /order.
+    await page.locator('.swagger-editor__tab-name').first().click();
+    await expect.poll(bannerPaths).toEqual(['/pet']);
+
+    // Alt+2 / Alt+1 keyboard shortcuts must scope the banner the same way.
+    await page.keyboard.press('Alt+2');
+    await expect.poll(bannerPaths).toEqual(['/order']);
+    await page.keyboard.press('Alt+1');
+    await expect.poll(bannerPaths).toEqual(['/pet']);
+  });
+});
