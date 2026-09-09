@@ -249,6 +249,13 @@ paths:
       responses:
         '200':
           description: ok
+  /pet/findByStatus:
+    get:
+      summary: Finds pets by status
+      tags: [pet]
+      responses:
+        '200':
+          description: ok
   /store/order:
     post:
       summary: Place an order
@@ -294,6 +301,41 @@ paths:
       (window as unknown as MonacoWindow).monaco.getModel().getValue()
     );
     expect(editorContent).toContain('name: store');
+    expect(editorContent.indexOf('name: pet')).toBeLessThan(editorContent.indexOf('name: store'));
+    expect(editorContent.indexOf('name: store')).toBeLessThan(editorContent.indexOf('name: user'));
+  });
+
+  test("restoring a whole tag's operations one by one from the banner reproduces the original path and tag order", async ({
+    page,
+  }) => {
+    // pet has two operations (/pet, /pet/findByStatus) -- removing both
+    // together used to corrupt findByStatus's own recorded position,
+    // since by the time its removal was processed, /pet had already been
+    // removed earlier in the same "Remove all" batch.
+    await page.getByRole('button', { name: 'Remove all' }).first().click();
+
+    await expect(page.locator('.swagger-editor__removed-operations-title')).toHaveText(
+      '2 endpoints removed from this spec'
+    );
+
+    // No "Restore all" for pet is reachable once its whole section is
+    // gone -- restore both from the banner, one at a time, same as a user
+    // clicking "Restore" repeatedly.
+    while ((await page.locator('.swagger-editor__removed-operations-restore').count()) > 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await page.locator('.swagger-editor__removed-operations-restore').first().click();
+    }
+    await expect(page.locator('.swagger-editor__removed-operations-banner')).toHaveCount(0);
+
+    const editorContent = await page.evaluate(() =>
+      (window as unknown as MonacoWindow).monaco.getModel().getValue()
+    );
+    expect(editorContent.indexOf('/pet:')).toBeLessThan(
+      editorContent.indexOf('/pet/findByStatus:')
+    );
+    expect(editorContent.indexOf('/pet/findByStatus:')).toBeLessThan(
+      editorContent.indexOf('/store/order:')
+    );
     expect(editorContent.indexOf('name: pet')).toBeLessThan(editorContent.indexOf('name: store'));
     expect(editorContent.indexOf('name: store')).toBeLessThan(editorContent.indexOf('name: user'));
   });

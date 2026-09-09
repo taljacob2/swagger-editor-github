@@ -260,18 +260,34 @@ function diffComponents(before, after) {
 }
 
 // Every tag object present in `before` but absent (by name) from `after`,
-// each paired with the name of whichever tag preceded it in `before`'s own
-// order (or null if it was first) -- the same positional bookkeeping
+// each paired with the name of whichever tag preceded it in
+// `referenceTags`'s own order (or null if it was first, undefined if it
+// can't be found there at all) -- the same positional bookkeeping
 // removeOperation does for paths/methods, so a later restore can put a
-// dropped tag section back where it was instead of appending it at the end.
-function diffTags(before, after) {
-  const beforeTags = before || [];
+// dropped tag section back where it was instead of appending it at the
+// end. `referenceTags` defaults to `before`, correct for a single
+// removal, but a caller batching several removals together (see
+// removeOperationsFromContent) passes the pre-batch tags list instead --
+// by the time a later step's `before` runs, it may already be missing an
+// earlier step's own dropped tag, which would otherwise make that earlier
+// tag disappear as a *reachable* neighbor even though it was right there
+// a moment ago.
+function diffTags(before, after, referenceTags = before) {
+  const referenceList = referenceTags || [];
   const afterNames = new Set((after || []).map((tag) => tag.name));
-  return beforeTags
+  return (before || [])
     .filter((tag) => !afterNames.has(tag.name))
     .map((tag) => {
-      const index = beforeTags.indexOf(tag);
-      return { tag, precedingTag: index === 0 ? null : beforeTags[index - 1].name };
+      const index = referenceList.findIndex((candidate) => candidate.name === tag.name);
+      let precedingTag;
+      if (index === -1) {
+        precedingTag = undefined;
+      } else if (index === 0) {
+        precedingTag = null;
+      } else {
+        precedingTag = referenceList[index - 1].name;
+      }
+      return { tag, precedingTag };
     });
 }
 
@@ -309,20 +325,30 @@ function insertPreservingOrder(obj, key, value, precedingKey) {
 // restoreOperation needs later to put the operation back exactly as it was,
 // independent of whatever else has changed in the spec since. Returns null
 // if the operation isn't there.
-export function removeOperation(spec, path, method) {
+//
+// `referenceSpec` is where precedingPath/precedingMethod/precedingTag are
+// looked up -- it defaults to `spec` itself, correct for a standalone
+// removal, but removeOperationsFromContent passes the *pre-batch* spec
+// when removing several operations in sequence. Without that, a later
+// step's own `spec` would already be missing whatever an earlier step in
+// the same batch just removed, so a path/method/tag that really did sit
+// right next to one of its own batch-mates would wrongly come back
+// recorded as having been first (or last), corrupting the order restore
+// puts them back in.
+export function removeOperation(spec, path, method, referenceSpec = spec) {
   const key = operationKey(path, method);
   const allKeys = listOperations(spec).map((operation) => operation.key);
   if (!allKeys.includes(key)) {
     return null;
   }
 
-  const pathKeys = Object.keys(spec.paths);
-  const pathIndex = pathKeys.indexOf(path);
-  const precedingPath = pathIndex === 0 ? null : pathKeys[pathIndex - 1];
+  const referencePathKeys = Object.keys(referenceSpec.paths || {});
+  const pathIndex = referencePathKeys.indexOf(path);
+  const precedingPath = pathIndex === 0 ? null : referencePathKeys[pathIndex - 1];
 
-  const pathItemKeys = Object.keys(spec.paths[path]);
-  const methodIndex = pathItemKeys.indexOf(method);
-  const precedingMethod = methodIndex === 0 ? null : pathItemKeys[methodIndex - 1];
+  const referencePathItemKeys = Object.keys(referenceSpec.paths[path]);
+  const methodIndex = referencePathItemKeys.indexOf(method);
+  const precedingMethod = methodIndex === 0 ? null : referencePathItemKeys[methodIndex - 1];
 
   const operation = spec.paths[path][method];
   const remainingKeys = allKeys.filter((k) => k !== key);
@@ -334,7 +360,7 @@ export function removeOperation(spec, path, method) {
     precedingPath,
     precedingMethod,
     removedComponents: diffComponents(spec.components, nextSpec.components),
-    removedTags: diffTags(spec.tags, nextSpec.tags),
+    removedTags: diffTags(spec.tags, nextSpec.tags, referenceSpec.tags),
   };
   return { spec: nextSpec, record };
 }
@@ -410,6 +436,13 @@ export function restoreOperation(spec, record) {
 // component/tag pruning correctly accounts for an earlier one in the same
 // batch), and re-serializes once matching the original format. Returns
 // null if content isn't parsable right now, or none of `keys` were found.
+//
+// Each removeOperation call gets the pre-batch spec as its reference for
+// recording precedingPath/precedingMethod/precedingTag, not the
+// progressively-shrinking `spec` -- otherwise removing two adjacent
+// operations together (e.g. a tag's "Remove all") would have the second
+// one's removal see the first one already gone, wrongly recording it as
+// having had no predecessor.
 export function removeOperationsFromContent(content, keys, isYAML) {
   let spec;
   try {
@@ -417,9 +450,10 @@ export function removeOperationsFromContent(content, keys, isYAML) {
   } catch {
     return null;
   }
+  const referenceSpec = spec;
   const records = [];
   keys.forEach(({ path, method }) => {
-    const result = removeOperation(spec, path, method);
+    const result = removeOperation(spec, path, method, referenceSpec);
     if (result) {
       spec = result.spec;
       records.push(result.record);
@@ -438,10 +472,48 @@ export function removeOperationFromContent(content, path, method, isYAML) {
   return result && { content: result.content, record: result.records[0] };
 }
 
+// Whether `record` is safe to restore right now: its path (or, once that
+// path exists, its method) needs its recorded neighbor to already be
+// present -- either because that neighbor survived the original removal,
+// or because this same batch already restored it. A record with no
+// position info to begin with (precedingPath/precedingMethod both absent)
+// is always ready, since it only ever appends anyway. `pending` is every
+// record not yet restored in this batch, `record` included -- used to
+// tell "nothing will ever create that neighbor" (ready, will fall back to
+// appending) apart from "some other pending record in this batch will"
+// (not ready yet, wait for it).
+function isReadyToRestore(spec, record, pending) {
+  const paths = spec.paths || {};
+  if (!Object.prototype.hasOwnProperty.call(paths, record.path)) {
+    const { precedingPath } = record;
+    if (precedingPath === null || precedingPath === undefined) {
+      return true;
+    }
+    if (Object.prototype.hasOwnProperty.call(paths, precedingPath)) {
+      return true;
+    }
+    return !pending.some((other) => other !== record && other.path === precedingPath);
+  }
+  const { precedingMethod } = record;
+  if (precedingMethod === null || precedingMethod === undefined) {
+    return true;
+  }
+  if (precedingMethod in paths[record.path]) {
+    return true;
+  }
+  return !pending.some(
+    (other) => other !== record && other.path === record.path && other.method === precedingMethod
+  );
+}
+
 // The content the editor should switch to once every record in `records`
-// is restored -- parses `content` once, restores each in turn, and
-// re-serializes once matching the original format. Returns null if content
-// isn't parsable right now.
+// is restored -- parses `content` once, restores them in whichever order
+// correctly threads their positional dependencies (not necessarily the
+// order they arrived in: restoring two operations removed from adjacent
+// paths needs the earlier one back first, or the later one's
+// precedingPath won't exist yet and it'll wrongly fall back to landing at
+// the end -- see isReadyToRestore), and re-serializes once matching the
+// original format. Returns null if content isn't parsable right now.
 export function restoreOperationsInContent(content, records, isYAML) {
   let spec;
   try {
@@ -449,9 +521,18 @@ export function restoreOperationsInContent(content, records, isYAML) {
   } catch {
     return null;
   }
-  records.forEach((record) => {
+  const pending = [...records];
+  while (pending.length > 0) {
+    let readyIndex = -1;
+    for (let i = 0; i < pending.length; i += 1) {
+      if (isReadyToRestore(spec, pending[i], pending)) {
+        readyIndex = i;
+        break;
+      }
+    }
+    const [record] = pending.splice(readyIndex === -1 ? 0 : readyIndex, 1);
     spec = restoreOperation(spec, record);
-  });
+  }
   return serializeSpec(spec, isYAML);
 }
 

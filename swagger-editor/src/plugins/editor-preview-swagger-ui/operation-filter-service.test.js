@@ -358,6 +358,28 @@ describe('removeOperation', () => {
       { tag: { name: 'pet' }, precedingTag: null },
     ]);
   });
+
+  test('looks up preceding path/method/tag in referenceSpec when given one', () => {
+    const original = {
+      tags: [{ name: 'pet' }, { name: 'store' }],
+      paths: {
+        '/pet': { get: {}, post: {} },
+        '/store/order': { get: { tags: ['store'] } },
+      },
+    };
+    // Simulates the spec mid-batch, after /pet's own get was already
+    // removed -- without referenceSpec, /store/order would look like it
+    // was first (its true predecessor, /pet, is gone from this object).
+    const midBatchSpec = {
+      tags: [{ name: 'store' }],
+      paths: { '/pet': { post: {} }, '/store/order': { get: { tags: ['store'] } } },
+    };
+
+    const result = removeOperation(midBatchSpec, '/store/order', 'get', original);
+
+    expect(result.record.precedingPath).toBe('/pet');
+    expect(result.record.precedingMethod).toBeNull();
+  });
 });
 
 describe('restoreOperation', () => {
@@ -577,6 +599,37 @@ describe('removeOperationFromContent / removeOperationsFromContent', () => {
     expect(result.content).not.toContain('paths');
   });
 
+  test('records the true original precedingPath for every operation in a batch, not just the first', () => {
+    const spec = [
+      'openapi: 3.0.0',
+      'paths:',
+      '  /pet:',
+      '    get: {}',
+      '  /pet/findByStatus:',
+      '    get: {}',
+      '  /store/order:',
+      '    post: {}',
+    ].join('\n');
+
+    // Without a shared pre-batch reference, findByStatus's own removal step
+    // would see /pet already gone (removed one step earlier in this same
+    // batch) and wrongly record precedingPath: null instead of '/pet'.
+    const result = removeOperationsFromContent(
+      spec,
+      [
+        { path: '/pet', method: 'get' },
+        { path: '/pet/findByStatus', method: 'get' },
+      ],
+      true
+    );
+
+    expect(result.records[0]).toMatchObject({ path: '/pet', precedingPath: null });
+    expect(result.records[1]).toMatchObject({
+      path: '/pet/findByStatus',
+      precedingPath: '/pet',
+    });
+  });
+
   test('removeOperationsFromContent skips keys that are not in the spec, keeping the rest', () => {
     const result = removeOperationsFromContent(
       YAML_SPEC,
@@ -629,5 +682,53 @@ describe('restoreOperationInContent / restoreOperationsInContent', () => {
     expect(
       restoreOperationInContent('{ not: valid: yaml: [', { path: '/pet', method: 'get' }, true)
     ).toBeNull();
+  });
+
+  test('restores records out of order without breaking their mutual dependency', () => {
+    // /pet/findByStatus's own record depends on /pet existing first
+    // (precedingPath: '/pet'), but it's listed *before* /pet's own record
+    // here -- restoreOperationsInContent must still place /pet first.
+    const spec = ['openapi: 3.0.0', 'paths:', '  /store/order:', '    post: {}'].join('\n');
+
+    const content = restoreOperationsInContent(
+      spec,
+      [
+        { path: '/pet/findByStatus', method: 'get', operation: {}, precedingPath: '/pet' },
+        { path: '/pet', method: 'get', operation: {}, precedingPath: null },
+      ],
+      true
+    );
+
+    const parsed = parseSpecContent(content);
+    expect(Object.keys(parsed.paths)).toEqual(['/pet', '/pet/findByStatus', '/store/order']);
+  });
+
+  test('a full remove-then-restore round trip through a batch reproduces the original path order', () => {
+    const original = [
+      'openapi: 3.0.0',
+      'paths:',
+      '  /pet:',
+      '    get: {}',
+      '  /pet/findByStatus:',
+      '    get: {}',
+      '  /store/order:',
+      '    post: {}',
+    ].join('\n');
+
+    const removed = removeOperationsFromContent(
+      original,
+      [
+        { path: '/pet', method: 'get' },
+        { path: '/pet/findByStatus', method: 'get' },
+      ],
+      true
+    );
+    const restored = restoreOperationsInContent(removed.content, removed.records, true);
+
+    expect(Object.keys(parseSpecContent(restored).paths)).toEqual([
+      '/pet',
+      '/pet/findByStatus',
+      '/store/order',
+    ]);
   });
 });
