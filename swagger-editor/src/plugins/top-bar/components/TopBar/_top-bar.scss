@@ -222,13 +222,12 @@
       overflow-x: hidden;
       transition: left 0.25s ease;
       visibility: hidden;
+      padding: 0.25rem 0;
 
       &-open {
         left: 0;
         visibility: visible;
       }
-
-      padding: 0.25rem 0;
 
       & > * {
         // Each child is a .dd-menu (display: inline-block upstream), which
