@@ -18,8 +18,20 @@
     // guessed at a static breakpoint -- no fixed pixel width is right for
     // every combination of Generate Server/Client variants a given spec
     // version shows.
+    //
+    // `>`, not a descendant combinator: the hidden measurement copy (see
+    // TopBar.jsx) reuses this exact -row class so it picks up the same
+    // per-item margins, which means a descendant selector here would also
+    // reach into it and override the flex-shrink: 0 that keeps its
+    // reported width stable (see &__top-bar-measure below) -- letting it
+    // shrink inside its near-zero-width absolutely-positioned containing
+    // block instead. That shrinks the measured width the moment isCompact
+    // flips true, which un-flips it, which un-shrinks the measurement,
+    // which flips it back: an infinite loop between the two layouts. `>`
+    // matches only the real row, which is this element's direct child --
+    // the measured one is nested inside -measure-clip/-measure instead.
     &--compact {
-      .swagger-editor__top-bar-row {
+      > .swagger-editor__top-bar-row {
         flex: 1 1 auto;
       }
     }

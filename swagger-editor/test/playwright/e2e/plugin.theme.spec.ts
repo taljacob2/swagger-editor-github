@@ -19,8 +19,12 @@ test.describe('Theme', () => {
     await waitForSplashScreen(page);
   });
 
+  // TopBar.jsx renders a second, hidden ThemeToggle inside its always-
+  // mounted measurement copy (see TopBar.jsx), so a plain selector here
+  // would match that invisible one too -- scope to `:visible` to always
+  // hit the one a user can actually see and click.
   const option = (page, mode) =>
-    page.locator(`.swagger-editor__top-bar-theme-toggle-option[data-mode="${mode}"]`);
+    page.locator(`.swagger-editor__top-bar-theme-toggle-option[data-mode="${mode}"]:visible`);
 
   test('defaults to semi-dark: dark editor, light chrome/preview', async ({ page }) => {
     const monacoEditor = page.locator('.monaco-editor').first();
@@ -69,7 +73,9 @@ test.describe('Theme', () => {
   });
 
   test('the sliding highlight tracks the active segment', async ({ page }) => {
-    const highlight = page.locator('.swagger-editor__top-bar-theme-toggle-highlight');
+    // :visible for the same reason as option() above -- TopBar.jsx's hidden
+    // measurement copy renders its own ThemeToggle too.
+    const highlight = page.locator('.swagger-editor__top-bar-theme-toggle-highlight:visible');
 
     // Default is semi-dark (index 1) -- record its transform, then confirm
     // each other selection moves the highlight to a distinct position.

@@ -73,7 +73,15 @@ const TopBar = ({ getComponent }) => {
           picks up the same per-item margins the real row renders with --
           a from-scratch measurement container under-measured by missing
           those, reporting a narrower "natural" width than the row
-          actually needs and letting it overflow anyway.
+          actually needs and letting it overflow anyway. Includes
+          ThemeToggle too, for the same reason: the wide-mode row below
+          renders it as a third flex item, so leaving it out of the
+          measurement under-counts by its ~108px width -- right at that
+          margin, the real row doesn't actually fit while the measurement
+          says it does, so isCompact flips to false, the real row overflows
+          and grows a scrollbar that narrows the container, which flips
+          isCompact back to true and removes the scrollbar, which flips it
+          back again: an infinite jiggle between the two layouts.
           Two nested layers, not one: the outer one clips to 0x0 so this
           never affects page scroll, and the inner one (measureRef) is its
           own position: absolute box so *its* size stays content-driven
@@ -87,6 +95,9 @@ const TopBar = ({ getComponent }) => {
             <Logo />
           </div>
           <div className="swagger-editor__top-bar-wrapper">{menuItems}</div>
+          <div className="swagger-editor__top-bar-row-end">
+            <ThemeToggle />
+          </div>
         </div>
       </div>
       <div className="swagger-editor__top-bar-row">
