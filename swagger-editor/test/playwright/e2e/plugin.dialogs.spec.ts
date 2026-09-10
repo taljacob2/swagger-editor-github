@@ -5,6 +5,7 @@ import {
   prepareAsyncAPI,
   prepareOasGenerator,
   waitForSplashScreen,
+  clickNestedMenuItem,
 } from '../helpers';
 
 /**
@@ -30,12 +31,8 @@ test.describe('Dialogs: Confirm', () => {
   });
 
   test('should close the Confirm Dialog via `x` button', async ({ page }) => {
-    // Open File Menu
-    await page.getByText('File', { exact: true }).click();
-
-    // Open Import URL dialog
-    await page.getByText('Import URL', { exact: true }).hover();
-    await page.getByText('Import URL', { exact: true }).click();
+    // Open File > Import URL dialog
+    await clickNestedMenuItem(page, 'File', 'Import URL');
 
     // Dialog should be visible
     await expect(page.locator('#input-import-url')).toBeVisible();
@@ -48,12 +45,8 @@ test.describe('Dialogs: Confirm', () => {
   });
 
   test('should close the Confirm Dialog via `Cancel` button', async ({ page }) => {
-    // Open File Menu
-    await page.getByText('File', { exact: true }).click();
-
-    // Open Import URL dialog
-    await page.getByText('Import URL', { exact: true }).hover();
-    await page.getByText('Import URL', { exact: true }).click();
+    // Open File > Import URL dialog
+    await clickNestedMenuItem(page, 'File', 'Import URL');
 
     // Dialog should be visible
     await expect(page.locator('#input-import-url')).toBeVisible();

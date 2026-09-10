@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 
 /**
  * Menu Helpers - Top bar menu navigation
@@ -6,10 +6,29 @@ import { Page } from '@playwright/test';
  */
 
 /**
+ * Locator for a top-level or dropdown menu item by its text.
+ *
+ * TopBar renders an invisible, always-mounted copy of the menu items ahead of
+ * the real, visible copy (used to measure when to switch to compact/hamburger
+ * mode) -- see TopBar.jsx. A plain text locator resolves to that hidden copy
+ * first, so this intersects with `:visible` to always hit the clickable one.
+ * Intersecting rather than restricting to specific classes (`.menu-item`,
+ * `.dropdown-item`) because nested submenu triggers like "Load Example" use
+ * their own class (`.nested-dd-menu-trigger`) that a class-based locator
+ * would miss.
+ *
+ * @param exact - Defaults to true. Nested submenu triggers append an arrow
+ * (e.g. "Load Example  >"), so pass `exact: false` for those.
+ */
+export function menuItemLocator(page: Page, text: string, exact = true): Locator {
+  return page.getByText(text, { exact }).and(page.locator(':visible')).first();
+}
+
+/**
  * Click a top-level menu item (File, Edit, Generate, etc.)
  */
 export async function clickMenu(page: Page, menuName: string): Promise<void> {
-  await page.getByText(menuName, { exact: true }).click();
+  await menuItemLocator(page, menuName).click();
 }
 
 /**
@@ -30,7 +49,7 @@ export async function clickNestedMenuItem(
   ...subMenuItems: string[]
 ): Promise<void> {
   // Click top-level menu and wait for it to be visible
-  const topMenuItem = page.getByText(topMenu, { exact: true }).first();
+  const topMenuItem = menuItemLocator(page, topMenu);
   await topMenuItem.waitFor({ state: 'visible', timeout: 10000 });
   await topMenuItem.click();
 
@@ -39,9 +58,8 @@ export async function clickNestedMenuItem(
 
   // Hover over intermediate menu items (all except the last one)
   for (let i = 0; i < subMenuItems.length - 1; i++) {
-    // Use locator that finds visible menu items only
     // Don't use exact match because menu items may have arrows (">") appended
-    const menuItem = page.getByText(subMenuItems[i]).first();
+    const menuItem = menuItemLocator(page, subMenuItems[i], false);
     // Wait for submenu item to be visible before hovering
     await menuItem.waitFor({ state: 'visible', timeout: 10000 });
     await menuItem.hover();
@@ -52,7 +70,7 @@ export async function clickNestedMenuItem(
   // Click the final menu item
   const lastItem = subMenuItems[subMenuItems.length - 1];
   // Don't use exact match because menu items may have arrows (">") appended
-  const finalMenuItem = page.getByText(lastItem).first();
+  const finalMenuItem = menuItemLocator(page, lastItem, false);
   await finalMenuItem.waitFor({ state: 'visible', timeout: 10000 });
   await finalMenuItem.click();
 }
@@ -107,12 +125,12 @@ export async function generateClient(page: Page, clientName: string): Promise<vo
  * Useful for assertions or waiting for dynamic content to load
  */
 export async function waitForMenu(page: Page, menuName: string): Promise<void> {
-  await page.getByText(menuName, { exact: true }).waitFor({ state: 'visible' });
+  await menuItemLocator(page, menuName).waitFor({ state: 'visible' });
 }
 
 /**
  * Check if a menu item is visible
  */
 export async function isMenuVisible(page: Page, menuName: string): Promise<boolean> {
-  return page.getByText(menuName, { exact: true }).isVisible();
+  return menuItemLocator(page, menuName).isVisible();
 }

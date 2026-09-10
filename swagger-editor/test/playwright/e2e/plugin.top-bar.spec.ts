@@ -9,6 +9,8 @@ import {
   waitForSplashScreen,
   waitForContentPropagation,
   clickNestedMenuItem,
+  clickMenu,
+  menuItemLocator,
 } from '../helpers';
 
 // Get __dirname equivalent in ES modules
@@ -58,8 +60,8 @@ test.describe('Topbar', () => {
     });
 
     test('should render "Import File" menu item', async ({ page }) => {
-      await page.getByText('File', { exact: true }).click();
-      await expect(page.getByText('Import File', { exact: true })).toBeVisible();
+      await clickMenu(page, 'File');
+      await expect(menuItemLocator(page, 'Import File')).toBeVisible();
     });
 
     test('should "Import File" and display rendered changes', async ({ page }) => {
@@ -166,8 +168,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'Edit', 'Convert to JSON');
         await waitForContentPropagation(page);
 
-        await page.getByText('File', { exact: true }).click();
-        await expect(page.getByText('Save (as JSON)', { exact: true })).toBeVisible();
+        await clickMenu(page, 'File');
+        await expect(menuItemLocator(page, 'Save (as JSON)')).toBeVisible();
       });
 
       test('should render clickable text: "Convert and Save as YAML', async ({ page }) => {
@@ -177,8 +179,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'Edit', 'Convert to JSON');
         await waitForContentPropagation(page);
 
-        await page.getByText('File', { exact: true }).click();
-        await expect(page.getByText('Convert and Save as YAML', { exact: true })).toBeVisible();
+        await clickMenu(page, 'File');
+        await expect(menuItemLocator(page, 'Convert and Save as YAML')).toBeVisible();
       });
     });
 
@@ -187,25 +189,23 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.1 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('File', { exact: true }).click();
-        await expect(page.getByText('Save (as YAML)', { exact: true })).toBeVisible();
+        await clickMenu(page, 'File');
+        await expect(menuItemLocator(page, 'Save (as YAML)')).toBeVisible();
       });
 
       test('should render clickable text: "Convert and Save as JSON', async ({ page }) => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.0 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('File', { exact: true }).click();
-        await expect(page.getByText('Convert and Save as JSON', { exact: true })).toBeVisible();
+        await clickMenu(page, 'File');
+        await expect(menuItemLocator(page, 'Convert and Save as JSON')).toBeVisible();
       });
     });
   });
 
   test.describe('Edit Dropdown Menu', () => {
     test('should clear editor', async ({ page }) => {
-      await page.getByText('Edit', { exact: true }).click();
-      await page.getByText('Clear', { exact: true }).hover();
-      await page.getByText('Clear', { exact: true }).click();
+      await clickNestedMenuItem(page, 'Edit', 'Clear');
 
       const firstLine = page.locator('.view-lines > :nth-child(1)');
       const content = await firstLine.textContent();
@@ -217,8 +217,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.1 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('Edit', { exact: true }).click();
-        await expect(page.getByText('Convert to JSON', { exact: true })).toBeVisible();
+        await clickMenu(page, 'Edit');
+        await expect(menuItemLocator(page, 'Convert to JSON')).toBeVisible();
       });
     });
 
@@ -230,8 +230,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'Edit', 'Convert to JSON');
         await waitForContentPropagation(page);
 
-        await page.getByText('Edit', { exact: true }).click();
-        await expect(page.getByText('Convert to YAML', { exact: true })).toBeVisible();
+        await clickMenu(page, 'Edit');
+        await expect(menuItemLocator(page, 'Convert to YAML')).toBeVisible();
       });
     });
 
@@ -242,8 +242,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 2.0 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('Edit', { exact: true }).click();
-        await expect(page.getByText('Convert to OpenAPI 3.0.x', { exact: true })).toBeVisible();
+        await clickMenu(page, 'Edit');
+        await expect(menuItemLocator(page, 'Convert to OpenAPI 3.0.x')).toBeVisible();
       });
 
       test('should not display "Convert to OpenAPI 3.0.x" after loading OpenAPI 3.0 fixture', async ({
@@ -252,10 +252,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.0 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('Edit', { exact: true }).click();
-        await expect(
-          page.getByText('Convert to OpenAPI 3.0.x', { exact: true })
-        ).not.toBeAttached();
+        await clickMenu(page, 'Edit');
+        await expect(menuItemLocator(page, 'Convert to OpenAPI 3.0.x')).not.toBeAttached();
       });
 
       test('should not display "Convert to OpenAPI 3.0.x" after loading AsyncAPI 2.6 fixture', async ({
@@ -264,10 +262,8 @@ test.describe('Topbar', () => {
         await clickNestedMenuItem(page, 'File', 'Load Example', 'AsyncAPI 2.6 Petstore');
         await waitForContentPropagation(page);
 
-        await page.getByText('Edit', { exact: true }).click();
-        await expect(
-          page.getByText('Convert to OpenAPI 3.0.x', { exact: true })
-        ).not.toBeAttached();
+        await clickMenu(page, 'Edit');
+        await expect(menuItemLocator(page, 'Convert to OpenAPI 3.0.x')).not.toBeAttached();
       });
 
       test('should open a confirm dialog for "Convert to OpenAPI 3.0.x" after loading OpenAPI 2.0 fixture', async ({
@@ -331,8 +327,8 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 2.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Server', { exact: true })).toBeVisible();
-      await expect(page.getByText('Generate Client', { exact: true })).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Server')).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Client')).toBeVisible();
     });
 
     test('should render "Generate Server" and "Generate Client" dropdown menus when OpenAPI 3.0', async ({
@@ -341,8 +337,8 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Server', { exact: true })).toBeVisible();
-      await expect(page.getByText('Generate Client', { exact: true })).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Server')).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Client')).toBeVisible();
     });
 
     test('should render "Generate Server" and "Generate Client" dropdown menus when OpenAPI 3.1', async ({
@@ -352,8 +348,8 @@ test.describe('Topbar', () => {
       await waitForContentPropagation(page);
 
       // OpenAPI Generator supports OpenAPI 3.1, so menus should be visible
-      await expect(page.getByText('Generate Server', { exact: true })).toBeVisible();
-      await expect(page.getByText('Generate Client', { exact: true })).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Server')).toBeVisible();
+      await expect(menuItemLocator(page, 'Generate Client')).toBeVisible();
     });
 
     test('should NOT render "Generate Server" and "Generate Client" dropdown menus when AsyncAPI 2.6', async ({
@@ -362,24 +358,24 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'AsyncAPI 2.6 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Server', { exact: true })).not.toBeAttached();
-      await expect(page.getByText('Generate Client', { exact: true })).not.toBeAttached();
+      await expect(menuItemLocator(page, 'Generate Server')).not.toBeAttached();
+      await expect(menuItemLocator(page, 'Generate Client')).not.toBeAttached();
     });
 
     test('should download a generated OpenAPI 3.0 Server file', async ({ page }) => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Server', { exact: true })).toBeVisible();
-      await page.getByText('Generate Server', { exact: true }).click();
+      await expect(menuItemLocator(page, 'Generate Server')).toBeVisible();
+      await clickMenu(page, 'Generate Server');
 
       // Wait for generator list to load and click mocked response
-      await expect(page.getByText('blue', { exact: true })).toBeVisible(); // mocked response value
-      await page.getByText('blue', { exact: true }).hover();
+      await expect(menuItemLocator(page, 'blue')).toBeVisible(); // mocked response value
+      await menuItemLocator(page, 'blue').hover();
 
       // Set up download promise before clicking
       const downloadPromise = page.waitForEvent('download');
-      await page.getByText('blue', { exact: true }).click();
+      await menuItemLocator(page, 'blue').click();
 
       // Wait for download and verify
       const download = await downloadPromise;
@@ -390,16 +386,16 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 3.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Client', { exact: true })).toBeVisible();
-      await page.getByText('Generate Client', { exact: true }).click();
+      await expect(menuItemLocator(page, 'Generate Client')).toBeVisible();
+      await clickMenu(page, 'Generate Client');
 
       // Wait for generator list to load and click mocked response
-      await expect(page.getByText('apple', { exact: true })).toBeVisible(); // mocked response value
-      await page.getByText('apple', { exact: true }).hover();
+      await expect(menuItemLocator(page, 'apple')).toBeVisible(); // mocked response value
+      await menuItemLocator(page, 'apple').hover();
 
       // Set up download promise before clicking
       const downloadPromise = page.waitForEvent('download');
-      await page.getByText('apple', { exact: true }).click();
+      await menuItemLocator(page, 'apple').click();
 
       // Wait for download and verify
       const download = await downloadPromise;
@@ -410,16 +406,16 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 2.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Server', { exact: true })).toBeVisible();
-      await page.getByText('Generate Server', { exact: true }).click();
+      await expect(menuItemLocator(page, 'Generate Server')).toBeVisible();
+      await clickMenu(page, 'Generate Server');
 
       // Wait for generator list to load and click mocked response
-      await expect(page.getByText('blue', { exact: true })).toBeVisible(); // mocked response value
-      await page.getByText('blue', { exact: true }).hover();
+      await expect(menuItemLocator(page, 'blue')).toBeVisible(); // mocked response value
+      await menuItemLocator(page, 'blue').hover();
 
       // Set up download promise before clicking
       const downloadPromise = page.waitForEvent('download');
-      await page.getByText('blue', { exact: true }).click();
+      await menuItemLocator(page, 'blue').click();
 
       // Wait for download and verify
       const download = await downloadPromise;
@@ -430,16 +426,16 @@ test.describe('Topbar', () => {
       await clickNestedMenuItem(page, 'File', 'Load Example', 'OpenAPI 2.0 Petstore');
       await waitForContentPropagation(page);
 
-      await expect(page.getByText('Generate Client', { exact: true })).toBeVisible();
-      await page.getByText('Generate Client', { exact: true }).click();
+      await expect(menuItemLocator(page, 'Generate Client')).toBeVisible();
+      await clickMenu(page, 'Generate Client');
 
       // Wait for generator list to load and click mocked response
-      await expect(page.getByText('apple', { exact: true })).toBeVisible(); // mocked response value
-      await page.getByText('apple', { exact: true }).hover();
+      await expect(menuItemLocator(page, 'apple')).toBeVisible(); // mocked response value
+      await menuItemLocator(page, 'apple').hover();
 
       // Set up download promise before clicking
       const downloadPromise = page.waitForEvent('download');
-      await page.getByText('apple', { exact: true }).click();
+      await menuItemLocator(page, 'apple').click();
 
       // Wait for download and verify
       const download = await downloadPromise;
@@ -449,10 +445,10 @@ test.describe('Topbar', () => {
 
   test.describe('About Drop Menu', () => {
     test('should have expect menu items', async ({ page }) => {
-      await page.getByText('About', { exact: true }).click();
-      await expect(page.getByText('About Swagger Editor', { exact: true })).toBeVisible();
-      await expect(page.getByText('View Docs', { exact: true })).toBeVisible();
-      await expect(page.getByText('View on GitHub', { exact: true })).toBeVisible();
+      await clickMenu(page, 'About');
+      await expect(menuItemLocator(page, 'About Swagger Editor')).toBeVisible();
+      await expect(menuItemLocator(page, 'View Docs')).toBeVisible();
+      await expect(menuItemLocator(page, 'View on GitHub')).toBeVisible();
     });
   });
 });

@@ -73,7 +73,15 @@ const TopBar = ({ getComponent }) => {
           picks up the same per-item margins the real row renders with --
           a from-scratch measurement container under-measured by missing
           those, reporting a narrower "natural" width than the row
-          actually needs and letting it overflow anyway.
+          actually needs and letting it overflow anyway. Includes
+          ThemeToggle too, for the same reason: the wide-mode row below
+          renders it as a third flex item, so leaving it out of the
+          measurement under-counts by its ~108px width -- right at that
+          margin, the real row doesn't actually fit while the measurement
+          says it does, so isCompact flips to false, the real row overflows
+          and grows a scrollbar that narrows the container, which flips
+          isCompact back to true and removes the scrollbar, which flips it
+          back again: an infinite jiggle between the two layouts.
           Two nested layers, not one: the outer one clips to 0x0 so this
           never affects page scroll, and the inner one (measureRef) is its
           own position: absolute box so *its* size stays content-driven
@@ -87,26 +95,13 @@ const TopBar = ({ getComponent }) => {
             <Logo />
           </div>
           <div className="swagger-editor__top-bar-wrapper">{menuItems}</div>
+          <div className="swagger-editor__top-bar-row-end">
+            <ThemeToggle />
+          </div>
         </div>
       </div>
       <div className="swagger-editor__top-bar-row">
         <Logo />
-        {isCompact && (
-          <div className="swagger-editor__top-bar-row-end">
-            <ThemeToggle />
-            <button
-              type="button"
-              className="swagger-editor__top-bar-hamburger"
-              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={isMenuOpen}
-              onClick={() => setIsMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          </div>
-        )}
       </div>
       {/* Always mounted now (not conditional on isMenuOpen) so compact
           mode can slide it in/out from the left as a transition -- a CSS
@@ -124,18 +119,36 @@ const TopBar = ({ getComponent }) => {
       >
         {menuItems}
       </div>
-      {/* Wide screens: -row-end sits here as a direct child of -top-bar
-          (rather than nested inside -top-bar-row, as it is when isCompact)
-          so the direct-child margin-left: auto rule in _top-bar.scss pushes
-          it flush to the far right of the whole bar, after the menu items --
-          matching where it already sits on mobile (there it's pushed right
-          by -top-bar-row's own space-between once that row is flexed to
-          fill the compact bar). */}
-      {!isCompact && (
-        <div className="swagger-editor__top-bar-row-end">
-          <ThemeToggle />
-        </div>
-      )}
+      {/* A single, permanent direct child of -top-bar in both modes --
+          not one copy nested in -top-bar-row for compact and another
+          rendered separately for wide, as before. That used to mean
+          ReactDOM tore down and rebuilt ThemeToggle (dropping its
+          rendered state and re-subscribing to the theme selector) on
+          every single isCompact flip, which is needless churn on top of
+          an already-expensive layout change. The direct-child margin-
+          left: auto rule in _top-bar.scss pushes this flush to the right
+          in both cases: on wide screens after the menu items (which sit
+          in normal flow beside it); on compact screens right after Logo,
+          since -top-bar-wrapper--compact is position: fixed there and so
+          never competes for flex space -- the exact same visual result
+          the old space-between-on-top-bar-row trick produced, just
+          without needing two different DOM positions to get it. */}
+      <div className="swagger-editor__top-bar-row-end">
+        <ThemeToggle />
+        {isCompact && (
+          <button
+            type="button"
+            className="swagger-editor__top-bar-hamburger"
+            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

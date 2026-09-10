@@ -462,8 +462,19 @@
 // space with everything above and below it in one long inline list --
 // each screen shows only its own items.
 .swagger-editor__top-bar--compact {
-  .dd-menu .dd-menu-items,
-  .dd-menu li.nested-dd-menu > span.dd-item-ignore {
+  // `:not(.swagger-editor__top-bar-measure *)` on both: TopBar.jsx's hidden
+  // measurement copy reuses these same .dd-menu/.dd-item-ignore classes (so
+  // its reported width picks up the same per-item margins the real row
+  // renders with), which means a plain descendant selector here would also
+  // reach into it and force it into this same position: fixed, out-of-flow
+  // layout -- removing it from the measurement entirely and shrinking the
+  // reported width. That flips isCompact false, which removes this rule's
+  // effect on the *real* panels too and restores the measured width, which
+  // flips isCompact back true: an infinite loop between the two layouts
+  // (see the identical reasoning for &--compact's own -row rule, just
+  // above &__top-bar-measure, in _top-bar.scss).
+  .dd-menu .dd-menu-items:not(.swagger-editor__top-bar-measure *),
+  .dd-menu li.nested-dd-menu > span.dd-item-ignore:not(.swagger-editor__top-bar-measure *) {
     // Laid out (unlike the desktop display: none/block toggle above) so
     // the slide-in below can transition it, but pushed off-screen to the
     // left and non-interactive until opened -- same edge the hamburger
@@ -574,7 +585,17 @@
   // matching the literal ">" DropdownMenuNested.jsx already renders for
   // its own trigger (e.g. "Load Example >"), reads as "leads to another
   // screen".
-  .menu-item::after {
+  //
+  // `:not(.swagger-editor__top-bar-measure *)`: TopBar.jsx's hidden
+  // measurement copy reuses this same .menu-item class, and "›" isn't the
+  // same width as "▼" -- a plain descendant selector here would shrink
+  // every trigger's measured width the moment isCompact goes true, which
+  // un-flips it, which restores "▼" and the measured width, which flips
+  // it back: the same infinite loop as the position: fixed rule above,
+  // just from a narrower per-item gap that only shows up once several
+  // triggers are showing (see &--compact's own -row rule in _top-bar.scss
+  // for the first instance of this exact failure mode).
+  .menu-item:not(.swagger-editor__top-bar-measure *)::after {
     content: '\203A' !important;
   }
 
