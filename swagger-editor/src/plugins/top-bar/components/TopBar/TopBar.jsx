@@ -102,22 +102,6 @@ const TopBar = ({ getComponent }) => {
       </div>
       <div className="swagger-editor__top-bar-row">
         <Logo />
-        {isCompact && (
-          <div className="swagger-editor__top-bar-row-end">
-            <ThemeToggle />
-            <button
-              type="button"
-              className="swagger-editor__top-bar-hamburger"
-              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={isMenuOpen}
-              onClick={() => setIsMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          </div>
-        )}
       </div>
       {/* Always mounted now (not conditional on isMenuOpen) so compact
           mode can slide it in/out from the left as a transition -- a CSS
@@ -135,18 +119,36 @@ const TopBar = ({ getComponent }) => {
       >
         {menuItems}
       </div>
-      {/* Wide screens: -row-end sits here as a direct child of -top-bar
-          (rather than nested inside -top-bar-row, as it is when isCompact)
-          so the direct-child margin-left: auto rule in _top-bar.scss pushes
-          it flush to the far right of the whole bar, after the menu items --
-          matching where it already sits on mobile (there it's pushed right
-          by -top-bar-row's own space-between once that row is flexed to
-          fill the compact bar). */}
-      {!isCompact && (
-        <div className="swagger-editor__top-bar-row-end">
-          <ThemeToggle />
-        </div>
-      )}
+      {/* A single, permanent direct child of -top-bar in both modes --
+          not one copy nested in -top-bar-row for compact and another
+          rendered separately for wide, as before. That used to mean
+          ReactDOM tore down and rebuilt ThemeToggle (dropping its
+          rendered state and re-subscribing to the theme selector) on
+          every single isCompact flip, which is needless churn on top of
+          an already-expensive layout change. The direct-child margin-
+          left: auto rule in _top-bar.scss pushes this flush to the right
+          in both cases: on wide screens after the menu items (which sit
+          in normal flow beside it); on compact screens right after Logo,
+          since -top-bar-wrapper--compact is position: fixed there and so
+          never competes for flex space -- the exact same visual result
+          the old space-between-on-top-bar-row trick produced, just
+          without needing two different DOM positions to get it. */}
+      <div className="swagger-editor__top-bar-row-end">
+        <ThemeToggle />
+        {isCompact && (
+          <button
+            type="button"
+            className="swagger-editor__top-bar-hamburger"
+            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        )}
+      </div>
     </div>
   );
 };
