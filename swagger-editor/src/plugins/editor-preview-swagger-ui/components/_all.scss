@@ -1,1 +1,4 @@
 @import './EditorPreviewSwaggerUI/editor-preview-swagger-ui';
+@import './removed-operations-banner';
+@import '../extensions/oas3/wrap-components/operation-summary-wrapper';
+@import '../extensions/oas3/wrap-components/operation-tag-wrapper';

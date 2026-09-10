@@ -1,0 +1,113 @@
+// Sits inside swagger-ui-react's own .opblock, immediately wrapping its
+// .opblock-summary (a flex row itself) -- matching that row's own
+// display:flex so the checkbox lines up with the method badge instead of
+// stacking above it. align-items: flex-start, not center -- a long summary
+// description wraps .opblock-summary onto several lines, and centering the
+// checkbox against that *whole* multi-line block drags it down into the
+// middle of the wrapped text, away from the method badge on the first
+// line. Anchoring both to the top instead keeps the checkbox locked to
+// that first line regardless of how many lines the description wraps to,
+// like any other leading list marker.
+.swagger-editor__operation-filter-row {
+  display: flex;
+  align-items: flex-start;
+
+  // .opblock-summary is swagger-ui-react's own class, not ours -- targeted
+  // directly (as this file's sibling _editor-preview-swagger-ui.scss
+  // already does elsewhere) since it's the only way to make Original's
+  // rendered row grow to fill the space next to the checkbox.
+  > .opblock-summary {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+// Selector repeated (.foo.foo), not written once -- swagger-ui-react ships
+// a blanket `.swagger-ui label { margin: 0 0 5px }` with no more specific
+// selector to target, and it applies to every <label>, this one included.
+// That class+type specificity (0,1,1) beats a single class of ours
+// (0,1,0), so a plain `margin: 0` here lost to it, and the stray bottom
+// margin was exactly what threw the checkbox off center every time this
+// row's height changed. Doubling our own class (0,2,0) reliably outweighs
+// it regardless of stylesheet order, without resorting to !important.
+.swagger-editor__operation-filter-checkbox.swagger-editor__operation-filter-checkbox {
+  margin: 0;
+}
+
+.swagger-editor__operation-filter-checkbox {
+  // Grid + place-items, not flex + justify-content -- some browsers don't
+  // reliably center a native <input type="checkbox"> as a flex child (it's
+  // a replaced element, and flex's own alignment properties have a history
+  // of being inconsistently applied to those), but every browser handles
+  // grid's place-items the same way.
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  // A fixed-size column (matching height, not just width) equal to a
+  // single-line .opblock-summary row -- centers the checkbox within its
+  // own click target, and (with align-items: flex-start above) keeps that
+  // target pinned to the first line's height even when the row grows
+  // taller from a wrapped description.
+  width: 2.25rem;
+  height: 2.25rem;
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    cursor: pointer;
+  }
+}
+
+// Shared method-color badge, used both by the checkbox row above (implicitly,
+// via swagger-ui-react's own .opblock-summary-method) and by
+// RemovedOperationsBanner.jsx, which has no live .opblock to borrow one
+// from since the operation it's listing isn't in the spec anymore.
+.swagger-editor__operation-filter-method {
+  flex-shrink: 0;
+  min-width: 4.5rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  color: #fff;
+
+  &--get {
+    background-color: #61affe;
+  }
+
+  &--post {
+    background-color: #49cc90;
+  }
+
+  &--put {
+    background-color: #fca130;
+  }
+
+  &--delete {
+    background-color: #f93e3e;
+  }
+
+  &--patch {
+    background-color: #50e3c2;
+  }
+
+  &--options {
+    background-color: #0d5aa7;
+  }
+
+  &--head {
+    background-color: #9012fe;
+  }
+
+  &--trace {
+    background-color: #6b6b6b;
+  }
+
+  // OpenAPI 3.2's QUERY method -- matches swagger-ui-react's own
+  // .opblock-query badge color.
+  &--query {
+    background-color: #9d408a;
+  }
+}

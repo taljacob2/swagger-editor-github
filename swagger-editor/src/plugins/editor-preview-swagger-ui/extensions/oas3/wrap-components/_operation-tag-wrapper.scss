@@ -1,0 +1,24 @@
+// A separate row below swagger-ui-react's own .opblock-tag header, not
+// nested inside it -- that header is itself one big clickable row
+// (expand/collapse the whole tag section), so putting these actions inside
+// it would mean fighting that click target instead of just not competing
+// with it.
+.swagger-editor__operation-tag-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.35rem 20px;
+  font-size: 0.75rem;
+}
+
+.swagger-editor__operation-tag-action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #4990e2;
+  cursor: pointer;
+  font-size: inherit;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

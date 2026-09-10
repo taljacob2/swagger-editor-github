@@ -1,0 +1,51 @@
+.swagger-editor__removed-operations-banner {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #b6becb;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.swagger-editor__removed-operations-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--se-color-text-muted);
+}
+
+.swagger-editor__removed-operations-list {
+  list-style: none;
+  margin: 0.5rem 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.swagger-editor__removed-operations-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.swagger-editor__removed-operations-path {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--se-color-text);
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swagger-editor__removed-operations-restore {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #4990e2;
+  border-radius: 3px;
+  color: #4990e2;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(73, 144, 226, 0.1);
+  }
+}

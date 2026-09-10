@@ -4,6 +4,7 @@ export const ContentOrigin = {
   Clear: 'clear',
   Conversion: 'conversion',
   Editor: 'editor',
+  EndpointFilter: 'endpoint-filter',
   FileDrop: 'file-drop',
   FixtureLoad: 'fixture-load',
   ImportFile: 'import-file',

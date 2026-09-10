@@ -85,7 +85,17 @@ describe('TabBar', () => {
     Element.prototype.scrollIntoView = vi.fn();
     editorActions = { setContent: vi.fn(), setActiveDocument: vi.fn(), disposeDocument: vi.fn() };
     contentStore = { ...CONTENT_BY_ID };
-    workspaceTabsService.getWorkspaceMeta.mockReturnValue(threeTabMeta());
+    // Backed by a mutable variable (not a fixed mockReturnValue), so a
+    // saveWorkspaceMeta call is reflected by the next getWorkspaceMeta read
+    // -- same read-after-write behavior real localStorage has, which
+    // notifyWorkspaceChanged's own listener (this component's own, in
+    // applyWorkspace) relies on to re-read current state rather than
+    // reverting to whatever was there at mount.
+    let workspaceStore = threeTabMeta();
+    workspaceTabsService.getWorkspaceMeta.mockImplementation(() => workspaceStore);
+    workspaceTabsService.saveWorkspaceMeta.mockImplementation((meta) => {
+      workspaceStore = meta;
+    });
     // Backed by a shared store (not just a fixed lookup) so a duplicate's
     // setTabContent-then-getTabContent read-after-write behaves like real
     // localStorage, the same as the component relies on.
